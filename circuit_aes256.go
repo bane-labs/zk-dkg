@@ -5,14 +5,14 @@ import (
 	"github.com/consensys/gnark/std/math/uints"
 )
 
-type AES256Wrapper struct {
+type Circuit_AES256Wrapper struct {
 	Plain  [16]uints.U8
 	Key    [32]uints.U8
 	Cipher [16]uints.U8 `gnark:",public"`
 }
 
 // Define declares the circuit's constraints
-func (circuit *AES256Wrapper) Define(api frontend.API) error {
+func (circuit *Circuit_AES256Wrapper) Define(api frontend.API) error {
 	// aes circuit
 	aes := NewAES256(api)
 	// encrypt zeros
