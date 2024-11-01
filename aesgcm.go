@@ -31,7 +31,7 @@ func AesGcmEncrypt(key []byte, plaintext []byte) (ciphertext, nonce []byte) {
 }
 
 // AesGcmDecrypt takes an decryption key, a ciphertext and the corresponding nonce and decrypts it with AES256 in GCM mode. Returns the plaintext string.
-func AesGcmDecrypt(key, ciphertext, nonce []byte) (plaintext string) {
+func AesGcmDecrypt(key, ciphertext, nonce []byte) (plaintext []byte) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		panic(err.Error())
@@ -40,10 +40,9 @@ func AesGcmDecrypt(key, ciphertext, nonce []byte) (plaintext string) {
 	if err != nil {
 		panic(err.Error())
 	}
-	plaintextBytes, err := aesgcm.Open(nil, nonce, ciphertext, nil)
+	plaintext, err = aesgcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
 		panic(err.Error())
 	}
-	plaintext = string(plaintextBytes)
 	return
 }
