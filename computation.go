@@ -19,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"golang.org/x/crypto/sha3"
 	"math/big"
-	"strconv"
 )
 
 func GenerateFragementKey() (fiBytes []byte, sfi big.Int, bfi bls12381.G1Affine) {
@@ -44,7 +43,7 @@ func GetHash(data []byte) []byte {
 	return hashBuilder.Sum(nil)
 }
 
-func GenerateProof(pubKey ecies.PublicKey, rs big.Int, rb secp256k1.G1Affine, fiBytes []byte, sfi big.Int, bfi bls12381.G1Affine, ctt []byte, nonce []byte) (vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
+func GenerateProof(phase1Path string, phase2Path string, pubKey ecies.PublicKey, rs big.Int, rb secp256k1.G1Affine, fiBytes []byte, sfi big.Int, bfi bls12381.G1Affine, ctt []byte, nonce []byte) (vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
 	css, _, assignment, err := computingAssignment(pubKey, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
 	if err != nil {
 		return groth16.VerifyingKey{}, nil, nil, err
@@ -52,7 +51,7 @@ func GenerateProof(pubKey ecies.PublicKey, rs big.Int, rb secp256k1.G1Affine, fi
 	if err != nil {
 		return groth16.VerifyingKey{}, nil, nil, err
 	}
-	_, vk, proof, witness, err = computingProof(css, assignment)
+	_, vk, proof, witness, err = computingProof(phase1Path, phase2Path, css, assignment)
 	if err != nil {
 		return groth16.VerifyingKey{}, nil, nil, err
 	}
@@ -154,10 +153,10 @@ func computingAssignment(pubKey ecies.PublicKey, rs big.Int, rb secp256k1.G1Affi
 	return
 }
 
-func computingProof[T1, S1, T2, S2 emulated.FieldParams](css constraint.ConstraintSystem, assignment *MixEncryptionWrapper[T1, S1, T2, S2]) (pk groth16.ProvingKey, vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
+func computingProof[T1, S1, T2, S2 emulated.FieldParams](phase1Path string, phase2Path string, css constraint.ConstraintSystem, assignment *MixEncryptionWrapper[T1, S1, T2, S2]) (pk groth16.ProvingKey, vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
 	//init,2ways: way1 make a new mpc, way2 from a existed mpc
-	pk, vk, _ = doMPCSetUp(css, 3, 3, 21)
-	//pk, vk, _ = GetFromExistedMPCSetUp(css)
+	//pk, vk, _ = doMPCSetUp(css, 3, 3, 21)
+	pk, vk, _ = GetFromExistedMPCSetUp(css, phase1Path, phase2Path)
 	// 1. One time setup
 	err = groth16.Setup(css.(*cs.R1CS), &pk, &vk)
 	if err != nil {
@@ -176,8 +175,8 @@ func computingProof[T1, S1, T2, S2 emulated.FieldParams](css constraint.Constrai
 	return
 }
 
-func GetFromExistedMPCSetUp(ccs constraint.ConstraintSystem) (pk groth16.ProvingKey, vk groth16.VerifyingKey, err error) {
-	srs1, err := ReadPhase1FromFile("Phase1_" + strconv.Itoa(3))
+func GetFromExistedMPCSetUp(ccs constraint.ConstraintSystem, phase1Path string, phase2Path string) (pk groth16.ProvingKey, vk groth16.VerifyingKey, err error) {
+	srs1, err := ReadPhase1FromFile(phase1Path)
 	if err != nil {
 		return groth16.ProvingKey{}, groth16.VerifyingKey{}, err
 	}
@@ -187,46 +186,7 @@ func GetFromExistedMPCSetUp(ccs constraint.ConstraintSystem) (pk groth16.Proving
 	// Prepare for phase-2
 	_, evals = mpcsetup.InitPhase2(r1cs, &srs1)
 
-	srs2, err := ReadPhase2FromFile("Phase2_" + strconv.Itoa(3))
-	if err != nil {
-		return groth16.ProvingKey{}, groth16.VerifyingKey{}, err
-	}
-	// Extract the proving and verifying keys
-	pk, vk = mpcsetup.ExtractKeys(&srs1, &srs2, &evals, ccs.GetNbConstraints())
-	return pk, vk, nil
-}
-
-// nContributionsPhase1 = 3
-// nContributionsPhase2 = 3
-// power                = 21 //element count range 2^0-2^27
-func doMPCSetUp(ccs constraint.ConstraintSystem, nContributionsPhase1 int, nContributionsPhase2 int, power int) (pk groth16.ProvingKey, vk groth16.VerifyingKey, err error) {
-	_, err = InitPhase1("Phase1_1", power)
-	if err != nil {
-		return pk, vk, err
-	}
-	// All members build and verify contributions for phase1
-	for i := 1; i < nContributionsPhase1; i++ {
-		prepath := "Phase1_" + strconv.Itoa(i)
-		nextPath := "Phase1_" + strconv.Itoa(i+1)
-		_, _, err := ContributePhase1(prepath, nextPath)
-		if err != nil {
-			return pk, vk, err
-		}
-	}
-	evals, srs1, _, err := InitPhase2(ccs, "Phase1_"+strconv.Itoa(nContributionsPhase1), "Phase2_1")
-	if err != nil {
-		return pk, vk, err
-	}
-	// All members build and verify contributions for phase2
-	for i := 1; i < nContributionsPhase2; i++ {
-		prepath := "Phase2_" + strconv.Itoa(i)
-		nextPath := "Phase2_" + strconv.Itoa(i+1)
-		_, _, err := ContributePhase2(prepath, nextPath)
-		if err != nil {
-			panic(err)
-		}
-	}
-	srs2, err := ReadPhase2FromFile("Phase2_" + strconv.Itoa(nContributionsPhase1))
+	srs2, err := ReadPhase2FromFile(phase2Path)
 	if err != nil {
 		return groth16.ProvingKey{}, groth16.VerifyingKey{}, err
 	}
