@@ -1,6 +1,8 @@
 package circom
 
 import (
+	"bytes"
+	"encoding/json"
 	"github.com/consensys/gnark-crypto/ecc"
 	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381"
@@ -55,6 +57,16 @@ func GenerateProof(phase1Path string, phase2Path string, pubKey ecies.PublicKey,
 	if err != nil {
 		return groth16.VerifyingKey{}, nil, nil, err
 	}
+
+	schema, _ := frontend.NewSchema(assignment)
+	public, err := witness.Public()
+	if err != nil {
+		return groth16.VerifyingKey{}, nil, nil, err
+	}
+	ret, _ := public.ToJSON(schema)
+	var b bytes.Buffer
+	json.Indent(&b, ret, "", "\t")
+	println(b.String())
 	return
 }
 
