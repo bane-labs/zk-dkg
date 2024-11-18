@@ -41,7 +41,7 @@ func GenerateEncryptFragementKey(pb ecies.PublicKey) (fiBytes []byte, sfi big.In
 	nonce, ctt, rs, rb = Encrypt(pb, fiBytes)
 	return
 }
-func GenerateBatchEncryptFragementKey(pb []ecies.PublicKey) (fiBytes [][]byte, sfi []big.Int, bfi []bls12381.G1Affine, nonce [][]byte, ctt [][]byte, rs []big.Int, rb []secp256k1.G1Affine) {
+func BatchGenerateEncryptFragementKey(pb []ecies.PublicKey) (fiBytes [][]byte, sfi []big.Int, bfi []bls12381.G1Affine, nonce [][]byte, ctt [][]byte, rs []big.Int, rb []secp256k1.G1Affine) {
 	fiBytes = make([][]byte, len(pb))
 	sfi = make([]big.Int, len(pb))
 	bfi = make([]bls12381.G1Affine, len(pb))
@@ -87,8 +87,8 @@ func GenerateProof(phase1Path string, phase2Path string, pubKey ecies.PublicKey,
 	return
 }
 
-func GenerateBatchProof(phase1Path string, phase2Path string, pubKey []ecies.PublicKey, rs []big.Int, rb []secp256k1.G1Affine, fiBytes [][]byte, sfi []big.Int, bfi []bls12381.G1Affine, ctt [][]byte, nonce [][]byte) (vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
-	css, circuit, assignment, err := ComputingBatchAssignment(len(pubKey), pubKey, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
+func BatchGenerateProof(phase1Path string, phase2Path string, pubKey []ecies.PublicKey, rs []big.Int, rb []secp256k1.G1Affine, fiBytes [][]byte, sfi []big.Int, bfi []bls12381.G1Affine, ctt [][]byte, nonce [][]byte) (vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
+	css, circuit, assignment, err := BatchComputingAssignment(len(pubKey), pubKey, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
 	if err != nil {
 		return groth16.VerifyingKey{}, nil, nil, err
 	}
@@ -208,7 +208,7 @@ func ComputingAssignment(pubKey ecies.PublicKey, rs big.Int, rb secp256k1.G1Affi
 	return
 }
 
-func ComputingBatchAssignment(batch int, pubKey []ecies.PublicKey, rs []big.Int, rb []secp256k1.G1Affine, fiBytes [][]byte, sfi []big.Int, bfi []bls12381.G1Affine, ctt [][]byte, nonce [][]byte) (css constraint.ConstraintSystem, circuit BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], assignment *BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], err error) {
+func BatchComputingAssignment(batch int, pubKey []ecies.PublicKey, rs []big.Int, rb []secp256k1.G1Affine, fiBytes [][]byte, sfi []big.Int, bfi []bls12381.G1Affine, ctt [][]byte, nonce [][]byte) (css constraint.ConstraintSystem, circuit BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], assignment *BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], err error) {
 
 	Accounts := make([]AccountConstraints[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], batch)
 	rawPubInputs := make([]byte, 0)
@@ -313,8 +313,7 @@ func ComputingBatchAssignment(batch int, pubKey []ecies.PublicKey, rs []big.Int,
 }
 
 func ComputingProof(phase1Path string, phase2Path string, css constraint.ConstraintSystem, assignment frontend.Circuit) (pk groth16.ProvingKey, vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
-	//init,2ways: way1 make a new mpc, way2 from a existed mpc
-	//pk, vk, _ = doMPCSetUp(css, 3, 3, 21)
+
 	pk, vk, _ = GetFromExistedMPCSetUp(css, phase1Path, phase2Path)
 	// 1. One time setup
 	err = groth16.Setup(css.(*cs.R1CS), &pk, &vk)

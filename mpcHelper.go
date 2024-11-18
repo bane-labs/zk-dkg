@@ -71,6 +71,19 @@ func ContributePhase1(prevPath string, nextPath string) (prev mpcsetup.Phase1, n
 	return prev, next, nil
 }
 
+func VerifyPhase1(prevPath string, curPath string) (bool, error) {
+	prev, err := ReadPhase1FromFile(prevPath)
+	if err != nil {
+		return false, err
+	}
+	cur, err := ReadPhase1FromFile(curPath)
+	if err != nil {
+		return false, err
+	}
+	err = mpcsetup.VerifyPhase1(&prev, &cur)
+	return true, nil
+}
+
 func InitPhase2(ccs constraint.ConstraintSystem, phase1Path string, phase2Path string) (evals mpcsetup.Phase2Evaluations, phase1 mpcsetup.Phase1, phase2 mpcsetup.Phase2, err error) {
 	phase1, err = ReadPhase1FromFile(phase1Path)
 	if err != nil {
@@ -113,6 +126,19 @@ func ContributePhase2(prevPath string, nextPath string) (prev mpcsetup.Phase2, n
 		return prev, next, err
 	}
 	return prev, next, nil
+}
+
+func VerifyPhase2(prevPath string, curPath string) (bool, error) {
+	prev, err := ReadPhase2FromFile(prevPath)
+	if err != nil {
+		return false, err
+	}
+	cur, err := ReadPhase2FromFile(curPath)
+	if err != nil {
+		return false, err
+	}
+	err = mpcsetup.VerifyPhase2(&prev, &cur)
+	return true, nil
 }
 
 func ReadPhase1FromFile(path string) (phase1 mpcsetup.Phase1, err error) {

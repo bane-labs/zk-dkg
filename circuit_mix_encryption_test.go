@@ -64,7 +64,7 @@ func TestMixEncryptionByMPC(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	//export solidity contract
-	//ExportContract(vk)
+	ExportContract(vk)
 	//output verify data
 	GetVerifyInput(proof)
 }
@@ -93,7 +93,7 @@ func computingProof2(css constraint.ConstraintSystem, assignment frontend.Circui
 
 // nContributionsPhase1 = 3
 // nContributionsPhase2 = 3
-// power                = 21 //element count range 2^0-2^27
+// power                = 22 //element count range 2^0-2^27
 func doMPCSetUp(ccs constraint.ConstraintSystem, nContributionsPhase1 int, nContributionsPhase2 int, power int) (pk groth16.ProvingKey, vk groth16.VerifyingKey, err error) {
 	_, err = InitPhase1("Phase1_1", power)
 	if err != nil {
