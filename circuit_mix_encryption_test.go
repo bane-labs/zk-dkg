@@ -9,7 +9,6 @@ import (
 	"github.com/consensys/gnark/constraint"
 	cs "github.com/consensys/gnark/constraint/bn254"
 	"github.com/consensys/gnark/frontend"
-	"github.com/consensys/gnark/std/math/emulated"
 	"github.com/consensys/gnark/test"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
@@ -27,8 +26,8 @@ func Test_MixEncryption_Circuit(t *testing.T) {
 	//generate a encrypt fragement key
 	fiBytes, sfi, bfi, nonce, ctt, rs, rb := GenerateEncryptFragementKey(privKey.PublicKey)
 	//computing proof
-	_, circuit, witness, err := computingAssignment(privKey.PublicKey, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
-	err = test.IsSolved(&circuit, witness, ecc.BN254.ScalarField())
+	_, circuit, assignment, err := ComputingAssignment(privKey.PublicKey, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
+	err = test.IsSolved(&circuit, &assignment, ecc.BN254.ScalarField())
 	assert := test.NewAssert(t)
 	assert.NoError(err)
 }
@@ -46,7 +45,7 @@ func TestMixEncryptionByMPC(t *testing.T) {
 	phase2Path := "Phase2_" + strconv.Itoa(3)
 	vk, proof, witness, err := GenerateProof(phase1Path, phase2Path, privKey.PublicKey, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
 	//2)from a new mpc file
-	/*	css, _, assignment, err := computingAssignment(privKey.PublicKey, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
+	/*	css, _, assignment, err := ComputingAssignment(privKey.PublicKey, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
 		if err != nil {
 			panic(err)
 		}
@@ -65,14 +64,14 @@ func TestMixEncryptionByMPC(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	//export solidity contract
-	ExportContract(vk)
+	//ExportContract(vk)
 	//output verify data
 	GetVerifyInput(proof)
 }
 
-func computingProof2[T1, S1, T2, S2 emulated.FieldParams](css constraint.ConstraintSystem, assignment *MixEncryptionWrapper[T1, S1, T2, S2]) (pk groth16.ProvingKey, vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
+func computingProof2(css constraint.ConstraintSystem, assignment frontend.Circuit) (pk groth16.ProvingKey, vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
 	//init,2ways: way1 make a new mpc, way2 from a existed mpc
-	pk, vk, _ = doMPCSetUp(css, 3, 3, 21)
+	pk, vk, _ = doMPCSetUp(css, 3, 3, 22)
 	//pk, vk, _ = GetFromExistedMPCSetUp(css, phase1Path, phase2Path)
 	// 1. One time setup
 	err = groth16.Setup(css.(*cs.R1CS), &pk, &vk)
