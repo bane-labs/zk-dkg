@@ -2,6 +2,7 @@ package circom
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc"
@@ -10,6 +11,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/secp256k1"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	fr_secp "github.com/consensys/gnark-crypto/ecc/secp256k1/fr"
+	"github.com/consensys/gnark/backend"
 	groth16 "github.com/consensys/gnark/backend/groth16/bn254"
 	"github.com/consensys/gnark/backend/groth16/bn254/mpcsetup"
 	"github.com/consensys/gnark/backend/witness"
@@ -325,7 +327,7 @@ func ComputingProof(phase1Path string, phase2Path string, css constraint.Constra
 		return groth16.ProvingKey{}, groth16.VerifyingKey{}, nil, nil, err
 	}
 	// compute proof
-	proof, err = groth16.Prove(css.(*cs.R1CS), &pk, witness)
+	proof, err = groth16.Prove(css.(*cs.R1CS), &pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
 	if err != nil {
 		return groth16.ProvingKey{}, groth16.VerifyingKey{}, nil, nil, err
 	}

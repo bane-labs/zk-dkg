@@ -1,14 +1,16 @@
 package circom
 
 import (
+	"crypto/sha256"
 	groth16 "github.com/consensys/gnark/backend/groth16/bn254"
+	"github.com/consensys/gnark/backend/solidity"
 	"math/big"
 	"os"
 )
 
 func ExportContract(vk groth16.VerifyingKey) {
 	contract, err := os.Create("verify.sol")
-	err = vk.ExportSolidity(contract)
+	err = vk.ExportSolidity(contract, solidity.WithHashToFieldFunction(sha256.New()))
 	if err != nil {
 		panic(err)
 	}

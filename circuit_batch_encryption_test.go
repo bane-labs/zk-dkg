@@ -1,8 +1,10 @@
 package circom
 
 import (
+	"crypto/sha256"
 	"github.com/consensys/gnark-crypto/ecc"
 	fr_bn254 "github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/consensys/gnark/backend"
 	groth16 "github.com/consensys/gnark/backend/groth16/bn254"
 	"github.com/consensys/gnark/backend/witness"
 	"github.com/consensys/gnark/constraint"
@@ -99,12 +101,12 @@ func TestBatchEncryptionByMPC(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	//verify proof
-	err = groth16.Verify(proof, &vk, publicWitness.Vector().(fr_bn254.Vector))
+	err = groth16.Verify(proof, &vk, publicWitness.Vector().(fr_bn254.Vector), backend.WithVerifierHashToFieldFunction(sha256.New()))
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 	//export solidity contract
-	//ExportContract(vk)
+	ExportContract(vk)
 	//output verify data
 	GetVerifyInput(proof)
 }
