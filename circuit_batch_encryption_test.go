@@ -43,7 +43,7 @@ func Test_BatchEncryption_Circuit(t *testing.T) {
 
 func TestBatchEncryptionByMPC(t *testing.T) {
 	//to demo send N fragements to N nodes,N=batch
-	var batch = 2
+	var batch = 7
 	//generate node private key
 	source := rand.NewSource(time.Now().UnixNano())
 	rand := rand.New(source)
@@ -84,5 +84,5 @@ func TestBatchEncryptionByMPC(t *testing.T) {
 	//export solidity contract
 	ExportContract(vk)
 	//output verify data
-	GetVerifyInput(proof)
+	GetOutputData(proof)
 }

@@ -1,8 +1,10 @@
 package circom
 
 import (
+	"crypto/sha256"
 	"github.com/consensys/gnark-crypto/ecc"
 	fr_bn254 "github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/consensys/gnark/backend"
 	groth16 "github.com/consensys/gnark/backend/groth16/bn254"
 	"github.com/consensys/gnark/backend/groth16/bn254/mpcsetup"
 	"github.com/consensys/gnark/backend/witness"
@@ -39,20 +41,20 @@ func TestMixEncryptionByMPC(t *testing.T) {
 	privKey, err := ecies.GenerateKey(rand, crypto.S256(), nil)
 	//generate a encrypt fragement key
 	fiBytes, sfi, bfi, nonce, ctt, rs, rb := GenerateEncryptFragementKey(privKey.PublicKey)
-	//computing proof 2 way
+	//computing proof (2 way)
 	//1)from existed mpc file
-	phase1Path := "Phase1_" + strconv.Itoa(3)
-	phase2Path := "Phase2_" + strconv.Itoa(3)
-	vk, proof, witness, err := GenerateProof(phase1Path, phase2Path, privKey.PublicKey, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
+	/*	phase1Path := "Phase1_" + strconv.Itoa(3)
+		phase2Path := "Phase2_" + strconv.Itoa(3)
+		vk, proof, witness, err := GenerateProof(phase1Path, phase2Path, privKey.PublicKey, rs, rb, fiBytes, sfi, bfi, ctt, nonce)*/
 	//2)from a new mpc file
-	/*	css, _, assignment, err := ComputingAssignment(privKey.PublicKey, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
-		if err != nil {
-			panic(err)
-		}
-		_, vk, proof, witness, err := computingProof2(css, assignment)
-		if err != nil {
-			panic(err)
-		}*/
+	css, _, assignment, err := ComputingAssignment(privKey.PublicKey, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
+	if err != nil {
+		panic(err)
+	}
+	_, vk, proof, witness, err := computingProof2(css, &assignment)
+	if err != nil {
+		panic(err)
+	}
 
 	publicWitness, err := witness.Public()
 	if err != nil {
@@ -66,12 +68,11 @@ func TestMixEncryptionByMPC(t *testing.T) {
 	//export solidity contract
 	ExportContract(vk)
 	//output verify data
-	GetVerifyInput(proof)
+	GetOutputData(proof)
 }
 
 func computingProof2(css constraint.ConstraintSystem, assignment frontend.Circuit) (pk groth16.ProvingKey, vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
-	//init,2ways: way1 make a new mpc, way2 from a existed mpc
-	pk, vk, _ = doMPCSetUp(css, 3, 3, 22)
+	pk, vk, _ = demoMPCSetUp(css, 3, 3, 24)
 	//pk, vk, _ = GetFromExistedMPCSetUp(css, phase1Path, phase2Path)
 	// 1. One time setup
 	err = groth16.Setup(css.(*cs.R1CS), &pk, &vk)
@@ -84,7 +85,7 @@ func computingProof2(css constraint.ConstraintSystem, assignment frontend.Circui
 		return groth16.ProvingKey{}, groth16.VerifyingKey{}, nil, nil, err
 	}
 	// compute proof
-	proof, err = groth16.Prove(css.(*cs.R1CS), &pk, witness)
+	proof, err = groth16.Prove(css.(*cs.R1CS), &pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
 	if err != nil {
 		return groth16.ProvingKey{}, groth16.VerifyingKey{}, nil, nil, err
 	}
@@ -94,7 +95,7 @@ func computingProof2(css constraint.ConstraintSystem, assignment frontend.Circui
 // nContributionsPhase1 = 3
 // nContributionsPhase2 = 3
 // power                = 22 //element count range 2^0-2^27
-func doMPCSetUp(ccs constraint.ConstraintSystem, nContributionsPhase1 int, nContributionsPhase2 int, power int) (pk groth16.ProvingKey, vk groth16.VerifyingKey, err error) {
+func demoMPCSetUp(ccs constraint.ConstraintSystem, nContributionsPhase1 int, nContributionsPhase2 int, power int) (pk groth16.ProvingKey, vk groth16.VerifyingKey, err error) {
 	_, err = InitPhase1("Phase1_1", power)
 	if err != nil {
 		return pk, vk, err
