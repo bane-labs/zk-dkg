@@ -15,7 +15,7 @@ type Circuit_AES256Wrapper struct {
 func (circuit *Circuit_AES256Wrapper) Define(api frontend.API) error {
 	// aes circuit
 	aes := NewAES256(api)
-	// encrypt zeros
+	// encrypt
 	cipher := aes.Encrypt(circuit.Key, circuit.Plain)
 	// constraint check
 	for i := 0; i < len(circuit.Cipher); i++ {

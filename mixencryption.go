@@ -1,3 +1,4 @@
+// Provides mix encryption and decryption methods
 package circom
 
 import (
@@ -9,6 +10,16 @@ import (
 	"math/big"
 )
 
+/**
+ * Function:Encrypt
+ * @Description: mix encryption method
+ * @param pb: public key
+ * @param ptt: plain text string
+ * @return nonce: salt
+ * @return ctt: cipher text string
+ * @return rs: integer form of random number
+ * @return rb: the point on the elliptic curve corresponding to the random number
+ */
 func Encrypt(pb ecies.PublicKey, ptt []byte) (nonce []byte, ctt []byte, rs big.Int, rb secp256k1.G1Affine) {
 	//format pubKey
 	var px fp.Element
@@ -43,6 +54,16 @@ func Encrypt(pb ecies.PublicKey, ptt []byte) (nonce []byte, ctt []byte, rs big.I
 	return
 }
 
+/**
+ * Function:Decrypt
+ * @Description: decryption method
+ * @param prv: private key
+ * @param ctt: cipher text string
+ * @param nonce: salt
+ * @param rb: the point on the elliptic curve corresponding to the random number
+ * @return ptt: plain text string
+ * @return err: error
+ */
 func Decrypt(prv *ecies.PrivateKey, ctt []byte, nonce []byte, rb secp256k1.G1Affine) (ptt []byte, err error) {
 	//generator rPub=r*PublicKey
 	var rPub secp256k1.G1Affine

@@ -26,14 +26,13 @@ type MixEncryptionWrapper[T1, S1, T2, S2 emulated.FieldParams] struct {
 	SmallFi emulated.Element[S2]        `gnark:",secret"`
 	Fi      sw_emulated.AffinePoint[T2] `gnark:",secret"`
 	//make a hash =(input1,input2.....) to reduce public input counts
-	AllHash []frontend.Variable `gnark:",public"`
+	PubInputHash []frontend.Variable `gnark:",public"`
 }
 
 func (c *MixEncryptionWrapper[T1, S1, T2, S2]) Define(api frontend.API) error {
 	//encrypt
 	encryption := NewMixEncryption[T1, S1, T2, S2](api)
 	rawPubInputs, err := encryption.Encrypt(api, c.PlainChunks, c.CipherChunks, c.Iv, c.SmallR, c.BigR, c.Pub, c.RPub, c.ChunkIndex, c.SmallFi, c.Fi)
-	fmt.Println("inside length:", len(rawPubInputs))
 	if err != nil {
 		return err
 	}
@@ -42,7 +41,7 @@ func (c *MixEncryptionWrapper[T1, S1, T2, S2]) Define(api frontend.API) error {
 	result := mc.Sum()
 
 	for i := 0; i < len(result); i++ {
-		api.AssertIsEqual(result[i].Val, c.AllHash[i])
+		api.AssertIsEqual(result[i].Val, c.PubInputHash[i])
 	}
 	return nil
 }

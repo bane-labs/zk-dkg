@@ -1,8 +1,6 @@
 package circom
 
 import (
-	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
 	zksha3 "github.com/consensys/gnark/std/hash/sha3"
@@ -53,31 +51,21 @@ func (c *BatchEncryptionWrapper[T1, S1, T2, S2]) Define(api frontend.API) error 
 		}
 		//compute raw pub inputs
 		rawPubInputsbefore = append(rawPubInputsbefore, rawPubInputs...)
-
-		/*		length := len(rawPubInputsbefore) + len(rawPubInputs)
-				temp := make([]uints.U8, length)
-				for j := range rawPubInputsbefore {
-					temp[j] = rawPubInputsbefore[j]
-				}
-				for k := range rawPubInputs {
-					temp[len(rawPubInputsbefore)+k] = rawPubInputs[k]
-				}
-				rawPubInputsbefore = temp*/
 	}
-	//compute and check command hash
-	//compute command hash
+	//compute and check comments hash
+	//compute comments hash
 	mc, _ := zksha3.New256(api)
 	mc.Write(rawPubInputsbefore)
 	result := mc.Sum()
-	//check command hash
+	//check comments hash
 	for i := 0; i < len(result); i++ {
 		api.AssertIsEqual(result[i].Val, c.CommentsHash[i])
 	}
 	return nil
 }
 
-func GetCommentsHash[T1, S1, T2, S2 emulated.FieldParams](api frontend.API, CipherChunks []frontend.Variable, Iv [12]frontend.Variable, BigR, Pub sw_emulated.AffinePoint[T1], ChunkIndex frontend.Variable, Fi sw_emulated.AffinePoint[T2]) []uints.U8 {
-	//check AllHash =(pub1,pub2.....)
+/*func GetCommentsHash[T1, S1, T2, S2 emulated.FieldParams](api frontend.API, CipherChunks []frontend.Variable, Iv [12]frontend.Variable, BigR, Pub sw_emulated.AffinePoint[T1], ChunkIndex frontend.Variable, Fi sw_emulated.AffinePoint[T2]) []uints.U8 {
+	//check PubInputHash =(pub1,pub2.....)
 	cr, err := sw_emulated.New[T1, S1](api, sw_emulated.GetCurveParams[T1]())
 	if err != nil {
 		panic(err)
@@ -116,3 +104,4 @@ func GetCommentsHash[T1, S1, T2, S2 emulated.FieldParams](api frontend.API, Ciph
 	}
 	return rawPubInputs
 }
+*/

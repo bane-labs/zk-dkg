@@ -1,5 +1,3 @@
-// Description: Encrypt and decrypt a string with AES128,AES256 in GCM mode
-// Tags: aes, gcm, encryption, decryption, authenticated encryption, nonce
 package circom
 
 import (
@@ -9,7 +7,13 @@ import (
 	"io"
 )
 
-// AesGcmEncrypt takes an encryption key and a plaintext string and encrypts it with AES256 in GCM mode, which provides authenticated encryption. Returns the ciphertext and the used nonce.
+// AesGcmEncrypt
+//
+//	@Description: takes an encryption key and a plaintext string and encrypts it with AES256 in GCM mode
+//	@param key: an encryption key
+//	@param plaintext: plaintext string
+//	@return ciphertext: ciphertext string
+//	@return nonce: salt
 func AesGcmEncrypt(key []byte, plaintext []byte) (ciphertext, nonce []byte) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -30,7 +34,13 @@ func AesGcmEncrypt(key []byte, plaintext []byte) (ciphertext, nonce []byte) {
 	return
 }
 
-// AesGcmDecrypt takes an decryption key, a ciphertext and the corresponding nonce and decrypts it with AES256 in GCM mode. Returns the plaintext string.
+// AesGcmDecrypt
+//
+//	@Description: takes an decryption key, a ciphertext and the corresponding nonce and decrypts it with AES256 in GCM mode.
+//	@param key: an encryption key
+//	@param ciphertext: ciphertext string
+//	@param nonce: salt
+//	@return plaintext:
 func AesGcmDecrypt(key, ciphertext, nonce []byte) (plaintext []byte) {
 	block, err := aes.NewCipher(key)
 	if err != nil {

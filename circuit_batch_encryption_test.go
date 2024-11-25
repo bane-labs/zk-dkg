@@ -84,5 +84,6 @@ func TestBatchEncryptionByMPC(t *testing.T) {
 	//export solidity contract
 	ExportContract(vk)
 	//output verify data
-	GetOutputData(proof)
+	data := GetOutputData(proof)
+	data.printf()
 }

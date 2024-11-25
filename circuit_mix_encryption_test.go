@@ -73,7 +73,7 @@ func TestMixEncryptionByMPC(t *testing.T) {
 
 func computingProof2(css constraint.ConstraintSystem, assignment frontend.Circuit) (pk groth16.ProvingKey, vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
 	pk, vk, _ = demoMPCSetUp(css, 3, 3, 24)
-	//pk, vk, _ = GetFromExistedMPCSetUp(css, phase1Path, phase2Path)
+	//pk, vk, _ = GetInitParamsFromExistedMPCSetUp(css, phase1Path, phase2Path)
 	// 1. One time setup
 	err = groth16.Setup(css.(*cs.R1CS), &pk, &vk)
 	if err != nil {

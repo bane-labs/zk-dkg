@@ -8,6 +8,11 @@ import (
 	"os"
 )
 
+/**
+ * Function:ExportContract
+ * @Description: export solidity file
+ * @param vk: verifying key
+ */
 func ExportContract(vk groth16.VerifyingKey) {
 	contract, err := os.Create("verify.sol")
 	err = vk.ExportSolidity(contract, solidity.WithHashToFieldFunction(sha256.New()))
@@ -16,17 +21,13 @@ func ExportContract(vk groth16.VerifyingKey) {
 	}
 }
 
+/**
+ * Function:GetOutputData
+ * @Description: get the data submitted to the chain
+ * @param proof: zk proof
+ * @return Output: data submitted to the chain
+ */
 func GetOutputData(proof *groth16.Proof) Output {
-	// to do:Calculate parameters required for contract verification
-
-	//print proof public msg
-	// Save publicWitness
-	/*	schema, _ := frontend.NewSchema(assignment)
-		ret, _ := publicWitness.ToJSON(schema)
-		var b bytes.Buffer
-		json.Indent(&b, ret, "", "\t")
-		t.Logf(b.String())*/
-
 	// solidity contract inputs
 	var output Output
 	proofBytes := proof.MarshalSolidity()
@@ -43,7 +44,6 @@ func GetOutputData(proof *groth16.Proof) Output {
 	// commitments
 	for i := 0; i < 2*commitmentCount; i++ {
 		commitments[i].SetBytes(proofBytes[fpSize*8+4+i*fpSize : fpSize*8+4+(i+1)*fpSize])
-		println("commitments:" + commitments[i].String())
 	}
 	output.commitments = commitments
 	var commitmentPok [2]*big.Int
@@ -51,7 +51,6 @@ func GetOutputData(proof *groth16.Proof) Output {
 	commitmentPok[0] = new(big.Int).SetBytes(proofBytes[fpSize*8+4+2*commitmentCount*fpSize : fpSize*8+4+2*commitmentCount*fpSize+fpSize])
 	commitmentPok[1] = new(big.Int).SetBytes(proofBytes[fpSize*8+4+2*commitmentCount*fpSize+fpSize : fpSize*8+4+2*commitmentCount*fpSize+2*fpSize])
 	output.commitmentPok = commitmentPok[:]
-	output.printf()
 	return output
 }
 

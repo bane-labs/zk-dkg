@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/json"
-	"fmt"
 	"github.com/consensys/gnark-crypto/ecc"
 	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381"
@@ -26,6 +25,13 @@ import (
 	"math/big"
 )
 
+/**
+ * Function:GenerateFragementKey
+ * @Description: generate a key fragment
+ * @return fiBytes: the serialization format of the key
+ * @return sfi: the integer format of the key
+ * @return bfi: the corresponding elliptic curve point of the key
+ */
 func GenerateFragementKey() (fiBytes []byte, sfi big.Int, bfi bls12381.G1Affine) {
 	var fi fr_bls12381.Element
 	_, _ = fi.SetRandom()
@@ -36,11 +42,37 @@ func GenerateFragementKey() (fiBytes []byte, sfi big.Int, bfi bls12381.G1Affine)
 	bfi.ScalarMultiplication(&g12381, &sfi)
 	return
 }
+
+/**
+ * Function:GenerateEncryptFragementKey
+ * @Description: generate a encrypted key fragments
+ * @param pb: public key required for asymmetric encryption
+ * @return fiBytes: the serialization format of the key
+ * @return sfi: the integer format of the key
+ * @return bfi: the corresponding elliptic curve point of the key
+ * @return nonce: salt
+ * @return ctt: a encrypted key fragments
+ * @return rs: the integer format of random number
+ * @return rb: the corresponding elliptic curve point of random number
+ */
 func GenerateEncryptFragementKey(pb ecies.PublicKey) (fiBytes []byte, sfi big.Int, bfi bls12381.G1Affine, nonce []byte, ctt []byte, rs big.Int, rb secp256k1.G1Affine) {
 	fiBytes, sfi, bfi = GenerateFragementKey()
 	nonce, ctt, rs, rb = Encrypt(pb, fiBytes)
 	return
 }
+
+/**
+ * Function:BatchGenerateEncryptFragementKey
+ * @Description: generate encryption key fragments in batch
+ * @param pb: a set of public key required for asymmetric encryption
+ * @return fiBytes: a set of the serialization format of the key
+ * @return sfi: a set of the integer format of the key
+ * @return bfi: a set of the corresponding elliptic curve point of the key
+ * @return nonce: a set of salt
+ * @return ctt: a set of a encrypted key fragments
+ * @return rs: a set of the integer format of random number
+ * @return rb: a set of the corresponding elliptic curve point of random number
+ */
 func BatchGenerateEncryptFragementKey(pb []ecies.PublicKey) (fiBytes [][]byte, sfi []big.Int, bfi []bls12381.G1Affine, nonce [][]byte, ctt [][]byte, rs []big.Int, rb []secp256k1.G1Affine) {
 	fiBytes = make([][]byte, len(pb))
 	sfi = make([]big.Int, len(pb))
@@ -56,12 +88,36 @@ func BatchGenerateEncryptFragementKey(pb []ecies.PublicKey) (fiBytes [][]byte, s
 	return
 }
 
+/**
+ * Function:GetHash
+ * @Description: get data hash
+ * @param data: data
+ * @return []byte: hash
+ */
 func GetHash(data []byte) []byte {
 	hashBuilder := sha3.New256()
 	hashBuilder.Write(data)
 	return hashBuilder.Sum(nil)
 }
 
+/**
+ * Function:GenerateProof
+ * @Description: generate a zk proof of a key fragment generating process
+ * @param phase1Path: phase1 file path required for proof calculation
+ * @param phase2Path: phase2 file path required for proof calculation
+ * @param pubKey: public key required for asymmetric encryption
+ * @param rs: the integer format of random number
+ * @param rb: the corresponding elliptic curve point of random number
+ * @param fiBytes: the serialization format of the key
+ * @param sfi: the integer format of the key
+ * @param bfi: the corresponding elliptic curve point of the key
+ * @param ctt: a encrypted key fragments
+ * @param nonce: salt
+ * @return vk: verification key of zk proof
+ * @return proof: zk proof
+ * @return witness: witness of zk proof
+ * @return err:
+ */
 func GenerateProof(phase1Path string, phase2Path string, pubKey ecies.PublicKey, rs big.Int, rb secp256k1.G1Affine, fiBytes []byte, sfi big.Int, bfi bls12381.G1Affine, ctt []byte, nonce []byte) (vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
 	css, circuit, assignment, err := ComputingAssignment(pubKey, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
 	if err != nil {
@@ -87,8 +143,26 @@ func GenerateProof(phase1Path string, phase2Path string, pubKey ecies.PublicKey,
 	return
 }
 
+/**
+ * Function:BatchGenerateProof
+ * @Description: generate a zk proof of a key fragment batch generating process
+ * @param phase1Path: phase1 file path required for proof calculation
+ * @param phase2Path: phase2 file path required for proof calculation
+ * @param pubKey: a set of public key required for asymmetric encryption
+ * @param rs: a set of the integer format of random number
+ * @param rb: a set of the corresponding elliptic curve point of random number
+ * @param fiBytes: a set of the serialization format of the key
+ * @param sfi: a set of the integer format of the key
+ * @param bfi: a set of the corresponding elliptic curve point of the key
+ * @param ctt: a set of a encrypted key fragments
+ * @param nonce: a set of salt
+ * @return vk: verification key of zk proof
+ * @return proof: zk proof
+ * @return witness: witness of zk proof
+ * @return err:
+ */
 func BatchGenerateProof(phase1Path string, phase2Path string, pubKey []ecies.PublicKey, rs []big.Int, rb []secp256k1.G1Affine, fiBytes [][]byte, sfi []big.Int, bfi []bls12381.G1Affine, ctt [][]byte, nonce [][]byte) (vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
-	css, circuit, assignment, err := BatchComputingAssignment(len(pubKey), pubKey, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
+	css, _, assignment, err := BatchComputingAssignment(len(pubKey), pubKey, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
 	if err != nil {
 		return groth16.VerifyingKey{}, nil, nil, err
 	}
@@ -100,18 +174,68 @@ func BatchGenerateProof(phase1Path string, phase2Path string, pubKey []ecies.Pub
 		return groth16.VerifyingKey{}, nil, nil, err
 	}
 
-	schema, _ := frontend.NewSchema(&circuit)
-	public, err := witness.Public()
-	if err != nil {
-		return groth16.VerifyingKey{}, nil, nil, err
-	}
-	ret, _ := public.ToJSON(schema)
-	var b bytes.Buffer
-	json.Indent(&b, ret, "", "\t")
-	println(b.String())
+	/*	schema, _ := frontend.NewSchema(&circuit)
+		public, err := witness.Public()
+		if err != nil {
+			return groth16.VerifyingKey{}, nil, nil, err
+		}
+		ret, _ := public.ToJSON(schema)
+		var b bytes.Buffer
+		json.Indent(&b, ret, "", "\t")
+		println(b.String())*/
 	return
 }
 
+/**
+ * Function:ComputingProof
+ * @Description: a general zk proof calculation method
+ * @param phase1Path: phase1 file path required for proof calculation
+ * @param phase2Path: phase2 file path required for proof calculation
+ * @param css: circuit constraints
+ * @param assignment: input data collection
+ * @return pk: proving key
+ * @return vk: verification key
+ * @return proof: zk proof
+ * @return witness: witness
+ * @return err: error
+ */
+func ComputingProof(phase1Path string, phase2Path string, css constraint.ConstraintSystem, assignment frontend.Circuit) (pk groth16.ProvingKey, vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
+	//get proving and verifying keys
+	pk, vk, _ = GetInitParamsFromExistedMPCSetUp(css, phase1Path, phase2Path)
+	//init setup
+	err = groth16.Setup(css.(*cs.R1CS), &pk, &vk)
+	if err != nil {
+		return groth16.ProvingKey{}, groth16.VerifyingKey{}, nil, nil, err
+	}
+	//compute witness
+	witness, err = frontend.NewWitness(assignment, ecc.BN254.ScalarField())
+	if err != nil {
+		return groth16.ProvingKey{}, groth16.VerifyingKey{}, nil, nil, err
+	}
+	// compute proof
+	proof, err = groth16.Prove(css.(*cs.R1CS), &pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
+	if err != nil {
+		return groth16.ProvingKey{}, groth16.VerifyingKey{}, nil, nil, err
+	}
+	return
+}
+
+/**
+ * Function:ComputingAssignment
+ * @Description: get input data collection for a zk proof calculation of a key fragment generating process
+ * @param pubKey: public key required for asymmetric encryption
+ * @param rs: the integer format of random number
+ * @param rb: the corresponding elliptic curve point of random number
+ * @param fiBytes: the serialization format of the key
+ * @param sfi: the integer format of the key
+ * @param bfi: the corresponding elliptic curve point of the key
+ * @param ctt: a encrypted key fragments
+ * @param nonce: salt
+ * @return css: circuit constraints
+ * @return circuit: circuit
+ * @return assignment: input data collection
+ * @return err: error
+ */
 func ComputingAssignment(pubKey ecies.PublicKey, rs big.Int, rb secp256k1.G1Affine, fiBytes []byte, sfi big.Int, bfi bls12381.G1Affine, ctt []byte, nonce []byte) (css constraint.ConstraintSystem, circuit MixEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], assignment MixEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], err error) {
 	//data format
 	plainChunksBytes := make([]frontend.Variable, len(fiBytes))
@@ -161,7 +285,6 @@ func ComputingAssignment(pubKey ecies.PublicKey, rs big.Int, rb secp256k1.G1Affi
 		}
 	}
 	temp := append(append(append(append(append(RawBigR, RawPub...), RawFi...), nonce...), 2), ctt...)
-	fmt.Println("outside length:", len(temp))
 	raw_allHash := GetHash(temp)
 	allHash := make([]frontend.Variable, len(raw_allHash))
 	for i := 0; i < len(allHash); i++ {
@@ -172,7 +295,7 @@ func ComputingAssignment(pubKey ecies.PublicKey, rs big.Int, rb secp256k1.G1Affi
 	circuit = MixEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
 		PlainChunks:  make([]frontend.Variable, len(plainChunksBytes)),
 		CipherChunks: make([]frontend.Variable, len(ciphertextBytes)),
-		AllHash:      make([]frontend.Variable, len(allHash)),
+		PubInputHash: make([]frontend.Variable, len(allHash)),
 	}
 	css, err = frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
 	if err != nil {
@@ -203,11 +326,28 @@ func ComputingAssignment(pubKey ecies.PublicKey, rs big.Int, rb secp256k1.G1Affi
 			X: emulated.ValueOf[emulated.BLS12381Fp](bfi.X),
 			Y: emulated.ValueOf[emulated.BLS12381Fp](bfi.Y),
 		},
-		AllHash: allHash,
+		PubInputHash: allHash,
 	}
 	return
 }
 
+/**
+ * Function:BatchComputingAssignment
+ * @Description: get input data collection for a zk proof calculation of key fragments batch generating process
+ * @param batch: batch size
+ * @param pubKey: a set of public keys required for asymmetric encryption
+ * @param rs: a set of the integer format of random numbers
+ * @param rb: a set of the corresponding elliptic curve point of random numbers
+ * @param fiBytes: a set of the serialization format of the keys
+ * @param sfi: a set of the integer format of the keys
+ * @param bfi: a set of the corresponding elliptic curve points of the key
+ * @param ctt: a set of encrypted key fragments
+ * @param nonce: a set of salt
+ * @return css: circuit constraints
+ * @return circuit: circuit
+ * @return assignment: input data collection
+ * @return err: error
+ */
 func BatchComputingAssignment(batch int, pubKey []ecies.PublicKey, rs []big.Int, rb []secp256k1.G1Affine, fiBytes [][]byte, sfi []big.Int, bfi []bls12381.G1Affine, ctt [][]byte, nonce [][]byte) (css constraint.ConstraintSystem, circuit BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], assignment *BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], err error) {
 
 	Accounts := make([]AccountConstraints[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], batch)
@@ -312,43 +452,32 @@ func BatchComputingAssignment(batch int, pubKey []ecies.PublicKey, rs []big.Int,
 	return
 }
 
-func ComputingProof(phase1Path string, phase2Path string, css constraint.ConstraintSystem, assignment frontend.Circuit) (pk groth16.ProvingKey, vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
-
-	pk, vk, _ = GetFromExistedMPCSetUp(css, phase1Path, phase2Path)
-	// 1. One time setup
-	err = groth16.Setup(css.(*cs.R1CS), &pk, &vk)
-	if err != nil {
-		return groth16.ProvingKey{}, groth16.VerifyingKey{}, nil, nil, err
-	}
-	//compute witness
-	witness, err = frontend.NewWitness(assignment, ecc.BN254.ScalarField())
-	if err != nil {
-		return groth16.ProvingKey{}, groth16.VerifyingKey{}, nil, nil, err
-	}
-	// compute proof
-	proof, err = groth16.Prove(css.(*cs.R1CS), &pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
-	if err != nil {
-		return groth16.ProvingKey{}, groth16.VerifyingKey{}, nil, nil, err
-	}
-	return
-}
-
-func GetFromExistedMPCSetUp(ccs constraint.ConstraintSystem, phase1Path string, phase2Path string) (pk groth16.ProvingKey, vk groth16.VerifyingKey, err error) {
+/**
+ * Function:GetInitParamsFromExistedMPCSetUp
+ * @Description: get proving key and verification key required for zk proof calculation from the existing MPC file
+ * @param ccs: circuit constraints
+ * @param phase1Path: phase1 file path required for proof calculation
+ * @param phase2Path: phase2 file path required for proof calculation
+ * @return pk: proving key
+ * @return vk: verification key
+ * @return err: error
+ */
+func GetInitParamsFromExistedMPCSetUp(ccs constraint.ConstraintSystem, phase1Path string, phase2Path string) (pk groth16.ProvingKey, vk groth16.VerifyingKey, err error) {
+	//get phase1 data
 	srs1, err := ReadPhase1FromFile(phase1Path)
 	if err != nil {
 		return groth16.ProvingKey{}, groth16.VerifyingKey{}, err
 	}
-	// Prepare for phase-1.5
+	// get phase1.5 data
 	var evals mpcsetup.Phase2Evaluations
 	r1cs := ccs.(*cs.R1CS)
-	// Prepare for phase-2
 	_, evals = mpcsetup.InitPhase2(r1cs, &srs1)
-
+	//get phase2 data
 	srs2, err := ReadPhase2FromFile(phase2Path)
 	if err != nil {
 		return groth16.ProvingKey{}, groth16.VerifyingKey{}, err
 	}
-	// Extract the proving and verifying keys
+	// generate proving and verifying keys
 	pk, vk = mpcsetup.ExtractKeys(&srs1, &srs2, &evals, ccs.GetNbConstraints())
 	return pk, vk, nil
 }
