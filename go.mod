@@ -1,4 +1,4 @@
-module zk-dkg
+module github.com/bane-labs/zk-dkg
 
 go 1.22
 

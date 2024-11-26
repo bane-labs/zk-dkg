@@ -1,4 +1,4 @@
-package circom
+package circuit
 
 import (
 	"github.com/consensys/gnark/frontend"
@@ -31,7 +31,7 @@ type AccountConstraints[T1, S1, T2, S2 emulated.FieldParams] struct {
 func (c *BatchEncryptionWrapper[T1, S1, T2, S2]) Define(api frontend.API) error {
 	rawPubInputsbefore := make([]uints.U8, 0)
 	for i := 0; i < len(c.Account); i++ {
-		//prepare data
+		// Prepare data
 		Account := c.Account[i]
 		SmallR := Account.SmallR
 		BigR := Account.BigR
@@ -43,21 +43,21 @@ func (c *BatchEncryptionWrapper[T1, S1, T2, S2]) Define(api frontend.API) error 
 		CipherChunks := Account.CipherChunks[:]
 		SmallFi := Account.SmallFi
 		Fi := Account.Fi
-		//encrypt
-		encryption := NewMixEncryption[T1, S1, T2, S2](api)
+		// Encrypt
+		encryption := NewECIES[T1, S1, T2, S2](api)
 		rawPubInputs, err := encryption.Encrypt(api, PlainChunks, CipherChunks, Iv, SmallR, BigR, Pub, RPub, ChunkIndex, SmallFi, Fi)
 		if err != nil {
 			return err
 		}
-		//compute raw pub inputs
+		// Compute raw pub inputs
 		rawPubInputsbefore = append(rawPubInputsbefore, rawPubInputs...)
 	}
-	//compute and check comments hash
-	//compute comments hash
+	// Compute and check comments hash
+	// Compute comments hash
 	mc, _ := zksha3.New256(api)
 	mc.Write(rawPubInputsbefore)
 	result := mc.Sum()
-	//check comments hash
+	// Check comments hash
 	for i := 0; i < len(result); i++ {
 		api.AssertIsEqual(result[i].Val, c.CommentsHash[i])
 	}
@@ -65,7 +65,7 @@ func (c *BatchEncryptionWrapper[T1, S1, T2, S2]) Define(api frontend.API) error 
 }
 
 /*func GetCommentsHash[T1, S1, T2, S2 emulated.FieldParams](api frontend.API, CipherChunks []frontend.Variable, Iv [12]frontend.Variable, BigR, Pub sw_emulated.AffinePoint[T1], ChunkIndex frontend.Variable, Fi sw_emulated.AffinePoint[T2]) []uints.U8 {
-	//check PubInputHash =(pub1,pub2.....)
+	// Check PubInputHash =(pub1,pub2.....)
 	cr, err := sw_emulated.New[T1, S1](api, sw_emulated.GetCurveParams[T1]())
 	if err != nil {
 		panic(err)

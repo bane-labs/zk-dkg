@@ -1,8 +1,9 @@
-package circom
+package circuit
 
 import (
 	"fmt"
-	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+
+	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
@@ -12,7 +13,7 @@ import (
 	"github.com/consensys/gnark/std/math/uints"
 )
 
-type MixEncryptionWrapper[T1, S1, T2, S2 emulated.FieldParams] struct {
+type ECIESWrapper[T1, S1, T2, S2 emulated.FieldParams] struct {
 	SmallR emulated.Element[S1]        `gnark:",secret"`
 	BigR   sw_emulated.AffinePoint[T1] `gnark:",secret"`
 	Pub    sw_emulated.AffinePoint[T1] `gnark:",secret"`
@@ -25,18 +26,21 @@ type MixEncryptionWrapper[T1, S1, T2, S2 emulated.FieldParams] struct {
 
 	SmallFi emulated.Element[S2]        `gnark:",secret"`
 	Fi      sw_emulated.AffinePoint[T2] `gnark:",secret"`
-	//make a hash =(input1,input2.....) to reduce public input counts
+	// Make a hash=(input1,input2.....) to reduce public input counts
 	PubInputHash []frontend.Variable `gnark:",public"`
 }
 
-func (c *MixEncryptionWrapper[T1, S1, T2, S2]) Define(api frontend.API) error {
-	//encrypt
-	encryption := NewMixEncryption[T1, S1, T2, S2](api)
+func (c *ECIESWrapper[T1, S1, T2, S2]) Define(api frontend.API) error {
+	// Encrypt
+	encryption := NewECIES[T1, S1, T2, S2](api)
 	rawPubInputs, err := encryption.Encrypt(api, c.PlainChunks, c.CipherChunks, c.Iv, c.SmallR, c.BigR, c.Pub, c.RPub, c.ChunkIndex, c.SmallFi, c.Fi)
 	if err != nil {
 		return err
 	}
 	mc, err := zksha3.New256(api)
+	if err != nil {
+		return err
+	}
 	mc.Write(rawPubInputs)
 	result := mc.Sum()
 
@@ -54,16 +58,15 @@ func variableToU8(in []frontend.Variable, nbBits int) []uints.U8 {
 	return out
 }
 
-func NewMixEncryption[T1, S1, T2, S2 emulated.FieldParams](api frontend.API) MixEncryption[T1, S1, T2, S2] {
-	return MixEncryption[T1, S1, T2, S2]{api: api}
+func NewECIES[T1, S1, T2, S2 emulated.FieldParams](api frontend.API) ECIES[T1, S1, T2, S2] {
+	return ECIES[T1, S1, T2, S2]{api: api}
 }
 
-type MixEncryption[T1, S1, T2, S2 emulated.FieldParams] struct {
+type ECIES[T1, S1, T2, S2 emulated.FieldParams] struct {
 	api frontend.API
 }
 
-func (me *MixEncryption[T1, S1, T2, S2]) Encrypt(api frontend.API, PlainChunks, CipherChunks []frontend.Variable, Iv [12]frontend.Variable, SmallR emulated.Element[S1], BigR, Pub, RPub sw_emulated.AffinePoint[T1], ChunkIndex frontend.Variable, SmallFi emulated.Element[S2], Fi sw_emulated.AffinePoint[T2]) (rawPubInputs []uints.U8, err error) {
-
+func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(api frontend.API, PlainChunks, CipherChunks []frontend.Variable, Iv [12]frontend.Variable, SmallR emulated.Element[S1], BigR, Pub, RPub sw_emulated.AffinePoint[T1], ChunkIndex frontend.Variable, SmallFi emulated.Element[S2], Fi sw_emulated.AffinePoint[T2]) (rawPubInputs []uints.U8, err error) {
 	PlainChunksBytes := make([]uints.U8, len(PlainChunks))
 	for i := 0; i < len(PlainChunks); i++ {
 		PlainChunksBytes[i] = uints.U8{Val: PlainChunks[i]}
@@ -81,22 +84,22 @@ func (me *MixEncryption[T1, S1, T2, S2]) Encrypt(api frontend.API, PlainChunks, 
 	if err != nil {
 		return nil, err
 	}
-	//check BigR=rG
+	// Check BigR=rG
 	cr.AssertIsOnCurve(&BigR)
 	api.Println("R check on curve ok")
 	BR := cr.ScalarMulBase(&SmallR)
 	cr.AssertIsEqual(BR, &BigR)
 	api.Println("R =rG check ok")
-	//check pub
+	// Check Pub
 	cr.AssertIsOnCurve(&Pub)
 	api.Println("Pub check on curve ok")
-	//check RPub
+	// Check RPub
 	cr.AssertIsOnCurve(&RPub)
 	api.Println("RPub check on curve ok")
 	RPb := cr.ScalarMul(&Pub, &SmallR)
 	cr.AssertIsEqual(RPb, &RPub)
 	api.Println("RPub =rPub check ok")
-	//generate key=hash(RPub)
+	// Generate key=hash(RPub)
 	nbBits := 8 * ((fp.Modulus().BitLen() + 7) / 8)
 	rawRpub := make([]uints.U8, 2*nbBits)
 	raw := cr.MarshalG1(RPub)
@@ -114,7 +117,7 @@ func (me *MixEncryption[T1, S1, T2, S2]) Encrypt(api frontend.API, PlainChunks, 
 		key[j] = expected[j]
 	}
 	api.Println("key generate ok")
-	//check Fi=fiG
+	// Check Fi=fiG
 	cr2, err := sw_emulated.New[T2, S2](api, sw_emulated.GetCurveParams[T2]())
 	if err != nil {
 		return nil, err
@@ -123,14 +126,12 @@ func (me *MixEncryption[T1, S1, T2, S2]) Encrypt(api frontend.API, PlainChunks, 
 	F := cr2.ScalarMulBase(&SmallFi)
 	cr2.AssertIsEqual(F, &Fi)
 	api.Println("Fi=fiG check ok")
-	//check aes process
-
+	// Check aes process
 	aes := NewAES256(api)
 	gcm := NewGCM256(api, &aes)
 	gcm.Assert(key, IV, ChunkIndex, PlainChunksBytes, CiphertextBytes)
 	api.Println("aes check ok")
-
-	//check smallFi==m
+	// Check smallFi==m
 	f, err := emulated.NewField[S2](api)
 	if err != nil {
 		return nil, err
@@ -147,7 +148,7 @@ func (me *MixEncryption[T1, S1, T2, S2]) Encrypt(api frontend.API, PlainChunks, 
 	for i := range plainBits {
 		api.AssertIsEqual(plainBits[i], smallFiBits[i])
 	}
-	//compute raw pub inputs =(pub1,pub2.....)
+	// Compute rawPubInputs=(pub1,pub2.....)
 	rawBigR := cr.MarshalG1(BigR)
 	rawPub := cr.MarshalG1(Pub)
 	rawFi := cr2.MarshalG1(Fi)

@@ -1,11 +1,13 @@
-package circom
+package helper
 
 import (
 	"crypto/sha256"
-	groth16 "github.com/consensys/gnark/backend/groth16/bn254"
-	"github.com/consensys/gnark/backend/solidity"
 	"math/big"
 	"os"
+
+	groth16 "github.com/consensys/gnark/backend/groth16/bn254"
+	"github.com/consensys/gnark/backend/solidity"
+	"golang.org/x/crypto/sha3"
 )
 
 /**
@@ -15,10 +17,25 @@ import (
  */
 func ExportContract(vk groth16.VerifyingKey) {
 	contract, err := os.Create("verify.sol")
+	if err != nil {
+		panic(err)
+	}
 	err = vk.ExportSolidity(contract, solidity.WithHashToFieldFunction(sha256.New()))
 	if err != nil {
 		panic(err)
 	}
+}
+
+/**
+ * Function:GetHash
+ * @Description: get data hash
+ * @param data: data
+ * @return []byte: hash
+ */
+func GetHash(data []byte) []byte {
+	hashBuilder := sha3.New256()
+	hashBuilder.Write(data)
+	return hashBuilder.Sum(nil)
 }
 
 /**
@@ -28,7 +45,7 @@ func ExportContract(vk groth16.VerifyingKey) {
  * @return Output: data submitted to the chain
  */
 func GetOutputData(proof *groth16.Proof) Output {
-	// solidity contract inputs
+	// Solidity contract inputs
 	var output Output
 	proofBytes := proof.MarshalSolidity()
 	fpSize := 4 * 8
@@ -60,7 +77,7 @@ type Output struct {
 	commitmentPok []*big.Int
 }
 
-func (output *Output) printf() {
+func (output *Output) Printf() {
 	// proof.Ar, proof.Bs, proof.Krs
 	println("printf proof:")
 	for i := 0; i < 8; i++ {
