@@ -1,7 +1,15 @@
-package circom
+package circuit
 
 import (
 	"crypto/sha256"
+	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
+	"math/rand"
+	"strconv"
+	"testing"
+	"time"
+
+	"github.com/bane-labs/zk-dkg/helper"
+	"github.com/bane-labs/zk-dkg/mpc"
 	"github.com/consensys/gnark-crypto/ecc"
 	fr_bn254 "github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark/backend"
@@ -14,89 +22,85 @@ import (
 	"github.com/consensys/gnark/test"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
-	"math/rand"
-	"strconv"
-	"testing"
-	"time"
 )
 
-func Test_MixEncryption_Circuit(t *testing.T) {
-	//generate a private key
+func Test_ECIES_Circuit(t *testing.T) {
+	assert := test.NewAssert(t)
+	// Generate a private key
 	source := rand.NewSource(time.Now().UnixNano())
 	rand := rand.New(source)
 	privKey, err := ecies.GenerateKey(rand, crypto.S256(), nil)
-	//generate a encrypt fragement key
-	fiBytes, sfi, bfi, nonce, ctt, rs, rb := GenerateEncryptFragementKey(privKey.PublicKey)
-	//computing proof
+	assert.NoError(err)
+	// Generate an encrypt fragement key
+	var fi fr_bls12381.Element
+	fi.SetRandom()
+	fiBytes, sfi, bfi, nonce, ctt, rs, rb := GenerateEncryptRandomFragementKey(privKey.PublicKey, fi)
+	// Compute proof
 	_, circuit, assignment, err := ComputingAssignment(privKey.PublicKey, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
+	assert.NoError(err)
 	err = test.IsSolved(&circuit, &assignment, ecc.BN254.ScalarField())
-	assert := test.NewAssert(t)
 	assert.NoError(err)
 }
 
-func TestMixEncryptionByMPC(t *testing.T) {
-	//generate a private key
+func TestECIESByMPC(t *testing.T) {
+	assert := test.NewAssert(t)
+	// Generate a private key
 	source := rand.NewSource(time.Now().UnixNano())
 	rand := rand.New(source)
 	privKey, err := ecies.GenerateKey(rand, crypto.S256(), nil)
-	//generate a encrypt fragement key
-	fiBytes, sfi, bfi, nonce, ctt, rs, rb := GenerateEncryptFragementKey(privKey.PublicKey)
-	//computing proof (2 way)
-	//1)from existed mpc file
+	assert.NoError(err)
+	// Generate a encrypt fragement key
+	var fi fr_bls12381.Element
+	fi.SetRandom()
+	fiBytes, sfi, bfi, nonce, ctt, rs, rb := GenerateEncryptRandomFragementKey(privKey.PublicKey, fi)
+	// Compute proof (two ways)
+	// 1) From an existing MPC file
 	/*	phase1Path := "Phase1_" + strconv.Itoa(3)
 		phase2Path := "Phase2_" + strconv.Itoa(3)
 		vk, proof, witness, err := GenerateProof(phase1Path, phase2Path, privKey.PublicKey, rs, rb, fiBytes, sfi, bfi, ctt, nonce)*/
-	//2)from a new mpc file
+	// 2) From a new MPC file
 	css, _, assignment, err := ComputingAssignment(privKey.PublicKey, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
-	if err != nil {
-		panic(err)
-	}
+	assert.NoError(err)
 	_, vk, proof, witness, err := computingProof2(css, &assignment)
-	if err != nil {
-		panic(err)
-	}
-
+	assert.NoError(err)
 	publicWitness, err := witness.Public()
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-	//verify proof
+	assert.NoError(err)
+	// Verify proof
 	err = groth16.Verify(proof, &vk, publicWitness.Vector().(fr_bn254.Vector))
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-	//export solidity contract
-	ExportContract(vk)
-	//output verify data
-	GetOutputData(proof)
+	assert.NoError(err)
+	// Export solidity contract
+	helper.ExportContract(vk)
+	// Output verify data
+	helper.GetOutputData(proof)
 }
 
-func computingProof2(css constraint.ConstraintSystem, assignment frontend.Circuit) (pk groth16.ProvingKey, vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
-	pk, vk, _ = demoMPCSetUp(css, 3, 3, 24)
-	//pk, vk, _ = GetInitParamsFromExistedMPCSetUp(css, phase1Path, phase2Path)
-	// 1. One time setup
+func computingProof2(css constraint.ConstraintSystem, assignment frontend.Circuit) (groth16.ProvingKey, groth16.VerifyingKey, *groth16.Proof, witness.Witness, error) {
+	pk, vk, err := demoMPCSetUp(css, 3, 3, 24)
+	// Setup
 	err = groth16.Setup(css.(*cs.R1CS), &pk, &vk)
 	if err != nil {
 		return groth16.ProvingKey{}, groth16.VerifyingKey{}, nil, nil, err
 	}
-	//compute witness
-	witness, err = frontend.NewWitness(assignment, ecc.BN254.ScalarField())
+	// Compute witness
+	witness, err := frontend.NewWitness(assignment, ecc.BN254.ScalarField())
 	if err != nil {
 		return groth16.ProvingKey{}, groth16.VerifyingKey{}, nil, nil, err
 	}
-	// compute proof
-	proof, err = groth16.Prove(css.(*cs.R1CS), &pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
+	// Compute proof
+	proof, err := groth16.Prove(css.(*cs.R1CS), &pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
 	if err != nil {
 		return groth16.ProvingKey{}, groth16.VerifyingKey{}, nil, nil, err
 	}
-	return
+	return pk, vk, proof, witness, err
 }
 
 // nContributionsPhase1 = 3
 // nContributionsPhase2 = 3
 // power                = 22 //element count range 2^0-2^27
-func demoMPCSetUp(ccs constraint.ConstraintSystem, nContributionsPhase1 int, nContributionsPhase2 int, power int) (pk groth16.ProvingKey, vk groth16.VerifyingKey, err error) {
-	_, err = InitPhase1("Phase1_1", power)
+func demoMPCSetUp(ccs constraint.ConstraintSystem, nContributionsPhase1 int, nContributionsPhase2 int, power int) (groth16.ProvingKey, groth16.VerifyingKey, error) {
+	var pk groth16.ProvingKey
+	var vk groth16.VerifyingKey
+	_, err := mpc.InitPhase1("Phase1_1", power)
 	if err != nil {
 		return pk, vk, err
 	}
@@ -104,12 +108,12 @@ func demoMPCSetUp(ccs constraint.ConstraintSystem, nContributionsPhase1 int, nCo
 	for i := 1; i < nContributionsPhase1; i++ {
 		prepath := "Phase1_" + strconv.Itoa(i)
 		nextPath := "Phase1_" + strconv.Itoa(i+1)
-		_, _, err := ContributePhase1(prepath, nextPath)
+		_, _, err = mpc.ContributePhase1(prepath, nextPath)
 		if err != nil {
 			return pk, vk, err
 		}
 	}
-	evals, srs1, _, err := InitPhase2(ccs, "Phase1_"+strconv.Itoa(nContributionsPhase1), "Phase2_1")
+	evals, srs1, _, err := mpc.InitPhase2(ccs, "Phase1_"+strconv.Itoa(nContributionsPhase1), "Phase2_1")
 	if err != nil {
 		return pk, vk, err
 	}
@@ -117,16 +121,14 @@ func demoMPCSetUp(ccs constraint.ConstraintSystem, nContributionsPhase1 int, nCo
 	for i := 1; i < nContributionsPhase2; i++ {
 		prepath := "Phase2_" + strconv.Itoa(i)
 		nextPath := "Phase2_" + strconv.Itoa(i+1)
-		_, _, err := ContributePhase2(prepath, nextPath)
-		if err != nil {
-			panic(err)
-		}
+		_, _, err = mpc.ContributePhase2(prepath, nextPath)
+		return pk, vk, err
 	}
-	srs2, err := ReadPhase2FromFile("Phase2_" + strconv.Itoa(nContributionsPhase1))
+	srs2, err := mpc.ReadPhase2FromFile("Phase2_" + strconv.Itoa(nContributionsPhase1))
 	if err != nil {
 		return groth16.ProvingKey{}, groth16.VerifyingKey{}, err
 	}
 	// Extract the proving and verifying keys
 	pk, vk = mpcsetup.ExtractKeys(&srs1, &srs2, &evals, ccs.GetNbConstraints())
-	return pk, vk, nil
+	return pk, vk, err
 }

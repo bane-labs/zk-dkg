@@ -1,27 +1,11 @@
-/*
-Copyright 2023 Jan Lauinger
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
-package circom
+package circuit
 
 import (
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/math/uints"
 )
 
-type Circuit_GCM256Wrapper struct {
+type AESGCM256Wrapper struct {
 	Key          [32]uints.U8
 	PlainChunks  []uints.U8
 	Iv           [12]uints.U8      `gnark:",public"`
@@ -30,10 +14,10 @@ type Circuit_GCM256Wrapper struct {
 }
 
 // Define declares the circuit's constraints
-func (circuit *Circuit_GCM256Wrapper) Define(api frontend.API) error {
+func (circuit *AESGCM256Wrapper) Define(api frontend.API) error {
 	aes := NewAES256(api)
 	gcm := NewGCM256(api, &aes)
-	// verify aes gcm of chunks
+	// Verify AES-GCM of chunks
 	gcm.Assert(circuit.Key, circuit.Iv, circuit.ChunkIndex, circuit.PlainChunks, circuit.CipherChunks)
 	return nil
 }
@@ -51,7 +35,7 @@ type GCM256 struct {
 	aes AES
 }
 
-// aes gcm encryption
+// AES-GCM encryption
 func (gcm *GCM256) Assert(key [32]uints.U8, iv [12]uints.U8, chunkIndex frontend.Variable, plaintext, ciphertext []uints.U8) {
 
 	inputSize := len(plaintext)
@@ -73,14 +57,14 @@ func (gcm *GCM256) Assert(key [32]uints.U8, iv [12]uints.U8, chunkIndex frontend
 		ivCounter := gcm.GetIV(iv, idx)
 		intermediate := gcm.aes.Encrypt(key, ivCounter)
 		ct := gcm.Xor16(intermediate, ptBlock)
-		// check ciphertext to plaintext constraints
+		// Check ciphertext to plaintext constraints
 		for i := 0; i < 16; i++ {
 			gcm.api.AssertIsEqual(ctBlock[i].Val, ct[i].Val)
 		}
 	}
 }
 
-// required for aes_gcm
+// Required for AES-GCM
 func (gcm *GCM256) GetIV(nonce [12]uints.U8, ctr frontend.Variable) [16]uints.U8 {
 
 	var out [16]uints.U8
@@ -92,7 +76,7 @@ func (gcm *GCM256) GetIV(nonce [12]uints.U8, ctr frontend.Variable) [16]uints.U8
 	remain := 12
 	for j := 3; j >= 0; j-- {
 		start := 8 * j
-		// little endian order chunk parsing from back to front
+		// Little endian order chunk parsing from back to front
 		out[remain] = uints.U8{Val: gcm.api.FromBinary(bits[start : start+8]...)}
 		remain += 1
 	}
@@ -100,7 +84,7 @@ func (gcm *GCM256) GetIV(nonce [12]uints.U8, ctr frontend.Variable) [16]uints.U8
 	return out
 }
 
-// required for plaintext xor encrypted counter blocks
+// Required for plaintext xor encrypted counter blocks
 func (gcm *GCM256) Xor16(a [16]uints.U8, b [16]uints.U8) [16]uints.U8 {
 	var out [16]uints.U8
 	for i := 0; i < 16; i++ {

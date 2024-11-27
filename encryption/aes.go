@@ -1,4 +1,4 @@
-package circom
+package encryption
 
 import (
 	"crypto/aes"
@@ -7,14 +7,15 @@ import (
 	"io"
 )
 
-// AesGcmEncrypt
-//
-//	@Description: takes an encryption key and a plaintext string and encrypts it with AES256 in GCM mode
-//	@param key: an encryption key
-//	@param plaintext: plaintext string
-//	@return ciphertext: ciphertext string
-//	@return nonce: salt
-func AesGcmEncrypt(key []byte, plaintext []byte) (ciphertext, nonce []byte) {
+/**
+ * Function:AESGcmEncrypt
+ * @Description: takes an encryption key and a plaintext string and encrypts it with AES256 in GCM mode
+ * @param key: an encryption key
+ * @param plaintext: plaintext string
+ * @return ciphertext: ciphertext string
+ * @return nonce: salt
+ */
+func AESGcmEncrypt(key []byte, plaintext []byte) (ciphertext, nonce []byte) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		panic(err.Error())
@@ -34,14 +35,15 @@ func AesGcmEncrypt(key []byte, plaintext []byte) (ciphertext, nonce []byte) {
 	return
 }
 
-// AesGcmDecrypt
-//
-//	@Description: takes an decryption key, a ciphertext and the corresponding nonce and decrypts it with AES256 in GCM mode.
-//	@param key: an encryption key
-//	@param ciphertext: ciphertext string
-//	@param nonce: salt
-//	@return plaintext:
-func AesGcmDecrypt(key, ciphertext, nonce []byte) (plaintext []byte) {
+/**
+ * Function:AESGcmDecrypt
+ * @Description: takes an decryption key, a ciphertext and the corresponding nonce and decrypts it with AES256 in GCM mode.
+ * @param key: an encryption key
+ * @param ciphertext: ciphertext string
+ * @param nonce: salt
+ * @return plaintext: plaintext string
+ */
+func AESGcmDecrypt(key, ciphertext, nonce []byte) (plaintext []byte) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		panic(err.Error())

@@ -1,23 +1,23 @@
-package circom
+package circuit
 
 import (
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/math/uints"
 )
 
-type Circuit_AES256Wrapper struct {
+type AES256Wrapper struct {
 	Plain  [16]uints.U8
 	Key    [32]uints.U8
 	Cipher [16]uints.U8 `gnark:",public"`
 }
 
 // Define declares the circuit's constraints
-func (circuit *Circuit_AES256Wrapper) Define(api frontend.API) error {
-	// aes circuit
+func (circuit *AES256Wrapper) Define(api frontend.API) error {
+	// AES circuit
 	aes := NewAES256(api)
-	// encrypt
+	// Encrypt
 	cipher := aes.Encrypt(circuit.Key, circuit.Plain)
-	// constraint check
+	// Constraint check
 	for i := 0; i < len(circuit.Cipher); i++ {
 		api.AssertIsEqual(circuit.Cipher[i], cipher[i])
 	}
@@ -53,7 +53,7 @@ func (aes *AES256) Encrypt(key [32]uints.U8, pt [16]uints.U8) [16]uints.U8 {
 		0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16,
 	})
 	RCon := uints.NewU8Array([]uint8{0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6C, 0xD8, 0xAB, 0x4D, 0x9A, 0x2F, 0x5E, 0xBC, 0x63, 0xC6, 0x97, 0x35, 0x6A, 0xD4, 0xB3, 0x7D, 0xFA, 0xEF, 0xC5})
-	// expand key
+	// Expand key
 	expandedKey := aes.expandKey(key, sbox, RCon)
 	var state [16]uints.U8
 	var i = 0
@@ -64,14 +64,14 @@ func (aes *AES256) Encrypt(key [32]uints.U8, pt [16]uints.U8) [16]uints.U8 {
 		state[12+k] = pt[i+3]
 		i += 4
 	}
-	state = aes.addRoundKey(state, expandedKey, 0) // works
-	// iterate rounds
+	state = aes.addRoundKey(state, expandedKey, 0)
+	// Iterate rounds
 	i = 1
 	for ; i < 14; i++ {
 		state = aes.subBytes(sbox, state)
 		state = aes.shiftRows(state)
 		state = aes.mixColumns(state)
-		state = aes.addRoundKey2(state, expandedKey, i*4*4) // woks
+		state = aes.addRoundKey2(state, expandedKey, i*4*4)
 	}
 	state = aes.subBytes(sbox, state)
 	state = aes.shiftRows(state)
@@ -89,7 +89,7 @@ func (aes *AES256) Encrypt(key [32]uints.U8, pt [16]uints.U8) [16]uints.U8 {
 	return out
 }
 
-// substitue state matrix with sbox
+// Substitue state matrix with sbox
 func (aes *AES256) subBytes(sbox []uints.U8, state [16]uints.U8) [16]uints.U8 {
 	var newState [16]uints.U8
 	for i := 0; i < 16; i++ {
@@ -98,7 +98,7 @@ func (aes *AES256) subBytes(sbox []uints.U8, state [16]uints.U8) [16]uints.U8 {
 	return newState
 }
 
-// mixcolumns of state matrix
+// Mixcolumns of state matrix
 func (aes *AES256) mixColumns(state [16]uints.U8) [16]uints.U8 {
 	uapi, _ := uints.New[uints.U32](aes.api)
 	var a [4]uints.U8
@@ -122,7 +122,7 @@ func (aes *AES256) mixColumns(state [16]uints.U8) [16]uints.U8 {
 		a3Bits := aes.api.ToBinary(a[3].Val, 8)
 		a3gmc3Bits := aes.api.ToBinary(aes.galoisMulConst(a[3], 3).Val, 8)
 		a3gmc2Bits := aes.api.ToBinary(aes.galoisMulConst(a[3], 2).Val, 8)
-		// bitwise xor
+		// Bitwise XOR
 		tmp1 := make([]frontend.Variable, 8)
 		tmp2 := make([]frontend.Variable, 8) // api.ToBinary(0, 8)
 		tmp3 := make([]frontend.Variable, 8)
@@ -141,7 +141,7 @@ func (aes *AES256) mixColumns(state [16]uints.U8) [16]uints.U8 {
 	return newState
 }
 
-// required in mixcolumns
+// Required in mixcolumns
 func (aes *AES256) galoisMulConst(a uints.U8, idx int) uints.U8 {
 	p := uints.NewU8(0)
 	for counter := 0; counter < 8; counter++ {
@@ -164,13 +164,13 @@ func (aes *AES256) galoisMulConst(a uints.U8, idx int) uints.U8 {
 	return p
 }
 
-// helper for galoisMul
+// Helper for galoisMul
 func (aes *AES256) getBit(a uints.U8, size, idx int) frontend.Variable {
 	bits := aes.api.ToBinary(a.Val, size)
 	return bits[len(bits)-idx]
 }
 
-// required for galoisMul
+// Required for galoisMul
 func (aes *AES256) shiftLeft(a uints.U8, size, shift int) uints.U8 {
 	uapi, err := uints.New[uints.U32](aes.api)
 	if err != nil {
@@ -189,7 +189,7 @@ func (aes *AES256) shiftLeft(a uints.U8, size, shift int) uints.U8 {
 	return uapi.ByteValueOf(bytes)
 }
 
-// shifts state matrix rows
+// Shifts state matrix rows
 func (aes *AES256) shiftRows(state [16]uints.U8) [16]uints.U8 {
 	var newState [16]uints.U8
 	for i := 0; i < 4; i++ {
@@ -207,7 +207,7 @@ func (aes *AES256) shiftRows(state [16]uints.U8) [16]uints.U8 {
 	return newState
 }
 
-// adds xor and shifts bytes in matrix to match next round representation requirements
+// Adds XOR and shifts bytes in matrix to match next round representation requirements
 func (aes *AES256) addRoundKey(state [16]uints.U8, expandedKey [240]uints.U8, from int) [16]uints.U8 {
 	var newState [16]uints.U8
 	for i := 0; i < 4; i++ {
@@ -219,7 +219,7 @@ func (aes *AES256) addRoundKey(state [16]uints.U8, expandedKey [240]uints.U8, fr
 	return newState
 }
 
-// different re-arrangement of variables
+// Different re-arrangement of variables
 func (aes *AES256) addRoundKey2(state [16]uints.U8, expandedKey [240]uints.U8, from int) [16]uints.U8 {
 	var newState [16]uints.U8
 	ctr := 0
@@ -233,7 +233,7 @@ func (aes *AES256) addRoundKey2(state [16]uints.U8, expandedKey [240]uints.U8, f
 	return newState
 }
 
-// xor on bits of two frontend.Variables
+// XOR on bits of two frontend.Variables
 func (aes *AES256) variableXor(a uints.U8, b uints.U8, size int) uints.U8 {
 	uapi, err := uints.New[uints.U32](aes.api)
 	if err != nil {
@@ -249,7 +249,7 @@ func (aes *AES256) variableXor(a uints.U8, b uints.U8, size int) uints.U8 {
 	return uapi.ByteValueOf(bytes)
 }
 
-// expands 32 byte key to 240 byte output
+// Expands 32 byte key to 240 byte output
 func (aes *AES256) expandKey(key [32]uints.U8, sbox0 []uints.U8, RCon []uints.U8) [240]uints.U8 {
 
 	var expand [240]uints.U8
@@ -273,10 +273,10 @@ func (aes *AES256) expandKey(key [32]uints.U8, sbox0 []uints.U8, RCon []uints.U8
 		if i%32 == 0 {
 			// t = subw(rotw(t)) ^ (uint32(powx[i/nb-1]) << 24)
 
-			// rotation
+			// Rotation
 			t0, t1, t2, t3 = t1, t2, t3, t0
 
-			// subwords
+			// Subwords
 			t0 = aes.subw(sbox0, t0)
 			t1 = aes.subw(sbox0, t1)
 			t2 = aes.subw(sbox0, t2)
@@ -300,7 +300,7 @@ func (aes *AES256) expandKey(key [32]uints.U8, sbox0 []uints.U8, RCon []uints.U8
 	return expand
 }
 
-// substitute word with naive lookup of sbox
+// Substitute word with naive lookup of sbox
 func (aes *AES256) subw(sbox []uints.U8, a uints.U8) uints.U8 {
 	out := frontend.Variable(0)
 	for j := 0; j < 256; j++ {

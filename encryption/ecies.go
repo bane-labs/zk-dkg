@@ -1,17 +1,17 @@
-// Provides mix encryption and decryption methods
-package circom
+package encryption
 
 import (
+	"math/big"
+
 	"github.com/consensys/gnark-crypto/ecc/secp256k1"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	fr_secp "github.com/consensys/gnark-crypto/ecc/secp256k1/fr"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"golang.org/x/crypto/sha3"
-	"math/big"
 )
 
 /**
- * Function:Encrypt
+ * Function:ECIESEncrypt
  * @Description: mix encryption method
  * @param pb: public key
  * @param ptt: plain text string
@@ -20,26 +20,26 @@ import (
  * @return rs: integer form of random number
  * @return rb: the point on the elliptic curve corresponding to the random number
  */
-func Encrypt(pb ecies.PublicKey, ptt []byte) (nonce []byte, ctt []byte, rs big.Int, rb secp256k1.G1Affine) {
-	//format pubKey
+func ECIESEncrypt(pb ecies.PublicKey, ptt []byte) (nonce []byte, ctt []byte, rs big.Int, rb secp256k1.G1Affine) {
+	// Format public key
 	var px fp.Element
 	px.SetBigInt(pb.X)
 	var py fp.Element
 	py.SetBigInt(pb.Y)
 	Pub := secp256k1.G1Affine{
-		px,
-		py,
+		X: px,
+		Y: py,
 	}
-	//generate random r,rb=rG
+	// Generate random r, rb=rG
 	_, g := secp256k1.Generators()
 	var r fr_secp.Element
 	r.SetRandom()
 	r.BigInt(&rs)
 	rb.ScalarMultiplication(&g, &rs)
-	//generator rPub=r*PublicKey
+	// Compute rPub=r*PublicKey
 	var rPub secp256k1.G1Affine
 	rPub.ScalarMultiplication(&Pub, &rs)
-	//generate rPubBytes=hash(rPub)
+	// Compute rPubBytes=hash(rPub)
 	nbBytes := 2 * fr_secp.Bytes
 	rPubBytes := make([]byte, nbBytes*8)
 	for i := 0; i < nbBytes; i++ {
@@ -50,12 +50,12 @@ func Encrypt(pb ecies.PublicKey, ptt []byte) (nonce []byte, ctt []byte, rs big.I
 	hashBuilder := sha3.New256()
 	hashBuilder.Write(rPubBytes)
 	key := hashBuilder.Sum(nil)
-	ctt, nonce = AesGcmEncrypt(key, ptt)
+	ctt, nonce = AESGcmEncrypt(key, ptt)
 	return
 }
 
 /**
- * Function:Decrypt
+ * Function:ECIESDecrypt
  * @Description: decryption method
  * @param prv: private key
  * @param ctt: cipher text string
@@ -64,11 +64,11 @@ func Encrypt(pb ecies.PublicKey, ptt []byte) (nonce []byte, ctt []byte, rs big.I
  * @return ptt: plain text string
  * @return err: error
  */
-func Decrypt(prv *ecies.PrivateKey, ctt []byte, nonce []byte, rb secp256k1.G1Affine) (ptt []byte, err error) {
-	//generator rPub=r*PublicKey
+func ECIESDecrypt(prv *ecies.PrivateKey, ctt []byte, nonce []byte, rb secp256k1.G1Affine) (ptt []byte, err error) {
+	// Compute rPub=r*PublicKey
 	var rPub secp256k1.G1Affine
 	rPub.ScalarMultiplication(&rb, prv.D)
-	//generator rPubBytes=hash(rPub)
+	// Compute rPubBytes=hash(rPub)
 	nbBytes := 2 * fr_secp.Bytes
 	rPubBytes := make([]byte, nbBytes*8)
 	for i := 0; i < nbBytes; i++ {
@@ -79,6 +79,6 @@ func Decrypt(prv *ecies.PrivateKey, ctt []byte, nonce []byte, rb secp256k1.G1Aff
 	hashBuilder := sha3.New256()
 	hashBuilder.Write(rPubBytes)
 	key := hashBuilder.Sum(nil)
-	ptt = AesGcmDecrypt(key, ctt, nonce)
+	ptt = AESGcmDecrypt(key, ctt, nonce)
 	return
 }

@@ -1,22 +1,11 @@
-/*
-Copyright 2023 Jan Lauinger
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
-package circom
+package circuit
 
 import (
+	"math/rand"
+	"testing"
+	"time"
+
+	"github.com/bane-labs/zk-dkg/encryption"
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
@@ -25,14 +14,11 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"golang.org/x/crypto/sha3"
-	"math/rand"
-	"testing"
-	"time"
 )
 
-// AES gcm testing
+// AES-GCM testing
 func Test_AESGCM256_Circuit(t *testing.T) {
-
+	assert := test.NewAssert(t)
 	source := rand.NewSource(time.Now().UnixNano())
 	rand := rand.New(source)
 	privKey, err := ecies.GenerateKey(rand, crypto.S256(), nil)
@@ -44,8 +30,8 @@ func Test_AESGCM256_Circuit(t *testing.T) {
 	var py fp.Element
 	py.SetInterface(privKey.PublicKey.Y)
 	Pub := secp256k1.G1Affine{
-		px,
-		py,
+		X: px,
+		Y: py,
 	}
 	RawKey := Pub.RawBytes()
 	m := RawKey[:]
@@ -60,7 +46,7 @@ func Test_AESGCM256_Circuit(t *testing.T) {
 	for i := 0; i < len(keyBytes); i++ {
 		keyBytes[i] = uints.U8{Val: expected[i]}
 	}
-	ciphertext, nonce := AesGcmEncrypt(expected[:], m)
+	ciphertext, nonce := encryption.AESGcmEncrypt(expected[:], m)
 	Ciphertext_bytes := make([]uints.U8, len(ciphertext))
 	for i := 0; i < len(ciphertext); i++ {
 		Ciphertext_bytes[i] = uints.U8{Val: ciphertext[i]}
@@ -69,18 +55,17 @@ func Test_AESGCM256_Circuit(t *testing.T) {
 	for i := 0; i < len(nonce); i++ {
 		nonce_bytes[i] = uints.U8{Val: nonce[i]}
 	}
-	circuit := Circuit_GCM256Wrapper{
+	circuit := AESGCM256Wrapper{
 		PlainChunks:  make([]uints.U8, len(M_bytes)),
 		CipherChunks: make([]uints.U8, len(Ciphertext_bytes)),
 	}
-	witness := Circuit_GCM256Wrapper{
+	witness := AESGCM256Wrapper{
 		Key:          keyBytes,
 		PlainChunks:  M_bytes,
 		Iv:           nonce_bytes,
 		ChunkIndex:   2,
 		CipherChunks: Ciphertext_bytes,
 	}
-	assert := test.NewAssert(t)
 	err = test.IsSolved(&circuit, &witness, ecc.BN254.ScalarField())
 	assert.NoError(err)
 }
