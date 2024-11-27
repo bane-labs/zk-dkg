@@ -1,9 +1,7 @@
 package zkdkg
 
 import (
-	"bytes"
 	"crypto/sha256"
-	"encoding/json"
 	"math/big"
 
 	"github.com/bane-labs/zk-dkg/circuit"
@@ -40,7 +38,7 @@ import (
  * @return err:
  */
 func GenerateProof(phase1Path string, phase2Path string, pubKey ecies.PublicKey, rs big.Int, rb secp256k1.G1Affine, fiBytes []byte, sfi big.Int, bfi bls12381.G1Affine, ctt []byte, nonce []byte) (vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
-	css, circuit, assignment, err := circuit.ComputingAssignment(pubKey, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
+	css, _, assignment, err := circuit.ComputingAssignment(pubKey, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
 	if err != nil {
 		return groth16.VerifyingKey{}, nil, nil, err
 	}
@@ -51,16 +49,16 @@ func GenerateProof(phase1Path string, phase2Path string, pubKey ecies.PublicKey,
 	if err != nil {
 		return groth16.VerifyingKey{}, nil, nil, err
 	}
-
-	schema, _ := frontend.NewSchema(&circuit)
-	public, err := witness.Public()
-	if err != nil {
-		return groth16.VerifyingKey{}, nil, nil, err
-	}
-	ret, _ := public.ToJSON(schema)
-	var b bytes.Buffer
-	json.Indent(&b, ret, "", "\t")
-	println(b.String())
+	/*
+		schema, _ := frontend.NewSchema(&circuit)
+		public, err := witness.Public()
+		if err != nil {
+			return groth16.VerifyingKey{}, nil, nil, err
+		}
+		ret, _ := public.ToJSON(schema)
+		var b bytes.Buffer
+		json.Indent(&b, ret, "", "\t")
+		println(b.String())*/
 	return
 }
 

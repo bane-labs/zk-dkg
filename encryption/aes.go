@@ -7,13 +7,14 @@ import (
 	"io"
 )
 
-// AESGcmEncrypt
-//
-//	@Description: takes an encryption key and a plaintext string and encrypts it with AES256 in GCM mode
-//	@param key: an encryption key
-//	@param plaintext: plaintext string
-//	@return ciphertext: ciphertext string
-//	@return nonce: salt
+/**
+ * Function:AESGcmEncrypt
+ * @Description: takes an encryption key and a plaintext string and encrypts it with AES256 in GCM mode
+ * @param key: an encryption key
+ * @param plaintext: plaintext string
+ * @return ciphertext: ciphertext string
+ * @return nonce: salt
+ */
 func AESGcmEncrypt(key []byte, plaintext []byte) (ciphertext, nonce []byte) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -34,13 +35,14 @@ func AESGcmEncrypt(key []byte, plaintext []byte) (ciphertext, nonce []byte) {
 	return
 }
 
-// AESGcmDecrypt
-//
-//	@Description: takes an decryption key, a ciphertext and the corresponding nonce and decrypts it with AES256 in GCM mode.
-//	@param key: an encryption key
-//	@param ciphertext: ciphertext string
-//	@param nonce: salt
-//	@return plaintext:
+/**
+ * Function:AESGcmDecrypt
+ * @Description: takes an decryption key, a ciphertext and the corresponding nonce and decrypts it with AES256 in GCM mode.
+ * @param key: an encryption key
+ * @param ciphertext: ciphertext string
+ * @param nonce: salt
+ * @return plaintext: plaintext string
+ */
 func AESGcmDecrypt(key, ciphertext, nonce []byte) (plaintext []byte) {
 	block, err := aes.NewCipher(key)
 	if err != nil {

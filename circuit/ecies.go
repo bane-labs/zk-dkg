@@ -86,19 +86,14 @@ func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(api frontend.API, PlainChunks, Ciphe
 	}
 	// Check BigR=rG
 	cr.AssertIsOnCurve(&BigR)
-	api.Println("R check on curve ok")
 	BR := cr.ScalarMulBase(&SmallR)
 	cr.AssertIsEqual(BR, &BigR)
-	api.Println("R =rG check ok")
 	// Check Pub
 	cr.AssertIsOnCurve(&Pub)
-	api.Println("Pub check on curve ok")
 	// Check RPub
 	cr.AssertIsOnCurve(&RPub)
-	api.Println("RPub check on curve ok")
 	RPb := cr.ScalarMul(&Pub, &SmallR)
 	cr.AssertIsEqual(RPb, &RPub)
-	api.Println("RPub =rPub check ok")
 	// Generate key=hash(RPub)
 	nbBits := 8 * ((fp.Modulus().BitLen() + 7) / 8)
 	rawRpub := make([]uints.U8, 2*nbBits)
@@ -116,7 +111,6 @@ func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(api frontend.API, PlainChunks, Ciphe
 	for j := range key {
 		key[j] = expected[j]
 	}
-	api.Println("key generate ok")
 	// Check Fi=fiG
 	cr2, err := sw_emulated.New[T2, S2](api, sw_emulated.GetCurveParams[T2]())
 	if err != nil {
@@ -125,12 +119,10 @@ func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(api frontend.API, PlainChunks, Ciphe
 	cr2.AssertIsOnCurve(&Fi)
 	F := cr2.ScalarMulBase(&SmallFi)
 	cr2.AssertIsEqual(F, &Fi)
-	api.Println("Fi=fiG check ok")
 	// Check aes process
 	aes := NewAES256(api)
 	gcm := NewGCM256(api, &aes)
 	gcm.Assert(key, IV, ChunkIndex, PlainChunksBytes, CiphertextBytes)
-	api.Println("aes check ok")
 	// Check smallFi==m
 	f, err := emulated.NewField[S2](api)
 	if err != nil {
