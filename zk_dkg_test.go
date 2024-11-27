@@ -2,6 +2,7 @@ package zkdkg
 
 import (
 	"crypto/sha256"
+	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"strconv"
 	"testing"
 	"time"
@@ -24,6 +25,7 @@ func TestBatchEncryptionByMPC(t *testing.T) {
 	source := rand.NewSource(time.Now().UnixNano())
 	rand := rand.New(source)
 	// Compute public key
+	fis := make([]fr_bls12381.Element, batch)
 	PubKeys := make([]ecies.PublicKey, batch)
 	for i := 0; i < batch; i++ {
 		key, err := ecies.GenerateKey(rand, crypto.S256(), nil)
@@ -31,9 +33,12 @@ func TestBatchEncryptionByMPC(t *testing.T) {
 			panic(err)
 		}
 		PubKeys[i] = key.PublicKey
+		var fi fr_bls12381.Element
+		fi.SetRandom()
+		fis[i] = fi
 	}
 	// Generate fragements and assigment and proof
-	fiBytes, sfi, bfi, nonce, ctt, rs, rb := circuit.BatchGenerateEncryptRandomFragementKey(PubKeys)
+	fiBytes, sfi, bfi, nonce, ctt, rs, rb := circuit.BatchGenerateEncryptRandomFragementKey(PubKeys, fis)
 	// There are two ways to compute a proof
 	// 1) From an existing MPC file
 	phase1Path := "Phase1_" + strconv.Itoa(3)

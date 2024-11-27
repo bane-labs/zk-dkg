@@ -2,6 +2,7 @@ package circuit
 
 import (
 	"crypto/sha256"
+	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -31,7 +32,9 @@ func Test_ECIES_Circuit(t *testing.T) {
 	privKey, err := ecies.GenerateKey(rand, crypto.S256(), nil)
 	assert.NoError(err)
 	// Generate an encrypt fragement key
-	fiBytes, sfi, bfi, nonce, ctt, rs, rb := GenerateEncryptRandomFragementKey(privKey.PublicKey)
+	var fi fr_bls12381.Element
+	fi.SetRandom()
+	fiBytes, sfi, bfi, nonce, ctt, rs, rb := GenerateEncryptRandomFragementKey(privKey.PublicKey, fi)
 	// Compute proof
 	_, circuit, assignment, err := ComputingAssignment(privKey.PublicKey, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
 	assert.NoError(err)
@@ -47,7 +50,9 @@ func TestECIESByMPC(t *testing.T) {
 	privKey, err := ecies.GenerateKey(rand, crypto.S256(), nil)
 	assert.NoError(err)
 	// Generate a encrypt fragement key
-	fiBytes, sfi, bfi, nonce, ctt, rs, rb := GenerateEncryptRandomFragementKey(privKey.PublicKey)
+	var fi fr_bls12381.Element
+	fi.SetRandom()
+	fiBytes, sfi, bfi, nonce, ctt, rs, rb := GenerateEncryptRandomFragementKey(privKey.PublicKey, fi)
 	// Compute proof (two ways)
 	// 1) From an existing MPC file
 	/*	phase1Path := "Phase1_" + strconv.Itoa(3)

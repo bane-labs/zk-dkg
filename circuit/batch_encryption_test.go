@@ -1,6 +1,7 @@
 package circuit
 
 import (
+	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"math/rand"
 	"testing"
 	"time"
@@ -19,14 +20,18 @@ func Test_BatchEncryption_Circuit(t *testing.T) {
 	source := rand.NewSource(time.Now().UnixNano())
 	rand := rand.New(source)
 	// Computing public key
+	fis := make([]fr_bls12381.Element, batch)
 	PubKeys := make([]ecies.PublicKey, batch)
 	for i := 0; i < batch; i++ {
 		key, err := ecies.GenerateKey(rand, crypto.S256(), nil)
 		assert.NoError(err)
 		PubKeys[i] = key.PublicKey
+		var fi fr_bls12381.Element
+		fi.SetRandom()
+		fis[i] = fi
 	}
 	// Generate fragements and assigment
-	fiBytes, sfi, bfi, nonce, ctt, rs, rb := BatchGenerateEncryptRandomFragementKey(PubKeys)
+	fiBytes, sfi, bfi, nonce, ctt, rs, rb := BatchGenerateEncryptRandomFragementKey(PubKeys, fis)
 	_, circuit, assignment, err := BatchComputingAssignment(batch, PubKeys, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
 	assert.NoError(err)
 	err = test.IsSolved(&circuit, assignment, ecc.BN254.ScalarField())
