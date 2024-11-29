@@ -37,18 +37,15 @@ type GCM256 struct {
 
 // AES-GCM encryption
 func (gcm *GCM256) Assert(key [32]uints.U8, iv [12]uints.U8, chunkIndex frontend.Variable, plaintext, ciphertext []uints.U8) {
-
 	inputSize := len(plaintext)
 	numberBlocks := int(inputSize / 16)
 	var epoch int
 	for epoch = 0; epoch < numberBlocks; epoch++ {
-
 		idx := gcm.api.Add(chunkIndex, frontend.Variable(epoch))
 		eIndex := epoch * 16
 
 		var ptBlock [16]uints.U8
 		var ctBlock [16]uints.U8
-
 		for j := 0; j < 16; j++ {
 			ptBlock[j] = plaintext[eIndex+j]
 			ctBlock[j] = ciphertext[eIndex+j]
@@ -66,7 +63,6 @@ func (gcm *GCM256) Assert(key [32]uints.U8, iv [12]uints.U8, chunkIndex frontend
 
 // Required for AES-GCM
 func (gcm *GCM256) GetIV(nonce [12]uints.U8, ctr frontend.Variable) [16]uints.U8 {
-
 	var out [16]uints.U8
 	var i int
 	for i = 0; i < len(nonce); i++ {

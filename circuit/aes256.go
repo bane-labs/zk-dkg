@@ -251,7 +251,6 @@ func (aes *AES256) variableXor(a uints.U8, b uints.U8, size int) uints.U8 {
 
 // Expands 32 byte key to 240 byte output
 func (aes *AES256) expandKey(key [32]uints.U8, sbox0 []uints.U8, RCon []uints.U8) [240]uints.U8 {
-
 	var expand [240]uints.U8
 	i := 0
 
@@ -260,7 +259,6 @@ func (aes *AES256) expandKey(key [32]uints.U8, sbox0 []uints.U8, RCon []uints.U8
 		expand[i+1] = key[i+1]
 		expand[i+2] = key[i+2]
 		expand[i+3] = key[i+3]
-
 		i += 4
 	}
 
@@ -272,7 +270,6 @@ func (aes *AES256) expandKey(key [32]uints.U8, sbox0 []uints.U8, RCon []uints.U8
 
 		if i%32 == 0 {
 			// t = subw(rotw(t)) ^ (uint32(powx[i/nb-1]) << 24)
-
 			// Rotation
 			t0, t1, t2, t3 = t1, t2, t3, t0
 
@@ -293,7 +290,6 @@ func (aes *AES256) expandKey(key [32]uints.U8, sbox0 []uints.U8, RCon []uints.U8
 		expand[i+1] = aes.variableXor(expand[i-32+1], t1, 8)
 		expand[i+2] = aes.variableXor(expand[i-32+2], t2, 8)
 		expand[i+3] = aes.variableXor(expand[i-32+3], t3, 8)
-
 		i += 4
 	}
 

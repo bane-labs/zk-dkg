@@ -17,54 +17,55 @@ import (
 )
 
 // AES-GCM testing
-func Test_AESGCM256_Circuit(t *testing.T) {
+func TestAESGCM256Circuit(t *testing.T) {
 	assert := test.NewAssert(t)
+	// Generate a random secp256k1 key
 	source := rand.NewSource(time.Now().UnixNano())
 	rand := rand.New(source)
 	privKey, err := ecies.GenerateKey(rand, crypto.S256(), nil)
-	if err != nil {
-		return
-	}
+	assert.NoError(err)
+	// Get corresponding pub key bytes for AES
 	var px fp.Element
 	px.SetInterface(privKey.PublicKey.X)
 	var py fp.Element
 	py.SetInterface(privKey.PublicKey.Y)
-	Pub := secp256k1.G1Affine{
+	pub := secp256k1.G1Affine{
 		X: px,
 		Y: py,
 	}
-	RawKey := Pub.RawBytes()
-	m := RawKey[:]
-	M_bytes := make([]uints.U8, len(m))
+	rawKey := pub.RawBytes()
+	m := rawKey[:]
+	mBytes := make([]uints.U8, len(m))
 	for i := 0; i < len(m); i++ {
-		M_bytes[i] = uints.U8{Val: m[i]}
+		mBytes[i] = uints.U8{Val: m[i]}
 	}
 	hasher := sha3.New256()
-	hasher.Write(RawKey[:])
+	hasher.Write(rawKey[:])
 	expected := hasher.Sum(nil)
 	keyBytes := [32]uints.U8{}
 	for i := 0; i < len(keyBytes); i++ {
 		keyBytes[i] = uints.U8{Val: expected[i]}
 	}
+	// Prepare circuit and witness
 	ciphertext, nonce := encryption.AESGcmEncrypt(expected[:], m)
-	Ciphertext_bytes := make([]uints.U8, len(ciphertext))
+	cBytes := make([]uints.U8, len(ciphertext))
 	for i := 0; i < len(ciphertext); i++ {
-		Ciphertext_bytes[i] = uints.U8{Val: ciphertext[i]}
+		cBytes[i] = uints.U8{Val: ciphertext[i]}
 	}
-	nonce_bytes := [12]uints.U8{}
+	nBytes := [12]uints.U8{}
 	for i := 0; i < len(nonce); i++ {
-		nonce_bytes[i] = uints.U8{Val: nonce[i]}
+		nBytes[i] = uints.U8{Val: nonce[i]}
 	}
 	circuit := AESGCM256Wrapper{
-		PlainChunks:  make([]uints.U8, len(M_bytes)),
-		CipherChunks: make([]uints.U8, len(Ciphertext_bytes)),
+		PlainChunks:  make([]uints.U8, len(mBytes)),
+		CipherChunks: make([]uints.U8, len(cBytes)),
 	}
 	witness := AESGCM256Wrapper{
 		Key:          keyBytes,
-		PlainChunks:  M_bytes,
-		Iv:           nonce_bytes,
+		PlainChunks:  mBytes,
+		Iv:           nBytes,
 		ChunkIndex:   2,
-		CipherChunks: Ciphertext_bytes,
+		CipherChunks: cBytes,
 	}
 	err = test.IsSolved(&circuit, &witness, ecc.BN254.ScalarField())
 	assert.NoError(err)

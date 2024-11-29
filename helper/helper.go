@@ -56,18 +56,18 @@ func GetOutputData(proof *groth16.Proof) Output {
 	}
 	output.proof = prf[:]
 	c := new(big.Int).SetBytes(proofBytes[fpSize*8 : fpSize*8+4])
-	commitmentCount := int(c.Int64())
-	var commitments = make([]big.Int, 2*commitmentCount)
+	cmtCount := int(c.Int64())
+	var cmts = make([]big.Int, 2*cmtCount)
 	// commitments
-	for i := 0; i < 2*commitmentCount; i++ {
-		commitments[i].SetBytes(proofBytes[fpSize*8+4+i*fpSize : fpSize*8+4+(i+1)*fpSize])
+	for i := 0; i < 2*cmtCount; i++ {
+		cmts[i].SetBytes(proofBytes[fpSize*8+4+i*fpSize : fpSize*8+4+(i+1)*fpSize])
 	}
-	output.commitments = commitments
-	var commitmentPok [2]*big.Int
+	output.commitments = cmts
+	var cmtPok [2]*big.Int
 	// commitmentPok
-	commitmentPok[0] = new(big.Int).SetBytes(proofBytes[fpSize*8+4+2*commitmentCount*fpSize : fpSize*8+4+2*commitmentCount*fpSize+fpSize])
-	commitmentPok[1] = new(big.Int).SetBytes(proofBytes[fpSize*8+4+2*commitmentCount*fpSize+fpSize : fpSize*8+4+2*commitmentCount*fpSize+2*fpSize])
-	output.commitmentPok = commitmentPok[:]
+	cmtPok[0] = new(big.Int).SetBytes(proofBytes[fpSize*8+4+2*cmtCount*fpSize : fpSize*8+4+2*cmtCount*fpSize+fpSize])
+	cmtPok[1] = new(big.Int).SetBytes(proofBytes[fpSize*8+4+2*cmtCount*fpSize+fpSize : fpSize*8+4+2*cmtCount*fpSize+2*fpSize])
+	output.commitmentPok = cmtPok[:]
 	return output
 }
 

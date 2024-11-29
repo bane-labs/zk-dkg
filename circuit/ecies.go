@@ -50,7 +50,7 @@ func (c *ECIESWrapper[T1, S1, T2, S2]) Define(api frontend.API) error {
 	return nil
 }
 
-func variableToU8(in []frontend.Variable, nbBits int) []uints.U8 {
+func variableToU8s(in []frontend.Variable, nbBits int) []uints.U8 {
 	out := make([]uints.U8, 2*nbBits)
 	for i := 0; i < len(out); i++ {
 		out[i] = uints.U8{Val: in[i]}
@@ -66,38 +66,36 @@ type ECIES[T1, S1, T2, S2 emulated.FieldParams] struct {
 	api frontend.API
 }
 
-func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(api frontend.API, PlainChunks, CipherChunks []frontend.Variable, Iv [12]frontend.Variable, SmallR emulated.Element[S1], BigR, Pub, RPub sw_emulated.AffinePoint[T1], ChunkIndex frontend.Variable, SmallFi emulated.Element[S2], Fi sw_emulated.AffinePoint[T2]) (rawPubInputs []uints.U8, err error) {
-	PlainChunksBytes := make([]uints.U8, len(PlainChunks))
-	for i := 0; i < len(PlainChunks); i++ {
-		PlainChunksBytes[i] = uints.U8{Val: PlainChunks[i]}
+func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(api frontend.API, plainChunks, cipherChunks []frontend.Variable, iv [12]frontend.Variable, r emulated.Element[S1], bigR, pub, rPub sw_emulated.AffinePoint[T1], chunkIndex frontend.Variable, fi emulated.Element[S2], bigFi sw_emulated.AffinePoint[T2]) (pubInputs []uints.U8, err error) {
+	pBytes := make([]uints.U8, len(plainChunks))
+	for i := 0; i < len(plainChunks); i++ {
+		pBytes[i] = uints.U8{Val: plainChunks[i]}
 	}
-	CiphertextBytes := make([]uints.U8, len(CipherChunks))
-	for i := 0; i < len(CipherChunks); i++ {
-		CiphertextBytes[i] = uints.U8{Val: CipherChunks[i]}
+	cBytes := make([]uints.U8, len(cipherChunks))
+	for i := 0; i < len(cipherChunks); i++ {
+		cBytes[i] = uints.U8{Val: cipherChunks[i]}
 	}
-	IV := [12]uints.U8{}
-	for i := 0; i < len(Iv); i++ {
-		IV[i] = uints.U8{Val: Iv[i]}
+	ivBytes := [12]uints.U8{}
+	for i := 0; i < len(iv); i++ {
+		ivBytes[i] = uints.U8{Val: iv[i]}
 	}
 
 	cr, err := sw_emulated.New[T1, S1](api, sw_emulated.GetCurveParams[T1]())
 	if err != nil {
 		return nil, err
 	}
-	// Check BigR=rG
-	cr.AssertIsOnCurve(&BigR)
-	BR := cr.ScalarMulBase(&SmallR)
-	cr.AssertIsEqual(BR, &BigR)
-	// Check Pub
-	cr.AssertIsOnCurve(&Pub)
-	// Check RPub
-	cr.AssertIsOnCurve(&RPub)
-	RPb := cr.ScalarMul(&Pub, &SmallR)
-	cr.AssertIsEqual(RPb, &RPub)
-	// Generate key=hash(RPub)
+	// Check bigR=rG
+	cr.AssertIsOnCurve(&bigR)
+	cr.AssertIsEqual(cr.ScalarMulBase(&r), &bigR)
+	// Check pub
+	cr.AssertIsOnCurve(&pub)
+	// Check rPub
+	cr.AssertIsOnCurve(&rPub)
+	cr.AssertIsEqual(cr.ScalarMul(&pub, &r), &rPub)
+	// Generate key=hash(rPub)
 	nbBits := 8 * ((fp.Modulus().BitLen() + 7) / 8)
 	rawRpub := make([]uints.U8, 2*nbBits)
-	raw := cr.MarshalG1(RPub)
+	raw := cr.MarshalG1(rPub)
 	for i := range raw {
 		rawRpub[i] = uints.U8{Val: raw[i]}
 	}
@@ -116,58 +114,56 @@ func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(api frontend.API, PlainChunks, Ciphe
 	if err != nil {
 		return nil, err
 	}
-	cr2.AssertIsOnCurve(&Fi)
-	F := cr2.ScalarMulBase(&SmallFi)
-	cr2.AssertIsEqual(F, &Fi)
+	cr2.AssertIsOnCurve(&bigFi)
+	cr2.AssertIsEqual(cr2.ScalarMulBase(&fi), &bigFi)
 	// Check aes process
 	aes := NewAES256(api)
 	gcm := NewGCM256(api, &aes)
-	gcm.Assert(key, IV, ChunkIndex, PlainChunksBytes, CiphertextBytes)
+	gcm.Assert(key, ivBytes, chunkIndex, pBytes, cBytes)
 	// Check smallFi==m
 	f, err := emulated.NewField[S2](api)
 	if err != nil {
 		return nil, err
 	}
-	smallFiBits := f.ToBits(&SmallFi)
+	fiBits := f.ToBits(&fi)
 	var plainBits []frontend.Variable
-	for i := range PlainChunksBytes {
-		chunkBits := bits.ToBinary(api, PlainChunksBytes[len(PlainChunksBytes)-i-1].Val, bits.WithNbDigits(8))
+	for i := range pBytes {
+		chunkBits := bits.ToBinary(api, pBytes[len(pBytes)-i-1].Val, bits.WithNbDigits(8))
 		plainBits = append(plainBits, chunkBits...)
 	}
-	if len(plainBits) != len(smallFiBits) {
-		return nil, fmt.Errorf("mismatch length: %d != %d", len(plainBits), len(smallFiBits))
+	if len(plainBits) != len(fiBits) {
+		return nil, fmt.Errorf("mismatch length: %d != %d", len(plainBits), len(fiBits))
 	}
 	for i := range plainBits {
-		api.AssertIsEqual(plainBits[i], smallFiBits[i])
+		api.AssertIsEqual(plainBits[i], fiBits[i])
 	}
-	// Compute rawPubInputs=(pub1,pub2.....)
-	rawBigR := cr.MarshalG1(BigR)
-	rawPub := cr.MarshalG1(Pub)
-	rawFi := cr2.MarshalG1(Fi)
+	// Compute pubInputs=(pub1,pub2.....)
+	rawBigR := cr.MarshalG1(bigR)
+	rawPub := cr.MarshalG1(pub)
+	rawBigFi := cr2.MarshalG1(bigFi)
 	nbBits1 := 8 * ((fp.Modulus().BitLen() + 7) / 8)
 	nbBits2 := 8 * ((fr_bls12381.Modulus().BitLen() + 7) / 8)
-	rawBigR_u8 := variableToU8(rawBigR, nbBits1)
-	rawPub_U8 := variableToU8(rawPub, nbBits1)
-	rawFi_u8 := variableToU8(rawFi, nbBits2)
-	length := len(rawBigR_u8) + len(rawPub_U8) + len(rawFi_u8) + len(Iv) + 1 + len(CipherChunks)
-	rawPubInputs = make([]uints.U8, length)
+	bigRU8s := variableToU8s(rawBigR, nbBits1)
+	pubU8s := variableToU8s(rawPub, nbBits1)
+	bigFiU8s := variableToU8s(rawBigFi, nbBits2)
+	length := len(bigRU8s) + len(pubU8s) + len(bigFiU8s) + len(iv) + 1 + len(cipherChunks)
 
-	for i := range rawBigR_u8 {
-		rawPubInputs[i] = rawBigR_u8[i]
+	pubInputs = make([]uints.U8, length)
+	for i := range bigRU8s {
+		pubInputs[i] = bigRU8s[i]
 	}
-	for i := range rawPub_U8 {
-		rawPubInputs[len(rawBigR_u8)+i] = rawPub_U8[i]
+	for i := range pubU8s {
+		pubInputs[len(pubU8s)+i] = pubU8s[i]
 	}
-	for i := range rawFi_u8 {
-		rawPubInputs[len(rawBigR_u8)+len(rawPub_U8)+i] = rawFi_u8[i]
+	for i := range bigFiU8s {
+		pubInputs[len(bigFiU8s)+len(bigFiU8s)+i] = bigFiU8s[i]
 	}
-
-	for i := range Iv {
-		rawPubInputs[len(rawBigR_u8)+len(rawPub_U8)+len(rawFi_u8)+i] = uints.U8{Val: Iv[i]}
+	for i := range iv {
+		pubInputs[len(bigRU8s)+len(pubU8s)+len(bigFiU8s)+i] = uints.U8{Val: iv[i]}
 	}
-	rawPubInputs[len(rawBigR_u8)+len(rawPub_U8)+len(rawFi_u8)+len(Iv)] = uints.U8{Val: ChunkIndex}
-	for i := range CipherChunks {
-		rawPubInputs[len(rawBigR_u8)+len(rawPub_U8)+len(rawFi_u8)+len(Iv)+1+i] = uints.U8{Val: CipherChunks[i]}
+	pubInputs[len(bigRU8s)+len(pubU8s)+len(bigFiU8s)+len(iv)] = uints.U8{Val: chunkIndex}
+	for i := range cipherChunks {
+		pubInputs[len(bigRU8s)+len(bigFiU8s)+len(bigFiU8s)+len(iv)+1+i] = uints.U8{Val: cipherChunks[i]}
 	}
 	return
 }

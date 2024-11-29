@@ -25,12 +25,10 @@ func AESGcmEncrypt(key []byte, plaintext []byte) (ciphertext, nonce []byte) {
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 		panic(err.Error())
 	}
-
 	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
 		panic(err.Error())
 	}
-
 	ciphertext = aesgcm.Seal(nil, nonce, plaintext, nil)
 	return
 }

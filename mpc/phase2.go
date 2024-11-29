@@ -26,15 +26,15 @@ func InitPhase2(ccs constraint.ConstraintSystem, phase1Path string, phase2Path s
 	}
 	r1cs := ccs.(*cs.R1CS)
 	phase2, evals = mpcsetup.InitPhase2(r1cs, &phase1)
-	FilePhase2Init, err := os.Create(phase2Path)
+	f, err := os.Create(phase2Path)
 	if err != nil {
 		return evals, phase1, phase2, err
 	}
-	_, err = phase2.WriteTo(FilePhase2Init)
+	_, err = phase2.WriteTo(f)
 	if err != nil {
 		return evals, phase1, phase2, err
 	}
-	err = FilePhase2Init.Close()
+	err = f.Close()
 	if err != nil {
 		return evals, phase1, phase2, err
 	}
@@ -122,10 +122,10 @@ func phase2clone(phase2 mpcsetup.Phase2) mpcsetup.Phase2 {
  */
 func ReadPhase2FromFile(path string) (mpcsetup.Phase2, error) {
 	var phase2 mpcsetup.Phase2
-	FilePhase1, err := os.Open(path)
+	f, err := os.Open(path)
 	if err != nil {
 		return phase2, err
 	}
-	_, err = phase2.ReadFrom(FilePhase1)
+	_, err = phase2.ReadFrom(f)
 	return phase2, err
 }

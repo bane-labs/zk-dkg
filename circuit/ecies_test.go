@@ -2,11 +2,12 @@ package circuit
 
 import (
 	"crypto/sha256"
-	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"math/rand"
 	"strconv"
 	"testing"
 	"time"
+
+	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 
 	"github.com/bane-labs/zk-dkg/helper"
 	"github.com/bane-labs/zk-dkg/mpc"
@@ -24,7 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 )
 
-func Test_ECIES_Circuit(t *testing.T) {
+func TestECIESCircuit(t *testing.T) {
 	assert := test.NewAssert(t)
 	// Generate a private key
 	source := rand.NewSource(time.Now().UnixNano())
@@ -34,7 +35,7 @@ func Test_ECIES_Circuit(t *testing.T) {
 	// Generate an encrypt fragement key
 	var fi fr_bls12381.Element
 	fi.SetRandom()
-	fiBytes, sfi, bfi, nonce, ctt, rs, rb := GenerateEncryptRandomFragementKey(privKey.PublicKey, fi)
+	fiBytes, sfi, bfi, nonce, ctt, rs, rb := GenerateEncryptFragementKey(privKey.PublicKey, fi)
 	// Compute proof
 	_, circuit, assignment, err := ComputingAssignment(privKey.PublicKey, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
 	assert.NoError(err)
@@ -42,7 +43,7 @@ func Test_ECIES_Circuit(t *testing.T) {
 	assert.NoError(err)
 }
 
-func TestECIESByMPC(t *testing.T) {
+func TestECIESWithMPC(t *testing.T) {
 	assert := test.NewAssert(t)
 	// Generate a private key
 	source := rand.NewSource(time.Now().UnixNano())
@@ -52,7 +53,7 @@ func TestECIESByMPC(t *testing.T) {
 	// Generate a encrypt fragement key
 	var fi fr_bls12381.Element
 	fi.SetRandom()
-	fiBytes, sfi, bfi, nonce, ctt, rs, rb := GenerateEncryptRandomFragementKey(privKey.PublicKey, fi)
+	fiBytes, sfi, bfi, nonce, ctt, rs, rb := GenerateEncryptFragementKey(privKey.PublicKey, fi)
 	// Compute proof (two ways)
 	// 1) From an existing MPC file
 	/*	phase1Path := "Phase1_" + strconv.Itoa(3)
@@ -76,6 +77,9 @@ func TestECIESByMPC(t *testing.T) {
 
 func computingProof2(css constraint.ConstraintSystem, assignment frontend.Circuit) (groth16.ProvingKey, groth16.VerifyingKey, *groth16.Proof, witness.Witness, error) {
 	pk, vk, err := demoMPCSetUp(css, 3, 3, 24)
+	if err != nil {
+		return groth16.ProvingKey{}, groth16.VerifyingKey{}, nil, nil, err
+	}
 	// Setup
 	err = groth16.Setup(css.(*cs.R1CS), &pk, &vk)
 	if err != nil {
@@ -122,7 +126,9 @@ func demoMPCSetUp(ccs constraint.ConstraintSystem, nContributionsPhase1 int, nCo
 		prepath := "Phase2_" + strconv.Itoa(i)
 		nextPath := "Phase2_" + strconv.Itoa(i+1)
 		_, _, err = mpc.ContributePhase2(prepath, nextPath)
-		return pk, vk, err
+		if err != nil {
+			return pk, vk, err
+		}
 	}
 	srs2, err := mpc.ReadPhase2FromFile("Phase2_" + strconv.Itoa(nContributionsPhase1))
 	if err != nil {

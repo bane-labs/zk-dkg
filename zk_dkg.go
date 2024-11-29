@@ -42,9 +42,6 @@ func GenerateProof(phase1Path string, phase2Path string, pubKey ecies.PublicKey,
 	if err != nil {
 		return groth16.VerifyingKey{}, nil, nil, err
 	}
-	if err != nil {
-		return groth16.VerifyingKey{}, nil, nil, err
-	}
 	_, vk, proof, witness, err = ComputingProof(phase1Path, phase2Path, css, &assignment)
 	if err != nil {
 		return groth16.VerifyingKey{}, nil, nil, err
@@ -82,9 +79,6 @@ func GenerateProof(phase1Path string, phase2Path string, pubKey ecies.PublicKey,
  */
 func BatchGenerateProof(phase1Path string, phase2Path string, pubKey []ecies.PublicKey, rs []big.Int, rb []secp256k1.G1Affine, fiBytes [][]byte, sfi []big.Int, bfi []bls12381.G1Affine, ctt [][]byte, nonce [][]byte) (vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
 	css, _, assignment, err := circuit.BatchComputingAssignment(len(pubKey), pubKey, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
-	if err != nil {
-		return groth16.VerifyingKey{}, nil, nil, err
-	}
 	if err != nil {
 		return groth16.VerifyingKey{}, nil, nil, err
 	}

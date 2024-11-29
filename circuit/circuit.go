@@ -216,7 +216,7 @@ func BatchComputingAssignment(batch int, pubKey []ecies.PublicKey, rs []big.Int,
 		Account.CipherChunks = ciphertextBytes
 
 		Account.SmallFi = emulated.ValueOf[emulated.BLS12381Fr](sfi[index])
-		Account.Fi = sw_emulated.AffinePoint[emulated.BLS12381Fp]{
+		Account.BigFi = sw_emulated.AffinePoint[emulated.BLS12381Fp]{
 			X: emulated.ValueOf[emulated.BLS12381Fp](bfi[index].X),
 			Y: emulated.ValueOf[emulated.BLS12381Fp](bfi[index].Y),
 		}

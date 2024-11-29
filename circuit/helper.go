@@ -11,13 +11,13 @@ import (
 )
 
 /**
- * Function:GenerateRandomFragementKey
+ * Function:GenerateFragementKey
  * @Description: generate a key fragment
  * @return fiBytes: the serialization format of the key
  * @return sfi: the integer format of the key
  * @return bfi: the corresponding elliptic curve point of the key
  */
-func GenerateRandomFragementKey(fi fr_bls12381.Element) (fiBytes []byte, sfi big.Int, bfi bls12381.G1Affine) {
+func GenerateFragementKey(fi fr_bls12381.Element) (fiBytes []byte, sfi big.Int, bfi bls12381.G1Affine) {
 	fi.BigInt(&sfi)
 	fiBytes = make([]byte, 32)
 	sfi.FillBytes(fiBytes)
@@ -27,7 +27,7 @@ func GenerateRandomFragementKey(fi fr_bls12381.Element) (fiBytes []byte, sfi big
 }
 
 /**
- * Function:GenerateEncryptRandomFragementKey
+ * Function:GenerateEncryptFragementKey
  * @Description: generate a encrypted key fragments
  * @param pb: public key required for asymmetric encryption
  * @return fiBytes: the serialization format of the key
@@ -38,14 +38,14 @@ func GenerateRandomFragementKey(fi fr_bls12381.Element) (fiBytes []byte, sfi big
  * @return rs: the integer format of random number
  * @return rb: the corresponding elliptic curve point of random number
  */
-func GenerateEncryptRandomFragementKey(pb ecies.PublicKey, fi fr_bls12381.Element) (fiBytes []byte, sfi big.Int, bfi bls12381.G1Affine, nonce []byte, ctt []byte, rs big.Int, rb secp256k1.G1Affine) {
-	fiBytes, sfi, bfi = GenerateRandomFragementKey(fi)
+func GenerateEncryptFragementKey(pb ecies.PublicKey, fi fr_bls12381.Element) (fiBytes []byte, sfi big.Int, bfi bls12381.G1Affine, nonce []byte, ctt []byte, rs big.Int, rb secp256k1.G1Affine) {
+	fiBytes, sfi, bfi = GenerateFragementKey(fi)
 	nonce, ctt, rs, rb = encryption.ECIESEncrypt(pb, fiBytes)
 	return
 }
 
 /**
- * Function:BatchGenerateEncryptRandomFragementKey
+ * Function:BatchGenerateEncryptFragementKey
  * @Description: generate encryption key fragments in batch
  * @param pb: a set of public key required for asymmetric encryption
  * @return fiBytes: a set of the serialization format of the key
@@ -56,7 +56,7 @@ func GenerateEncryptRandomFragementKey(pb ecies.PublicKey, fi fr_bls12381.Elemen
  * @return rs: a set of the integer format of random number
  * @return rb: a set of the corresponding elliptic curve point of random number
  */
-func BatchGenerateEncryptRandomFragementKey(pb []ecies.PublicKey, fi []fr_bls12381.Element) (fiBytes [][]byte, sfi []big.Int, bfi []bls12381.G1Affine, nonce [][]byte, ctt [][]byte, rs []big.Int, rb []secp256k1.G1Affine) {
+func BatchGenerateEncryptFragementKey(pb []ecies.PublicKey, fi []fr_bls12381.Element) (fiBytes [][]byte, sfi []big.Int, bfi []bls12381.G1Affine, nonce [][]byte, ctt [][]byte, rs []big.Int, rb []secp256k1.G1Affine) {
 	fiBytes = make([][]byte, len(pb))
 	sfi = make([]big.Int, len(pb))
 	bfi = make([]bls12381.G1Affine, len(pb))
@@ -65,7 +65,7 @@ func BatchGenerateEncryptRandomFragementKey(pb []ecies.PublicKey, fi []fr_bls123
 	rs = make([]big.Int, len(pb))
 	rb = make([]secp256k1.G1Affine, len(pb))
 	for i := 0; i < len(pb); i++ {
-		fiBytes[i], sfi[i], bfi[i] = GenerateRandomFragementKey(fi[i])
+		fiBytes[i], sfi[i], bfi[i] = GenerateFragementKey(fi[i])
 		nonce[i], ctt[i], rs[i], rb[i] = encryption.ECIESEncrypt(pb[i], fiBytes[i])
 	}
 	return

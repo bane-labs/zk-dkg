@@ -16,15 +16,15 @@ import (
  */
 func InitPhase1(path string, power int) (phase1 mpcsetup.Phase1, err error) {
 	phase1 = mpcsetup.InitPhase1(power)
-	FilePhase1Init, err := os.Create(path)
+	f, err := os.Create(path)
 	if err != nil {
 		return phase1, err
 	}
-	_, err = phase1.WriteTo(FilePhase1Init)
+	_, err = phase1.WriteTo(f)
 	if err != nil {
 		return phase1, err
 	}
-	err = FilePhase1Init.Close()
+	err = f.Close()
 	if err != nil {
 		return phase1, err
 	}
@@ -51,11 +51,11 @@ func ContributePhase1(prevPath string, nextPath string) (prev mpcsetup.Phase1, n
 	if err != nil {
 		return prev, next, err
 	}
-	FilePhase1Next, err := os.Create(nextPath)
+	f, err := os.Create(nextPath)
 	if err != nil {
 		return prev, next, err
 	}
-	_, err = next.WriteTo(FilePhase1Next)
+	_, err = next.WriteTo(f)
 	if err != nil {
 		return prev, next, err
 	}
@@ -115,10 +115,10 @@ func phase1clone(phase1 mpcsetup.Phase1) mpcsetup.Phase1 {
  */
 func ReadPhase1FromFile(path string) (mpcsetup.Phase1, error) {
 	var phase1 mpcsetup.Phase1
-	FilePhase1, err := os.Open(path)
+	f, err := os.Open(path)
 	if err != nil {
 		return phase1, err
 	}
-	_, err = phase1.ReadFrom(FilePhase1)
+	_, err = phase1.ReadFrom(f)
 	return phase1, err
 }
