@@ -29,25 +29,26 @@ func TestAESGCM256Circuit(t *testing.T) {
 	px.SetInterface(privKey.PublicKey.X)
 	var py fp.Element
 	py.SetInterface(privKey.PublicKey.Y)
-	pub := secp256k1.G1Affine{
+	pubKey := secp256k1.G1Affine{
 		X: px,
 		Y: py,
 	}
-	rawKey := pub.RawBytes()
-	m := rawKey[:]
+	pubKeyBytes := pubKey.RawBytes()
+	m := pubKeyBytes[:]
 	mBytes := make([]uints.U8, len(m))
 	for i := 0; i < len(m); i++ {
 		mBytes[i] = uints.U8{Val: m[i]}
 	}
+	// Hash to an AES key
 	hasher := sha3.New256()
-	hasher.Write(rawKey[:])
+	hasher.Write(pubKeyBytes[:])
 	expected := hasher.Sum(nil)
 	keyBytes := [32]uints.U8{}
 	for i := 0; i < len(keyBytes); i++ {
 		keyBytes[i] = uints.U8{Val: expected[i]}
 	}
 	// Prepare circuit and witness
-	ciphertext, nonce := encryption.AESGcmEncrypt(expected[:], m)
+	ciphertext, nonce := encryption.AESGCMEncrypt(expected[:], m)
 	cBytes := make([]uints.U8, len(ciphertext))
 	for i := 0; i < len(ciphertext); i++ {
 		cBytes[i] = uints.U8{Val: ciphertext[i]}

@@ -31,8 +31,8 @@ func TestBatchEncryptionCircuit(t *testing.T) {
 		fis[i] = fi
 	}
 	// Generate fragements and assigment
-	fiBytes, sfi, bfi, nonce, ctt, rs, rb := BatchGenerateEncryptFragementKey(pubKeys, fis)
-	_, circuit, assignment, err := BatchComputingAssignment(batch, pubKeys, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
+	fisBytes, fisInts, bigFis, nonces, encryptedFis, rs, bigRs := PrepareEncryptedKeyShares(pubKeys, fis)
+	_, circuit, assignment, err := ComputeMultipleKeyShareEncryptionAssignment(batch, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
 	assert.NoError(err)
 	err = test.IsSolved(&circuit, assignment, ecc.BN254.ScalarField())
 	assert.NoError(err)

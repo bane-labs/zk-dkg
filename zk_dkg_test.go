@@ -37,12 +37,12 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 		fis[i] = fi
 	}
 	// Generate fragements and assigment and proof
-	fiBytes, sfi, bfi, nonce, ctt, rs, rb := circuit.BatchGenerateEncryptFragementKey(pubKeys, fis)
+	fisBytes, fisInts, bigFis, nonces, encryptedFis, rs, bigRs := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
 	// There are two ways to compute a proof
 	// 1) From an existing MPC file
 	phase1Path := "Phase1_" + strconv.Itoa(3)
 	phase2Path := "Phase2_" + strconv.Itoa(3)
-	vk, proof, witness, err := BatchGenerateProof(phase1Path, phase2Path, pubKeys, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
+	vk, proof, witness, err := ProveMultipleKeyShareEncryption(phase1Path, phase2Path, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
 	assert.NoError(err)
 	// 2) From a new MPC file
 	/*	css, _, assignment, err := circuit.BatchComputingAssignment(batch, pubKeys, rs, rb, fiBytes, sfi, bfi, ctt, nonce)

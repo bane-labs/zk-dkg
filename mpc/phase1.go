@@ -7,10 +7,10 @@ import (
 )
 
 /**
- * Function:InitPhase1
+ * Function: InitPhase1
  * @Description: generate an initialization phase1 data and write it to the file
  * @param path: file path
- * @param power: data limit,range:1-27
+ * @param power: data limit, range:1-27
  * @return phase1: initialization phase1 data
  * @return err: error
  */
@@ -32,7 +32,7 @@ func InitPhase1(path string, power int) (phase1 mpcsetup.Phase1, err error) {
 }
 
 /**
- * Function:ContributePhase1
+ * Function: ContributePhase1
  * @Description: participate in the MPC process of phase1
  * @param prevPath: previous round phase1 file path
  * @param nextPath: the writing path of the phase1 file in this round
@@ -63,7 +63,7 @@ func ContributePhase1(prevPath string, nextPath string) (prev mpcsetup.Phase1, n
 }
 
 /**
- * Function:VerifyPhase1
+ * Function: VerifyPhase1
  * @Description: verify phase1 file is calculated correctly
  * @param prevPath: previous round phase1 file path
  * @param curPath: current round phase1 file path
@@ -87,7 +87,7 @@ func VerifyPhase1(prevPath string, curPath string) (bool, error) {
 }
 
 /**
- * Function:phase1clone
+ * Function: phase1clone
  * @Description: clone phase1 data
  * @param phase1: phase1 data
  * @return: copy of phase1 data
@@ -107,7 +107,7 @@ func phase1clone(phase1 mpcsetup.Phase1) mpcsetup.Phase1 {
 }
 
 /**
- * Function:ReadPhase1FromFile
+ * Function: ReadPhase1FromFile
  * @Description: get phase1 data from file
  * @param path: file path
  * @return phase1: phase1 data

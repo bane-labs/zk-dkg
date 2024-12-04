@@ -9,7 +9,7 @@ import (
 )
 
 /**
- * Function:InitPhase2
+ * Function: InitPhase2
  * @Description: generate an initialization phase2 data and write it to the file
  * @param ccs: circuit constraints
  * @param phase1Path: phase1 data file path
@@ -42,7 +42,7 @@ func InitPhase2(ccs constraint.ConstraintSystem, phase1Path string, phase2Path s
 }
 
 /**
- * Function:ContributePhase2
+ * Function: ContributePhase2
  * @Description: participate in the MPC process of phase2
  * @param prevPath: previous round phase2 file path
  * @param nextPath: the writing path of the phase2 file in this round
@@ -73,7 +73,7 @@ func ContributePhase2(prevPath string, nextPath string) (prev mpcsetup.Phase2, n
 }
 
 /**
- * Function:VerifyPhase2
+ * Function: VerifyPhase2
  * @Description: verify phase2 file is calculated correctly
  * @param prevPath: previous round phase2 file path
  * @param curPath: current round phase2 file path
@@ -97,7 +97,7 @@ func VerifyPhase2(prevPath string, curPath string) (bool, error) {
 }
 
 /**
- * Function:phase2clone
+ * Function: phase2clone
  * @Description: clone phase2 data
  * @param phase2: phase2 data
  * @return: copy of phase2 data
@@ -114,7 +114,7 @@ func phase2clone(phase2 mpcsetup.Phase2) mpcsetup.Phase2 {
 }
 
 /**
- * Function:ReadPhase2FromFile
+ * Function: ReadPhase2FromFile
  * @Description: get phase2 data from file
  * @param path: file path
  * @return phase2: phase2 data

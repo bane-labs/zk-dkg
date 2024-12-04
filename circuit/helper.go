@@ -11,62 +11,62 @@ import (
 )
 
 /**
- * Function:GenerateFragementKey
- * @Description: generate a key fragment
- * @return fiBytes: the serialization format of the key
- * @return sfi: the integer format of the key
- * @return bfi: the corresponding elliptic curve point of the key
+ * Function: transformKeyShare
+ * @Description: generate necessary data in different format for a single key share in zk dkg
+ * @param fi: a key share in bls12381 fr
+ * @return fiBytes: the key share in byte array
+ * @return fiInt: the key share in integer
+ * @return bigFi: the bls12381 commitment of the key share
  */
-func GenerateFragementKey(fi fr_bls12381.Element) (fiBytes []byte, sfi big.Int, bfi bls12381.G1Affine) {
-	fi.BigInt(&sfi)
+func transformKeyShare(fi fr_bls12381.Element) (fiBytes []byte, fiInt big.Int, bigFi bls12381.G1Affine) {
+	fi.BigInt(&fiInt)
 	fiBytes = make([]byte, 32)
-	sfi.FillBytes(fiBytes)
+	fiInt.FillBytes(fiBytes)
 	_, _, g12381, _ := bls12381.Generators()
-	bfi.ScalarMultiplication(&g12381, &sfi)
+	bigFi.ScalarMultiplication(&g12381, &fiInt)
 	return
 }
 
 /**
- * Function:GenerateEncryptFragementKey
- * @Description: generate a encrypted key fragments
- * @param pb: public key required for asymmetric encryption
- * @return fiBytes: the serialization format of the key
- * @return sfi: the integer format of the key
- * @return bfi: the corresponding elliptic curve point of the key
- * @return nonce: salt
- * @return ctt: a encrypted key fragments
- * @return rs: the integer format of random number
- * @return rb: the corresponding elliptic curve point of random number
+ * Function: encryptKeyShare
+ * @Description: encrypt a key share
+ * @param pub: a public key required for ecies encryption
+ * @param fiBytes: a key share in byte array
+ * @return nonce: the salt
+ * @return encryptedFi: the encrypted key share
+ * @return r: the random number generated and used ecies
+ * @return bigR: the bls12381 commitment of the random number
  */
-func GenerateEncryptFragementKey(pb ecies.PublicKey, fi fr_bls12381.Element) (fiBytes []byte, sfi big.Int, bfi bls12381.G1Affine, nonce []byte, ctt []byte, rs big.Int, rb secp256k1.G1Affine) {
-	fiBytes, sfi, bfi = GenerateFragementKey(fi)
-	nonce, ctt, rs, rb = encryption.ECIESEncrypt(pb, fiBytes)
+func encryptKeyShare(pub ecies.PublicKey, fiBytes []byte) (nonce []byte, encryptedFi []byte, r big.Int, bigR secp256k1.G1Affine) {
+	nonce, encryptedFi, r, bigR = encryption.ECIESEncrypt(pub, fiBytes)
 	return
 }
 
 /**
- * Function:BatchGenerateEncryptFragementKey
- * @Description: generate encryption key fragments in batch
- * @param pb: a set of public key required for asymmetric encryption
- * @return fiBytes: a set of the serialization format of the key
- * @return sfi: a set of the integer format of the key
- * @return bfi: a set of the corresponding elliptic curve point of the key
- * @return nonce: a set of salt
- * @return ctt: a set of a encrypted key fragments
+ * Function: PrepareEncryptedKeyShares
+ * @Description: encrypt a batch of key shares and return related data
+ * @param pubs: a set of public keys required for ecies encryption
+ * @param fis: a set of key shares to be encrypted
+ * @return fisBytes: a set of key shares, each in a byte array
+ * @return fisInts: the key shares in integers
+ * @return bigFis: the bls12381 commitments of the key shares
+ * @return nonces: a set of salts
+ * @return encryptedFis: a set of a encrypted key shares
  * @return rs: a set of the integer format of random number
- * @return rb: a set of the corresponding elliptic curve point of random number
+ * @return bigRs: a set of the corresponding bls12381 commitment of random number
  */
-func BatchGenerateEncryptFragementKey(pb []ecies.PublicKey, fi []fr_bls12381.Element) (fiBytes [][]byte, sfi []big.Int, bfi []bls12381.G1Affine, nonce [][]byte, ctt [][]byte, rs []big.Int, rb []secp256k1.G1Affine) {
-	fiBytes = make([][]byte, len(pb))
-	sfi = make([]big.Int, len(pb))
-	bfi = make([]bls12381.G1Affine, len(pb))
-	nonce = make([][]byte, len(pb))
-	ctt = make([][]byte, len(pb))
-	rs = make([]big.Int, len(pb))
-	rb = make([]secp256k1.G1Affine, len(pb))
-	for i := 0; i < len(pb); i++ {
-		fiBytes[i], sfi[i], bfi[i] = GenerateFragementKey(fi[i])
-		nonce[i], ctt[i], rs[i], rb[i] = encryption.ECIESEncrypt(pb[i], fiBytes[i])
+func PrepareEncryptedKeyShares(pubs []ecies.PublicKey, fis []fr_bls12381.Element) (fisBytes [][]byte, fisInts []big.Int, bigFis []bls12381.G1Affine, nonces [][]byte, encryptedFis [][]byte, rs []big.Int, bigRs []secp256k1.G1Affine) {
+	amount := len(pubs)
+	fisBytes = make([][]byte, amount)
+	fisInts = make([]big.Int, amount)
+	bigFis = make([]bls12381.G1Affine, amount)
+	nonces = make([][]byte, amount)
+	encryptedFis = make([][]byte, amount)
+	rs = make([]big.Int, amount)
+	bigRs = make([]secp256k1.G1Affine, amount)
+	for i := 0; i < amount; i++ {
+		fisBytes[i], fisInts[i], bigFis[i] = transformKeyShare(fis[i])
+		nonces[i], encryptedFis[i], rs[i], bigRs[i] = encryptKeyShare(pubs[i], fisBytes[i])
 	}
 	return
 }

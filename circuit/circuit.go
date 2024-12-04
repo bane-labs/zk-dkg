@@ -18,30 +18,30 @@ import (
 )
 
 /**
- * Function:ComputingAssignment
- * @Description: get input data collection for a zk proof calculation of a key fragment generating process
- * @param pubKey: public key required for asymmetric encryption
- * @param rs: the integer format of random number
- * @param rb: the corresponding elliptic curve point of random number
- * @param fiBytes: the serialization format of the key
- * @param sfi: the integer format of the key
- * @param bfi: the corresponding elliptic curve point of the key
- * @param ctt: a encrypted key fragments
+ * Function: ComputeSingleKeyShareEncryptionAssignment
+ * @Description: get input data collection for a zk proof calculation of a key share generating process
+ * @param pubKey: public key used for key share encryption
+ * @param r: the integer format of random number
+ * @param bigR: the corresponding elliptic curve point of random number
+ * @param fiBytes: the key share in a byte array
+ * @param fiInt: the integer format of the key share
+ * @param bigFi: the bls12381 commitment of the key share
+ * @param encryptedFi: the encrypted key
  * @param nonce: salt
  * @return css: circuit constraints
  * @return circuit: circuit
  * @return assignment: input data collection
  * @return err: error
  */
-func ComputingAssignment(pubKey ecies.PublicKey, rs big.Int, rb secp256k1.G1Affine, fiBytes []byte, sfi big.Int, bfi bls12381.G1Affine, ctt []byte, nonce []byte) (css constraint.ConstraintSystem, circuit ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], assignment ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], err error) {
+func ComputeSingleKeyShareEncryptionAssignment(pubKey ecies.PublicKey, r big.Int, bigR secp256k1.G1Affine, fiBytes []byte, fiInt big.Int, bigFi bls12381.G1Affine, encryptedFi []byte, nonce []byte) (css constraint.ConstraintSystem, circuit ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], assignment ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], err error) {
 	// Format data
 	plainChunksBytes := make([]frontend.Variable, len(fiBytes))
 	for i := 0; i < len(fiBytes); i++ {
 		plainChunksBytes[i] = fiBytes[i]
 	}
-	ciphertextBytes := make([]frontend.Variable, len(ctt))
-	for i := 0; i < len(ctt); i++ {
-		ciphertextBytes[i] = ctt[i]
+	ciphertextBytes := make([]frontend.Variable, len(encryptedFi))
+	for i := 0; i < len(encryptedFi); i++ {
+		ciphertextBytes[i] = encryptedFi[i]
 	}
 	nonceBytes := [12]frontend.Variable{}
 	for i := 0; i < len(nonce); i++ {
@@ -51,48 +51,48 @@ func ComputingAssignment(pubKey ecies.PublicKey, rs big.Int, rb secp256k1.G1Affi
 	px.SetBigInt(pubKey.X)
 	var py fp.Element
 	py.SetBigInt(pubKey.Y)
-	Pub := secp256k1.G1Affine{
+	pub := secp256k1.G1Affine{
 		X: px,
 		Y: py,
 	}
 	// Compute RPub
-	var RPub secp256k1.G1Affine
-	RPub.ScalarMultiplication(&Pub, &rs)
+	var rPub secp256k1.G1Affine
+	rPub.ScalarMultiplication(&pub, &r)
 	// Compute allHash
 	nbBytes := 2 * fr_secp.Bytes
-	rawBigR := rb.RawBytes()
-	RawBigR := make([]byte, 2*fr_secp.Bytes*8)
+	bigRBytes := bigR.RawBytes()
+	rawBigR := make([]byte, 2*fr_secp.Bytes*8)
 	for i := 0; i < nbBytes; i++ {
 		for j := 0; j < 8; j++ {
-			RawBigR[i*8+j] = (rawBigR[i] >> (7 - j)) & 1
+			rawBigR[i*8+j] = (bigRBytes[i] >> (7 - j)) & 1
 		}
 	}
-	rawPub := Pub.RawBytes()
-	RawPub := make([]byte, 2*fr_secp.Bytes*8)
+	pubBytes := pub.RawBytes()
+	rawPub := make([]byte, 2*fr_secp.Bytes*8)
 	for i := 0; i < nbBytes; i++ {
 		for j := 0; j < 8; j++ {
-			RawPub[i*8+j] = (rawPub[i] >> (7 - j)) & 1
+			rawPub[i*8+j] = (pubBytes[i] >> (7 - j)) & 1
 		}
 	}
-	rawFi := bfi.RawBytes()
-	RawFi := make([]byte, 2*fr_secp.Bytes*8)
+	bigFiBytes := bigFi.RawBytes()
+	rawBigFi := make([]byte, 2*fr_secp.Bytes*8)
 	for i := 0; i < nbBytes; i++ {
 		for j := 0; j < 8; j++ {
-			RawFi[i*8+j] = (rawFi[i] >> (7 - j)) & 1
+			rawBigFi[i*8+j] = (bigFiBytes[i] >> (7 - j)) & 1
 		}
 	}
-	temp := append(append(append(append(append(RawBigR, RawPub...), RawFi...), nonce...), 2), ctt...)
-	raw_allHash := helper.GetHash(temp)
-	allHash := make([]frontend.Variable, len(raw_allHash))
-	for i := 0; i < len(allHash); i++ {
-		allHash[i] = raw_allHash[i]
+	temp := append(append(append(append(append(rawBigR, rawPub...), rawBigFi...), nonce...), 2), encryptedFi...)
+	sumHash := helper.GetHash(temp)
+	rawSumHash := make([]frontend.Variable, len(sumHash))
+	for i := 0; i < len(rawSumHash); i++ {
+		rawSumHash[i] = sumHash[i]
 	}
 
 	// Compute proof
 	circuit = ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
 		PlainChunks:  make([]frontend.Variable, len(plainChunksBytes)),
 		CipherChunks: make([]frontend.Variable, len(ciphertextBytes)),
-		PubInputHash: make([]frontend.Variable, len(allHash)),
+		PubInputHash: make([]frontend.Variable, len(rawSumHash)),
 	}
 	css, err = frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
 	if err != nil {
@@ -100,145 +100,145 @@ func ComputingAssignment(pubKey ecies.PublicKey, rs big.Int, rb secp256k1.G1Affi
 	}
 
 	assignment = ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
-		SmallR: emulated.ValueOf[emulated.Secp256k1Fr](rs),
+		SmallR: emulated.ValueOf[emulated.Secp256k1Fr](r),
 		BigR: sw_emulated.AffinePoint[emulated.Secp256k1Fp]{
-			X: emulated.ValueOf[emulated.Secp256k1Fp](rb.X),
-			Y: emulated.ValueOf[emulated.Secp256k1Fp](rb.Y),
+			X: emulated.ValueOf[emulated.Secp256k1Fp](bigR.X),
+			Y: emulated.ValueOf[emulated.Secp256k1Fp](bigR.Y),
 		},
 		Pub: sw_emulated.AffinePoint[emulated.Secp256k1Fp]{
-			X: emulated.ValueOf[emulated.Secp256k1Fp](Pub.X),
-			Y: emulated.ValueOf[emulated.Secp256k1Fp](Pub.Y),
+			X: emulated.ValueOf[emulated.Secp256k1Fp](pub.X),
+			Y: emulated.ValueOf[emulated.Secp256k1Fp](pub.Y),
 		},
 		RPub: sw_emulated.AffinePoint[emulated.Secp256k1Fp]{
-			X: emulated.ValueOf[emulated.Secp256k1Fp](RPub.X),
-			Y: emulated.ValueOf[emulated.Secp256k1Fp](RPub.Y),
+			X: emulated.ValueOf[emulated.Secp256k1Fp](rPub.X),
+			Y: emulated.ValueOf[emulated.Secp256k1Fp](rPub.Y),
 		},
 		PlainChunks:  plainChunksBytes,
 		Iv:           nonceBytes,
 		ChunkIndex:   2,
 		CipherChunks: ciphertextBytes,
 
-		SmallFi: emulated.ValueOf[emulated.BLS12381Fr](sfi),
+		SmallFi: emulated.ValueOf[emulated.BLS12381Fr](fiInt),
 		Fi: sw_emulated.AffinePoint[emulated.BLS12381Fp]{
-			X: emulated.ValueOf[emulated.BLS12381Fp](bfi.X),
-			Y: emulated.ValueOf[emulated.BLS12381Fp](bfi.Y),
+			X: emulated.ValueOf[emulated.BLS12381Fp](bigFi.X),
+			Y: emulated.ValueOf[emulated.BLS12381Fp](bigFi.Y),
 		},
-		PubInputHash: allHash,
+		PubInputHash: rawSumHash,
 	}
 	return
 }
 
 /**
- * Function:BatchComputingAssignment
- * @Description: get input data collection for a zk proof calculation of key fragments batch generating process
+ * Function: ComputeMultipleKeyShareEncryptionAssignment
+ * @Description: get input data collection for a zk proof calculation of key shares batch generating process
  * @param batch: batch size
- * @param pubKey: a set of public keys required for asymmetric encryption
+ * @param pubKey: a set of public keys required for key share encryption
  * @param rs: a set of the integer format of random numbers
- * @param rb: a set of the corresponding elliptic curve point of random numbers
- * @param fiBytes: a set of the serialization format of the keys
- * @param sfi: a set of the integer format of the keys
- * @param bfi: a set of the corresponding elliptic curve points of the key
- * @param ctt: a set of encrypted key fragments
- * @param nonce: a set of salt
+ * @param bigRs: a set of the corresponding elliptic curve point of random numbers
+ * @param fisBytes: a set of the serialization format of the keys
+ * @param fisInts: a set of the integer format of the keys
+ * @param bigFis: a set of the corresponding elliptic curve points of the key
+ * @param encryptedFis: a set of encrypted key shares
+ * @param nonces: a set of salt
  * @return css: circuit constraints
  * @return circuit: circuit
  * @return assignment: input data collection
  * @return err: error
  */
-func BatchComputingAssignment(batch int, pubKey []ecies.PublicKey, rs []big.Int, rb []secp256k1.G1Affine, fiBytes [][]byte, sfi []big.Int, bfi []bls12381.G1Affine, ctt [][]byte, nonce [][]byte) (css constraint.ConstraintSystem, circuit BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], assignment *BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], err error) {
-	Accounts := make([]AccountConstraints[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], batch)
+func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []ecies.PublicKey, rs []big.Int, bigRs []secp256k1.G1Affine, fisBytes [][]byte, fisInts []big.Int, bigFis []bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) (css constraint.ConstraintSystem, circuit BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], assignment *BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], err error) {
+	accounts := make([]AccountConstraints[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], batch)
 	rawPubInputs := make([]byte, 0)
 	for index := 0; index < batch; index++ {
 		// Format data
-		plainChunksBytes := make([]frontend.Variable, len(fiBytes[index]))
-		for i := 0; i < len(fiBytes[index]); i++ {
-			plainChunksBytes[i] = fiBytes[index][i]
+		plainChunksBytes := make([]frontend.Variable, len(fisBytes[index]))
+		for i := 0; i < len(fisBytes[index]); i++ {
+			plainChunksBytes[i] = fisBytes[index][i]
 		}
-		ciphertextBytes := make([]frontend.Variable, len(ctt[index]))
-		for i := 0; i < len(ctt[index]); i++ {
-			ciphertextBytes[i] = ctt[index][i]
+		ciphertextBytes := make([]frontend.Variable, len(encryptedFis[index]))
+		for i := 0; i < len(encryptedFis[index]); i++ {
+			ciphertextBytes[i] = encryptedFis[index][i]
 		}
-		nonceBytes := [12]frontend.Variable{}
-		for i := 0; i < len(nonce[index]); i++ {
-			nonceBytes[i] = nonce[index][i]
+		noncesBytes := [12]frontend.Variable{}
+		for i := 0; i < len(nonces[index]); i++ {
+			noncesBytes[i] = nonces[index][i]
 		}
 		var px fp.Element
 		px.SetBigInt(pubKey[index].X)
 		var py fp.Element
 		py.SetBigInt(pubKey[index].Y)
-		Pub := secp256k1.G1Affine{
+		pub := secp256k1.G1Affine{
 			X: px,
 			Y: py,
 		}
 		// Compute RPub
-		var RPub secp256k1.G1Affine
-		RPub.ScalarMultiplication(&Pub, &rs[index])
+		var rPub secp256k1.G1Affine
+		rPub.ScalarMultiplication(&pub, &rs[index])
 		// Compute allHash
 		nbBytes := 2 * fr_secp.Bytes
-		rawBigR := rb[index].RawBytes()
-		RawBigR := make([]byte, 2*fr_secp.Bytes*8)
+		bigRsBytes := bigRs[index].RawBytes()
+		rawBigRs := make([]byte, 2*fr_secp.Bytes*8)
 		for i := 0; i < nbBytes; i++ {
 			for j := 0; j < 8; j++ {
-				RawBigR[i*8+j] = (rawBigR[i] >> (7 - j)) & 1
+				rawBigRs[i*8+j] = (bigRsBytes[i] >> (7 - j)) & 1
 			}
 		}
-		rawPub := Pub.RawBytes()
-		RawPub := make([]byte, 2*fr_secp.Bytes*8)
+		pubBytes := pub.RawBytes()
+		rawPub := make([]byte, 2*fr_secp.Bytes*8)
 		for i := 0; i < nbBytes; i++ {
 			for j := 0; j < 8; j++ {
-				RawPub[i*8+j] = (rawPub[i] >> (7 - j)) & 1
+				rawPub[i*8+j] = (pubBytes[i] >> (7 - j)) & 1
 			}
 		}
-		rawFi := bfi[index].RawBytes()
-		RawFi := make([]byte, 2*fr_secp.Bytes*8)
+		bigFisBytes := bigFis[index].RawBytes()
+		rawBigFis := make([]byte, 2*fr_secp.Bytes*8)
 		for i := 0; i < nbBytes; i++ {
 			for j := 0; j < 8; j++ {
-				RawFi[i*8+j] = (rawFi[i] >> (7 - j)) & 1
+				rawBigFis[i*8+j] = (bigFisBytes[i] >> (7 - j)) & 1
 			}
 		}
-		var Account AccountConstraints[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]
-		Account.SmallR = emulated.ValueOf[emulated.Secp256k1Fr](rs[index])
-		Account.BigR = sw_emulated.AffinePoint[emulated.Secp256k1Fp]{
-			X: emulated.ValueOf[emulated.Secp256k1Fp](rb[index].X),
-			Y: emulated.ValueOf[emulated.Secp256k1Fp](rb[index].Y),
+		var account AccountConstraints[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]
+		account.SmallR = emulated.ValueOf[emulated.Secp256k1Fr](rs[index])
+		account.BigR = sw_emulated.AffinePoint[emulated.Secp256k1Fp]{
+			X: emulated.ValueOf[emulated.Secp256k1Fp](bigRs[index].X),
+			Y: emulated.ValueOf[emulated.Secp256k1Fp](bigRs[index].Y),
 		}
-		Account.Pub = sw_emulated.AffinePoint[emulated.Secp256k1Fp]{
-			X: emulated.ValueOf[emulated.Secp256k1Fp](Pub.X),
-			Y: emulated.ValueOf[emulated.Secp256k1Fp](Pub.Y),
+		account.Pub = sw_emulated.AffinePoint[emulated.Secp256k1Fp]{
+			X: emulated.ValueOf[emulated.Secp256k1Fp](pub.X),
+			Y: emulated.ValueOf[emulated.Secp256k1Fp](pub.Y),
 		}
-		Account.RPub = sw_emulated.AffinePoint[emulated.Secp256k1Fp]{
-			X: emulated.ValueOf[emulated.Secp256k1Fp](RPub.X),
-			Y: emulated.ValueOf[emulated.Secp256k1Fp](RPub.Y),
+		account.RPub = sw_emulated.AffinePoint[emulated.Secp256k1Fp]{
+			X: emulated.ValueOf[emulated.Secp256k1Fp](rPub.X),
+			Y: emulated.ValueOf[emulated.Secp256k1Fp](rPub.Y),
 		}
-		Account.PlainChunks = plainChunksBytes
-		Account.Iv = nonceBytes
-		Account.ChunkIndex = 2
-		Account.CipherChunks = ciphertextBytes
+		account.PlainChunks = plainChunksBytes
+		account.Iv = noncesBytes
+		account.ChunkIndex = 2
+		account.CipherChunks = ciphertextBytes
 
-		Account.SmallFi = emulated.ValueOf[emulated.BLS12381Fr](sfi[index])
-		Account.BigFi = sw_emulated.AffinePoint[emulated.BLS12381Fp]{
-			X: emulated.ValueOf[emulated.BLS12381Fp](bfi[index].X),
-			Y: emulated.ValueOf[emulated.BLS12381Fp](bfi[index].Y),
+		account.SmallFi = emulated.ValueOf[emulated.BLS12381Fr](fisInts[index])
+		account.BigFi = sw_emulated.AffinePoint[emulated.BLS12381Fp]{
+			X: emulated.ValueOf[emulated.BLS12381Fp](bigFis[index].X),
+			Y: emulated.ValueOf[emulated.BLS12381Fp](bigFis[index].Y),
 		}
-		Accounts[index] = Account
-		rawPubInputs = append(rawPubInputs, append(append(append(append(append(RawBigR, RawPub...), RawFi...), nonce[index]...), 2), ctt[index]...)...)
+		accounts[index] = account
+		rawPubInputs = append(rawPubInputs, append(append(append(append(append(rawBigRs, rawPub...), rawBigFis...), nonces[index]...), 2), encryptedFis[index]...)...)
 	}
-	rawCommandHash := helper.GetHash(rawPubInputs)
-	CommandHash := make([]frontend.Variable, len(rawCommandHash))
-	for i := 0; i < len(rawCommandHash); i++ {
-		CommandHash[i] = rawCommandHash[i]
+	sumHash := helper.GetHash(rawPubInputs)
+	rawSumHash := make([]frontend.Variable, len(sumHash))
+	for i := 0; i < len(sumHash); i++ {
+		rawSumHash[i] = sumHash[i]
 	}
 	assignment = &BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
-		Account:      Accounts,
-		CommentsHash: CommandHash,
+		Account:      accounts,
+		CommentsHash: rawSumHash,
 	}
 	circuit = BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
 		Account:      make([]AccountConstraints[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], batch),
 		CommentsHash: make([]frontend.Variable, 32),
 	}
 	for i := 0; i < batch; i++ {
-		circuit.Account[i].PlainChunks = make([]frontend.Variable, len(fiBytes[i]))
-		circuit.Account[i].CipherChunks = make([]frontend.Variable, len(ctt[i]))
+		circuit.Account[i].PlainChunks = make([]frontend.Variable, len(fisBytes[i]))
+		circuit.Account[i].CipherChunks = make([]frontend.Variable, len(encryptedFis[i]))
 	}
 
 	css, err = frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
