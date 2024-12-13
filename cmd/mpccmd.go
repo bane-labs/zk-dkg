@@ -3,6 +3,11 @@ package main
 import (
 	"errors"
 	"fmt"
+	"math/rand"
+	"os"
+	"strconv"
+	"time"
+
 	"github.com/bane-labs/zk-dkg/circuit"
 	"github.com/bane-labs/zk-dkg/mpc"
 	"github.com/consensys/gnark-crypto/ecc"
@@ -12,10 +17,6 @@ import (
 	"github.com/consensys/gnark/std/math/emulated"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
-	"math/rand"
-	"os"
-	"strconv"
-	"time"
 
 	"github.com/urfave/cli/v2"
 )
@@ -26,11 +27,8 @@ const (
 )
 
 var (
-	inputFileNameFlag1 = &cli.PathFlag{
-		Name: "input1",
-	}
-	inputFileNameFlag2 = &cli.PathFlag{
-		Name: "input2",
+	inputFileNameFlag = &cli.PathFlag{
+		Name: "input",
 	}
 	outputFileNameFlag = &cli.PathFlag{
 		Name: "output",
@@ -44,76 +42,111 @@ func main() {
 	app := &cli.App{
 		Commands: []*cli.Command{
 			{
-				Name:        "phase1",
-				Usage:       "Deal with MPC phase1",
-				Description: ``,
+				Name:  "phase1",
+				Usage: "Deal with MPC phase1",
+				Description: `
+Phase1 commands deal the generation of Groth16 setup parameters,
+should be performed before any ZK application deployed based on
+this algorithm, and later can be used by any phase2 which needs
+this MPC.`,
 				Subcommands: []*cli.Command{
 					{
 						Name:   "init",
-						Usage:  "",
+						Usage:  "Generate the first phase1 file",
 						Action: initPhase1,
 						Flags: []cli.Flag{
 							outputFileNameFlag,
 						},
-						Description: ``,
+						Description: `
+	phase1 init --output <filepath>
+
+will generate a phase1 file without any input, should be used by
+the first participant to generate the first file.`,
 					},
 					{
 						Name:   "verify",
-						Usage:  "",
+						Usage:  "Verify the phase1 file step forward",
 						Action: verifyPhase1,
 						Flags: []cli.Flag{
-							inputFileNameFlag1,
-							inputFileNameFlag2,
+							inputFileNameFlag,
+							outputFileNameFlag,
 						},
-						Description: ``,
+						Description: `
+	phase1 verify --input <filepath> --output <filepath>
+
+will verify the contribute operation that takes place on the input
+file to the output file, should be used before any further contribution
+to the unverified output file.`,
 					},
 					{
 						Name:   "contribute",
-						Usage:  "",
+						Usage:  "Contribute to the phase1 MPC",
 						Action: contributePhase1,
 						Flags: []cli.Flag{
-							inputFileNameFlag1,
+							inputFileNameFlag,
 							outputFileNameFlag,
 						},
-						Description: ``,
+						Description: `
+	phase1 contribute --input <filepath> --output <filepath>
+
+will generate a new phase1 file based on the input one, every
+participant should do this only once and one by one, so that a
+chain of this contribute operations realize a MPC`,
 					},
 				},
 			},
 			{
-				Name:        "phase2",
-				Usage:       "Deal with MPC phase2",
-				Description: ``,
+				Name:  "phase2",
+				Usage: "Deal with MPC phase2",
+				Description: `
+Phase2 commands deal the generation of circuit setup parameters,
+should be performed before every ZK application deployed based on
+phase1, and later can be used by this application repeatedly.`,
 				Subcommands: []*cli.Command{
 					{
 						Name:   "init",
-						Usage:  "",
+						Usage:  "Generate the first phase2 file",
 						Action: initPhase2,
 						Flags: []cli.Flag{
-							inputFileNameFlag1,
+							inputFileNameFlag,
 							outputFileNameFlag,
 							batchFlag,
 						},
-						Description: ``,
+						Description: `
+	phase2 init --input <filepath> --output <filepath>
+
+will generate a phase2 file with a phase1 input, should be used by
+the first participant to generate the first file.`,
 					},
 					{
 						Name:   "verify",
-						Usage:  "",
+						Usage:  "Verify the phase2 file step forward",
 						Action: verifyPhase2,
 						Flags: []cli.Flag{
-							inputFileNameFlag1,
-							inputFileNameFlag2,
+							inputFileNameFlag,
+							outputFileNameFlag,
 						},
-						Description: ``,
+						Description: `
+	phase2 verify --input <filepath> --output <filepath>
+
+will verify the contribute operation that takes place on the input
+file to the output file, should be used before any further contribution
+to the unverified output file.`,
 					},
 					{
 						Name:   "contribute",
-						Usage:  "",
+						Usage:  "Contribute to the phase2 MPC",
 						Action: contributePhase2,
 						Flags: []cli.Flag{
-							inputFileNameFlag1,
+							inputFileNameFlag,
 							outputFileNameFlag,
 						},
-						Description: ``,
+						Description: `
+	phase2 contribute --input <filepath> --output <filepath>
+
+will generate a new phase2 file based on the input one, every
+participant should do this only once and one by one, so that a
+chain of this contribute operations realize a MPC`,
 					},
 				},
 			},
@@ -139,13 +172,13 @@ func initPhase1(ctx *cli.Context) error {
 }
 
 func verifyPhase1(ctx *cli.Context) error {
-	path1 := ctx.Path(inputFileNameFlag1.Name)
+	path1 := ctx.Path(inputFileNameFlag.Name)
 	if path1 == "" {
-		return errors.New("inputFile1 path can not be nil")
+		return errors.New("inputFile path can not be nil")
 	}
-	path2 := ctx.Path(inputFileNameFlag2.Name)
+	path2 := ctx.Path(outputFileNameFlag.Name)
 	if path2 == "" {
-		return errors.New("inputFile2 path can not be nil")
+		return errors.New("outputFile path can not be nil")
 	}
 	_, err := mpc.VerifyPhase1(path1, path2)
 	if err != nil {
@@ -156,7 +189,7 @@ func verifyPhase1(ctx *cli.Context) error {
 }
 
 func contributePhase1(ctx *cli.Context) error {
-	inputPath := ctx.Path(inputFileNameFlag1.Name)
+	inputPath := ctx.Path(inputFileNameFlag.Name)
 	if inputPath == "" {
 		return errors.New("inputFile1 path can not be nil")
 	}
@@ -172,9 +205,9 @@ func contributePhase1(ctx *cli.Context) error {
 }
 
 func initPhase2(ctx *cli.Context) error {
-	inputPath := ctx.Path(inputFileNameFlag1.Name)
+	inputPath := ctx.Path(inputFileNameFlag.Name)
 	if inputPath == "" {
-		return errors.New("inputFile1 path can not be nil")
+		return errors.New("inputFile path can not be nil")
 	}
 	outputpath := ctx.Path(outputFileNameFlag.Name)
 	if outputpath == "" {
@@ -223,13 +256,13 @@ func initPhase2(ctx *cli.Context) error {
 }
 
 func verifyPhase2(ctx *cli.Context) error {
-	path1 := ctx.Path(inputFileNameFlag1.Name)
+	path1 := ctx.Path(inputFileNameFlag.Name)
 	if path1 == "" {
-		return errors.New("inputFile1 path can not be nil")
+		return errors.New("inputFile path can not be nil")
 	}
-	path2 := ctx.Path(inputFileNameFlag2.Name)
+	path2 := ctx.Path(outputFileNameFlag.Name)
 	if path2 == "" {
-		return errors.New("inputFile2 path can not be nil")
+		return errors.New("outputFile path can not be nil")
 	}
 	_, err := mpc.VerifyPhase2(path1, path2)
 	if err != nil {
@@ -240,9 +273,9 @@ func verifyPhase2(ctx *cli.Context) error {
 }
 
 func contributePhase2(ctx *cli.Context) error {
-	inputPath := ctx.Path(inputFileNameFlag1.Name)
+	inputPath := ctx.Path(inputFileNameFlag.Name)
 	if inputPath == "" {
-		return errors.New("inputFile1 path can not be nil")
+		return errors.New("inputFile path can not be nil")
 	}
 	outputPath := ctx.Path(outputFileNameFlag.Name)
 	if outputPath == "" {
