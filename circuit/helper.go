@@ -37,7 +37,7 @@ func transformKeyShare(fi fr_bls12381.Element) (fiBytes []byte, fiInt big.Int, b
  * @return r: the random number generated and used ecies
  * @return bigR: the bls12381 commitment of the random number
  */
-func encryptKeyShare(pub ecies.PublicKey, fiBytes []byte) (nonce []byte, encryptedFi []byte, r big.Int, bigR secp256k1.G1Affine) {
+func encryptKeyShare(pub *ecies.PublicKey, fiBytes []byte) (nonce []byte, encryptedFi []byte, r big.Int, bigR secp256k1.G1Affine) {
 	nonce, encryptedFi, r, bigR = encryption.ECIESEncrypt(pub, fiBytes)
 	return
 }
@@ -55,7 +55,7 @@ func encryptKeyShare(pub ecies.PublicKey, fiBytes []byte) (nonce []byte, encrypt
  * @return rs: a set of the integer format of random number
  * @return bigRs: a set of the corresponding bls12381 commitment of random number
  */
-func PrepareEncryptedKeyShares(pubs []ecies.PublicKey, fis []fr_bls12381.Element) (fisBytes [][]byte, fisInts []big.Int, bigFis []bls12381.G1Affine, nonces [][]byte, encryptedFis [][]byte, rs []big.Int, bigRs []secp256k1.G1Affine) {
+func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []fr_bls12381.Element) (fisBytes [][]byte, fisInts []big.Int, bigFis []bls12381.G1Affine, nonces [][]byte, encryptedFis [][]byte, rs []big.Int, bigRs []secp256k1.G1Affine) {
 	amount := len(pubs)
 	fisBytes = make([][]byte, amount)
 	fisInts = make([]big.Int, amount)

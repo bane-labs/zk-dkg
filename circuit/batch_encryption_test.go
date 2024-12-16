@@ -21,11 +21,11 @@ func TestBatchEncryptionCircuit(t *testing.T) {
 	rand := rand.New(source)
 	// Computing public key
 	fis := make([]fr_bls12381.Element, batch)
-	pubKeys := make([]ecies.PublicKey, batch)
+	pubKeys := make([]*ecies.PublicKey, batch)
 	for i := 0; i < batch; i++ {
 		key, err := ecies.GenerateKey(rand, crypto.S256(), nil)
 		assert.NoError(err)
-		pubKeys[i] = key.PublicKey
+		pubKeys[i] = &key.PublicKey
 		var fi fr_bls12381.Element
 		fi.SetRandom()
 		fis[i] = fi

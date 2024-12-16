@@ -30,7 +30,7 @@ import (
  * @return witness: witness of zk proof
  * @return err:
  */
-func ProveSingleKeyShareEncryption(phase1Path string, phase2Path string, pubKey ecies.PublicKey, r big.Int, bigR secp256k1.G1Affine, fiBytes []byte, fiInt big.Int, bigFi bls12381.G1Affine, encryptedFi []byte, nonce []byte) (vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
+func ProveSingleKeyShareEncryption(phase1Path string, phase2Path string, pubKey *ecies.PublicKey, r big.Int, bigR secp256k1.G1Affine, fiBytes []byte, fiInt big.Int, bigFi bls12381.G1Affine, encryptedFi []byte, nonce []byte) (vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
 	css, _, assignment, err := circuit.ComputeSingleKeyShareEncryptionAssignment(pubKey, r, bigR, fiBytes, fiInt, bigFi, encryptedFi, nonce)
 	if err != nil {
 		return groth16.VerifyingKey{}, nil, nil, err
@@ -70,7 +70,7 @@ func ProveSingleKeyShareEncryption(phase1Path string, phase2Path string, pubKey 
  * @return witness: witness of zk proof
  * @return err:
  */
-func ProveMultipleKeyShareEncryption(phase1Path string, phase2Path string, pubKey []ecies.PublicKey, rs []big.Int, bigRs []secp256k1.G1Affine, fisBytes [][]byte, fisInts []big.Int, bigFis []bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) (vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
+func ProveMultipleKeyShareEncryption(phase1Path string, phase2Path string, pubKey []*ecies.PublicKey, rs []big.Int, bigRs []secp256k1.G1Affine, fisBytes [][]byte, fisInts []big.Int, bigFis []bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) (vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
 	css, _, assignment, err := circuit.ComputeMultipleKeyShareEncryptionAssignment(len(pubKey), pubKey, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
 	if err != nil {
 		return groth16.VerifyingKey{}, nil, nil, err

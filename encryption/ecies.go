@@ -20,7 +20,7 @@ import (
  * @return r: integer form of random number
  * @return bigR: the point on the elliptic curve corresponding to the random number
  */
-func ECIESEncrypt(pub ecies.PublicKey, plaintext []byte) (nonce []byte, ciphertext []byte, r big.Int, bigR secp256k1.G1Affine) {
+func ECIESEncrypt(pub *ecies.PublicKey, plaintext []byte) (nonce []byte, ciphertext []byte, r big.Int, bigR secp256k1.G1Affine) {
 	// Format public key
 	var px fp.Element
 	px.SetBigInt(pub.X)

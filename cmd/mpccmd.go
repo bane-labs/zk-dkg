@@ -226,10 +226,10 @@ func initPhase2(ctx *cli.Context) error {
 	rand := rand.New(source)
 	// Computing public key
 	fis := make([]fr_bls12381.Element, size)
-	pubKeys := make([]ecies.PublicKey, size)
+	pubKeys := make([]*ecies.PublicKey, size)
 	for i := 0; i < size; i++ {
 		key, _ := ecies.GenerateKey(rand, crypto.S256(), nil)
-		pubKeys[i] = key.PublicKey
+		pubKeys[i] = &key.PublicKey
 		var fi fr_bls12381.Element
 		fi.SetRandom()
 		fis[i] = fi
