@@ -17,10 +17,10 @@ import (
  * @param plaintext: plain text string
  * @return nonce: salt
  * @return ciphertext: cipher text string
- * @return rs: integer form of random number
- * @return rb: the point on the elliptic curve corresponding to the random number
+ * @return r: integer form of random number
+ * @return bigR: the point on the elliptic curve corresponding to the random number
  */
-func ECIESEncrypt(pub ecies.PublicKey, plaintext []byte) (nonce []byte, ciphertext []byte, rs big.Int, rb secp256k1.G1Affine) {
+func ECIESEncrypt(pub ecies.PublicKey, plaintext []byte) (nonce []byte, ciphertext []byte, r big.Int, bigR secp256k1.G1Affine) {
 	// Format public key
 	var px fp.Element
 	px.SetBigInt(pub.X)
@@ -30,15 +30,12 @@ func ECIESEncrypt(pub ecies.PublicKey, plaintext []byte) (nonce []byte, cipherte
 		X: px,
 		Y: py,
 	}
-	// Generate random r, rb=rG
+	// Generate random r, bigR=rG
 	_, g := secp256k1.Generators()
-	var r fr_secp.Element
-	r.SetRandom()
-	r.BigInt(&rs)
-	rb.ScalarMultiplication(&g, &rs)
+	bigR.ScalarMultiplication(&g, &r)
 	// Compute rPub=r*PublicKey
 	var rPub secp256k1.G1Affine
-	rPub.ScalarMultiplication(&pg1, &rs)
+	rPub.ScalarMultiplication(&pg1, &r)
 	// Compute rPubBytes=hash(rPub)
 	nbBytes := 2 * fr_secp.Bytes
 	rPubBytes := make([]byte, nbBytes*8)
@@ -60,14 +57,14 @@ func ECIESEncrypt(pub ecies.PublicKey, plaintext []byte) (nonce []byte, cipherte
  * @param prv: private key
  * @param ciphertext: cipher text string
  * @param nonce: salt
- * @param rb: the point on the elliptic curve corresponding to the random number
+ * @param bigR: the point on the elliptic curve corresponding to the random number
  * @return plaintext: plain text string
  * @return err: error
  */
-func ECIESDecrypt(prv *ecies.PrivateKey, ciphertext []byte, nonce []byte, rb secp256k1.G1Affine) (plaintext []byte, err error) {
+func ECIESDecrypt(prv *ecies.PrivateKey, ciphertext []byte, nonce []byte, bigR secp256k1.G1Affine) (plaintext []byte, err error) {
 	// Compute rPub=r*PublicKey
 	var rPub secp256k1.G1Affine
-	rPub.ScalarMultiplication(&rb, prv.D)
+	rPub.ScalarMultiplication(&bigR, prv.D)
 	// Compute rPubBytes=hash(rPub)
 	nbBytes := 2 * fr_secp.Bytes
 	rPubBytes := make([]byte, nbBytes*8)

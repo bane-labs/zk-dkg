@@ -30,8 +30,8 @@ import (
  * @return witness: witness of zk proof
  * @return err:
  */
-func ProveSingleKeyShareEncryption(phase1Path string, phase2Path string, pubKey ecies.PublicKey, rs big.Int, rb secp256k1.G1Affine, fiBytes []byte, fiInt big.Int, bigFi bls12381.G1Affine, encryptedFi []byte, nonce []byte) (vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
-	css, _, assignment, err := circuit.ComputeSingleKeyShareEncryptionAssignment(pubKey, rs, rb, fiBytes, fiInt, bigFi, encryptedFi, nonce)
+func ProveSingleKeyShareEncryption(phase1Path string, phase2Path string, pubKey ecies.PublicKey, r big.Int, bigR secp256k1.G1Affine, fiBytes []byte, fiInt big.Int, bigFi bls12381.G1Affine, encryptedFi []byte, nonce []byte) (vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
+	css, _, assignment, err := circuit.ComputeSingleKeyShareEncryptionAssignment(pubKey, r, bigR, fiBytes, fiInt, bigFi, encryptedFi, nonce)
 	if err != nil {
 		return groth16.VerifyingKey{}, nil, nil, err
 	}
