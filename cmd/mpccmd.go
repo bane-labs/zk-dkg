@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"github.com/bane-labs/zk-dkg/helper"
 	"math/rand"
 	"os"
 	"strconv"
@@ -32,6 +33,9 @@ var (
 	}
 	outputFileNameFlag = &cli.PathFlag{
 		Name: "output",
+	}
+	contractFileNameFlag = &cli.PathFlag{
+		Name: "contract",
 	}
 	batchFlag = &cli.PathFlag{
 		Name: "batch",
@@ -150,6 +154,18 @@ chain of this contribute operations realize a MPC`,
 					},
 				},
 			},
+			{
+				Name:        "export contract",
+				Usage:       "Export solidity contract",
+				Description: `Export contract command generate solidity verification contract based on MPC parameter file`,
+				Action:      exportContract,
+				Flags: []cli.Flag{
+					inputFileNameFlag,
+					outputFileNameFlag,
+					contractFileNameFlag,
+					batchFlag,
+				},
+			},
 		},
 	}
 
@@ -157,6 +173,56 @@ chain of this contribute operations realize a MPC`,
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func exportContract(ctx *cli.Context) error {
+	phase1FilePath := ctx.Path(inputFileNameFlag.Name)
+	if phase1FilePath == "" {
+		return errors.New("phase1 file path can not be nil")
+	}
+	phase2FilePath := ctx.Path(outputFileNameFlag.Name)
+	if phase2FilePath == "" {
+		return errors.New("phase2 file path can not be nil")
+	}
+	contractFilePath := ctx.Path(contractFileNameFlag.Name)
+	if contractFilePath == "" {
+		return errors.New("contract file path can not be nil")
+	}
+	batch := ctx.Path(batchFlag.Name)
+	if batch == "" {
+		return errors.New("batch can not be nil")
+	}
+	size, err := strconv.Atoi(batch)
+	if err != nil {
+		return err
+	}
+	// Generate node private key
+	source := rand.NewSource(time.Now().UnixNano())
+	rand := rand.New(source)
+	// Computing public key
+	fis := make([]fr_bls12381.Element, size)
+	pubKeys := make([]*ecies.PublicKey, size)
+	for i := 0; i < size; i++ {
+		key, _ := ecies.GenerateKey(rand, crypto.S256(), nil)
+		pubKeys[i] = &key.PublicKey
+		var fi fr_bls12381.Element
+		fi.SetRandom()
+		fis[i] = fi
+	}
+	fisBytes, _, _, _, encryptedFis, _, _ := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
+	c := circuit.BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
+		Account:      make([]circuit.AccountConstraints[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], size),
+		CommentsHash: make([]frontend.Variable, 32),
+	}
+	for i := 0; i < size; i++ {
+		c.Account[i].PlainChunks = make([]frontend.Variable, len(fisBytes[i]))
+		c.Account[i].CipherChunks = make([]frontend.Variable, len(encryptedFis[i]))
+	}
+
+	css, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &c)
+	_, vk, _ := helper.GetInitParamsFromExistedMPCSetUp(css, phase1FilePath, phase2FilePath)
+	helper.ExportContract(vk, contractFilePath)
+	return nil
 }
 
 func initPhase1(ctx *cli.Context) error {
