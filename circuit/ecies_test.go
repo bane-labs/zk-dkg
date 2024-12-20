@@ -72,7 +72,7 @@ func TestECIESWithMPC(t *testing.T) {
 	err = groth16.Verify(proof, &vk, publicWitness.Vector().(fr_bn254.Vector))
 	assert.NoError(err)
 	// Export solidity contract
-	helper.ExportContract(vk)
+	helper.ExportContract(vk, "Verify.sol")
 	// Output verify data
 	helper.GetOutputData(proof)
 }

@@ -87,8 +87,8 @@ func GetInitParamsFromExistedMPCSetUp(ccs constraint.ConstraintSystem, phase1Pat
  * @Description: export solidity file
  * @param vk: verifying key
  */
-func ExportContract(vk groth16.VerifyingKey) {
-	contract, err := os.Create("verify.sol")
+func ExportContract(vk groth16.VerifyingKey, path string) {
+	contract, err := os.Create(path)
 	if err != nil {
 		panic(err)
 	}
