@@ -88,9 +88,6 @@ func GetInitParamsFromExistedMPCSetUp(ccs constraint.ConstraintSystem, phase1Pat
  * @param vk: verifying key
  */
 func ExportContract(vk groth16.VerifyingKey, path string) {
-	if path == "" {
-		path = "verify.sol"
-	}
 	contract, err := os.Create(path)
 	if err != nil {
 		panic(err)

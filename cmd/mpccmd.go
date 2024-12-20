@@ -3,13 +3,12 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/bane-labs/zk-dkg/helper"
 	"math/rand"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/bane-labs/zk-dkg/circuit"
+	"github.com/bane-labs/zk-dkg/helper"
 	"github.com/bane-labs/zk-dkg/mpc"
 	"github.com/consensys/gnark-crypto/ecc"
 	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
@@ -28,17 +27,32 @@ const (
 )
 
 var (
-	inputFileNameFlag = &cli.PathFlag{
-		Name: "input",
+	// Flags for MPC
+	inputFileFlag = &cli.PathFlag{
+		Name:  "input",
+		Usage: "The input file path of a MPC contribution",
 	}
-	outputFileNameFlag = &cli.PathFlag{
-		Name: "output",
+	outputFileFlag = &cli.PathFlag{
+		Name:  "output",
+		Usage: "The out file path of a MPC contribution",
 	}
-	contractFileNameFlag = &cli.PathFlag{
-		Name: "contract",
+	batchFlag = &cli.IntFlag{
+		Name:  "batch",
+		Usage: "The expected amount of messages for a circuit to encrypt",
 	}
-	batchFlag = &cli.PathFlag{
-		Name: "batch",
+	// Flags for contract generation
+	phase1FileFlag = &cli.PathFlag{
+		Name:  "phase1file",
+		Usage: "The final MPC phase1 file for production",
+	}
+	phase2FileFlag = &cli.PathFlag{
+		Name:  "phase2file",
+		Usage: "The final MPC phase2 file for production",
+	}
+	contractFileFlag = &cli.PathFlag{
+		Name:  "contract",
+		Usage: "The out file path of contract exportation",
+		Value: "Verify.sol",
 	}
 )
 
@@ -59,7 +73,7 @@ this MPC.`,
 						Usage:  "Generate the first phase1 file",
 						Action: initPhase1,
 						Flags: []cli.Flag{
-							outputFileNameFlag,
+							outputFileFlag,
 						},
 						Description: `
 	phase1 init --output <filepath>
@@ -72,8 +86,8 @@ the first participant to generate the first file.`,
 						Usage:  "Verify the phase1 file step forward",
 						Action: verifyPhase1,
 						Flags: []cli.Flag{
-							inputFileNameFlag,
-							outputFileNameFlag,
+							inputFileFlag,
+							outputFileFlag,
 						},
 						Description: `
 	phase1 verify --input <filepath> --output <filepath>
@@ -87,15 +101,15 @@ to the unverified output file.`,
 						Usage:  "Contribute to the phase1 MPC",
 						Action: contributePhase1,
 						Flags: []cli.Flag{
-							inputFileNameFlag,
-							outputFileNameFlag,
+							inputFileFlag,
+							outputFileFlag,
 						},
 						Description: `
 	phase1 contribute --input <filepath> --output <filepath>
 
 will generate a new phase1 file based on the input one, every
 participant should do this only once and one by one, so that a
-chain of this contribute operations realize a MPC`,
+chain of this contribute operations realize a MPC.`,
 					},
 				},
 			},
@@ -112,23 +126,26 @@ phase1, and later can be used by this application repeatedly.`,
 						Usage:  "Generate the first phase2 file",
 						Action: initPhase2,
 						Flags: []cli.Flag{
-							inputFileNameFlag,
-							outputFileNameFlag,
+							inputFileFlag,
+							outputFileFlag,
 							batchFlag,
 						},
 						Description: `
-	phase2 init --input <filepath> --output <filepath>
+	phase2 init --batch <size> --input <filepath> --output <filepath>
 
 will generate a phase2 file with a phase1 input, should be used by
-the first participant to generate the first file.`,
+the first participant to generate the first file. A parameter "batch"
+is required by circuit definition, which depends on the amount of
+input message, please refer
+https://github.com/bane-labs/zk-dkg/blob/v0.1.0/circuit/batch_encryption.go#L33`,
 					},
 					{
 						Name:   "verify",
 						Usage:  "Verify the phase2 file step forward",
 						Action: verifyPhase2,
 						Flags: []cli.Flag{
-							inputFileNameFlag,
-							outputFileNameFlag,
+							inputFileFlag,
+							outputFileFlag,
 						},
 						Description: `
 	phase2 verify --input <filepath> --output <filepath>
@@ -142,28 +159,41 @@ to the unverified output file.`,
 						Usage:  "Contribute to the phase2 MPC",
 						Action: contributePhase2,
 						Flags: []cli.Flag{
-							inputFileNameFlag,
-							outputFileNameFlag,
+							inputFileFlag,
+							outputFileFlag,
 						},
 						Description: `
 	phase2 contribute --input <filepath> --output <filepath>
 
 will generate a new phase2 file based on the input one, every
 participant should do this only once and one by one, so that a
-chain of this contribute operations realize a MPC`,
+chain of this contribute operations realize a MPC.`,
 					},
 				},
 			},
 			{
-				Name:        "exportContract",
-				Usage:       "Export solidity contract",
-				Description: `Export contract command generate solidity verification contract based on MPC parameter file`,
-				Action:      exportContract,
-				Flags: []cli.Flag{
-					inputFileNameFlag,
-					outputFileNameFlag,
-					contractFileNameFlag,
-					batchFlag,
+				Name:        "contract",
+				Usage:       "Commands about solidity contract",
+				Description: ``,
+				Subcommands: []*cli.Command{
+					{
+						Name:   "export",
+						Usage:  "Export Solidity verification contracts based on MPC files",
+						Action: exportContract,
+						Flags: []cli.Flag{
+							phase1FileFlag,
+							phase2FileFlag,
+							batchFlag,
+							contractFileFlag,
+						},
+						Description: `
+	contract export --batch <size> --phase1file <filepath> --phase2file <filepath>
+
+will generate a Solidity verification contract file based on the
+input MPC phase1 and phase2 files, the same parameter "batch" used
+in "phase2 init" should also be provided, please refer
+https://github.com/bane-labs/zk-dkg/blob/v0.1.0/circuit/batch_encryption.go#L33.`,
+					},
 				},
 			},
 		},
@@ -176,25 +206,21 @@ chain of this contribute operations realize a MPC`,
 }
 
 func exportContract(ctx *cli.Context) error {
-	phase1FilePath := ctx.Path(inputFileNameFlag.Name)
+	phase1FilePath := ctx.Path(phase1FileFlag.Name)
 	if phase1FilePath == "" {
-		return errors.New("phase1 file path can not be nil")
+		return errors.New("invalid phase1 file path")
 	}
-	phase2FilePath := ctx.Path(outputFileNameFlag.Name)
+	phase2FilePath := ctx.Path(phase2FileFlag.Name)
 	if phase2FilePath == "" {
-		return errors.New("phase2 file path can not be nil")
+		return errors.New("invalid phase2 file path")
 	}
-	contractFilePath := ctx.Path(contractFileNameFlag.Name)
+	size := ctx.Int(batchFlag.Name)
+	if size < 1 {
+		return errors.New("batch size must be positive")
+	}
+	contractFilePath := ctx.Path(contractFileFlag.Name)
 	if contractFilePath == "" {
-		return errors.New("contract file path can not be nil")
-	}
-	batch := ctx.Path(batchFlag.Name)
-	if batch == "" {
-		return errors.New("batch can not be nil")
-	}
-	size, err := strconv.Atoi(batch)
-	if err != nil {
-		return err
+		return errors.New("invalid contract file path")
 	}
 	// Generate node private key
 	source := rand.NewSource(time.Now().UnixNano())
@@ -220,13 +246,16 @@ func exportContract(ctx *cli.Context) error {
 	}
 
 	css, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &c)
+	if err != nil {
+		return err
+	}
 	_, vk, _ := helper.GetInitParamsFromExistedMPCSetUp(css, phase1FilePath, phase2FilePath)
 	helper.ExportContract(vk, contractFilePath)
 	return nil
 }
 
 func initPhase1(ctx *cli.Context) error {
-	path := ctx.Path(outputFileNameFlag.Name)
+	path := ctx.Path(outputFileFlag.Name)
 	if path == "" {
 		path = DefaultPhase1FilePrefix + "1"
 	}
@@ -238,11 +267,11 @@ func initPhase1(ctx *cli.Context) error {
 }
 
 func verifyPhase1(ctx *cli.Context) error {
-	path1 := ctx.Path(inputFileNameFlag.Name)
+	path1 := ctx.Path(inputFileFlag.Name)
 	if path1 == "" {
 		return errors.New("inputFile path can not be nil")
 	}
-	path2 := ctx.Path(outputFileNameFlag.Name)
+	path2 := ctx.Path(outputFileFlag.Name)
 	if path2 == "" {
 		return errors.New("outputFile path can not be nil")
 	}
@@ -255,11 +284,11 @@ func verifyPhase1(ctx *cli.Context) error {
 }
 
 func contributePhase1(ctx *cli.Context) error {
-	inputPath := ctx.Path(inputFileNameFlag.Name)
+	inputPath := ctx.Path(inputFileFlag.Name)
 	if inputPath == "" {
 		return errors.New("inputFile1 path can not be nil")
 	}
-	outputPath := ctx.Path(outputFileNameFlag.Name)
+	outputPath := ctx.Path(outputFileFlag.Name)
 	if outputPath == "" {
 		return errors.New("outputFile path can not be nil")
 	}
@@ -271,21 +300,17 @@ func contributePhase1(ctx *cli.Context) error {
 }
 
 func initPhase2(ctx *cli.Context) error {
-	inputPath := ctx.Path(inputFileNameFlag.Name)
+	inputPath := ctx.Path(inputFileFlag.Name)
 	if inputPath == "" {
 		return errors.New("inputFile path can not be nil")
 	}
-	outputpath := ctx.Path(outputFileNameFlag.Name)
+	outputpath := ctx.Path(outputFileFlag.Name)
 	if outputpath == "" {
 		outputpath = DefaultPhase2FilePrefix + "1"
 	}
-	batch := ctx.Path(batchFlag.Name)
-	if outputpath == "" {
-		outputpath = DefaultPhase2FilePrefix + "1"
-	}
-	size, err := strconv.Atoi(batch)
-	if err != nil {
-		return err
+	size := ctx.Int(batchFlag.Name)
+	if size < 1 {
+		return errors.New("batch must be positive")
 	}
 	// Generate node private key
 	source := rand.NewSource(time.Now().UnixNano())
@@ -322,11 +347,11 @@ func initPhase2(ctx *cli.Context) error {
 }
 
 func verifyPhase2(ctx *cli.Context) error {
-	path1 := ctx.Path(inputFileNameFlag.Name)
+	path1 := ctx.Path(inputFileFlag.Name)
 	if path1 == "" {
 		return errors.New("inputFile path can not be nil")
 	}
-	path2 := ctx.Path(outputFileNameFlag.Name)
+	path2 := ctx.Path(outputFileFlag.Name)
 	if path2 == "" {
 		return errors.New("outputFile path can not be nil")
 	}
@@ -339,11 +364,11 @@ func verifyPhase2(ctx *cli.Context) error {
 }
 
 func contributePhase2(ctx *cli.Context) error {
-	inputPath := ctx.Path(inputFileNameFlag.Name)
+	inputPath := ctx.Path(inputFileFlag.Name)
 	if inputPath == "" {
 		return errors.New("inputFile path can not be nil")
 	}
-	outputPath := ctx.Path(outputFileNameFlag.Name)
+	outputPath := ctx.Path(outputFileFlag.Name)
 	if outputPath == "" {
 		return errors.New("outputFile path can not be nil")
 	}
