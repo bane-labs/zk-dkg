@@ -155,7 +155,7 @@ chain of this contribute operations realize a MPC`,
 				},
 			},
 			{
-				Name:        "export contract",
+				Name:        "exportContract",
 				Usage:       "Export solidity contract",
 				Description: `Export contract command generate solidity verification contract based on MPC parameter file`,
 				Action:      exportContract,
