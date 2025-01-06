@@ -175,11 +175,11 @@ func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.Publ
 		rPub.ScalarMultiplication(&pub, &rs[index])
 		// Compute allHash
 		nbBytes := 2 * fr_secp.Bytes
-		bigRsBytes := bigRs[index].RawBytes()
-		rawBigRs := make([]byte, 2*fr_secp.Bytes*8)
+		bigRBytes := bigRs[index].RawBytes()
+		rawBigR := make([]byte, 2*fr_secp.Bytes*8)
 		for i := 0; i < nbBytes; i++ {
 			for j := 0; j < 8; j++ {
-				rawBigRs[i*8+j] = (bigRsBytes[i] >> (7 - j)) & 1
+				rawBigR[i*8+j] = (bigRBytes[i] >> (7 - j)) & 1
 			}
 		}
 		pubBytes := pub.RawBytes()
@@ -221,7 +221,7 @@ func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.Publ
 			Y: emulated.ValueOf[emulated.BLS12381Fp](bigFis[index].Y),
 		}
 		accounts[index] = account
-		rawPubInputs = append(rawPubInputs, append(append(append(append(append(rawBigRs, rawPub...), rawBigFis...), nonces[index]...), 2), encryptedFis[index]...)...)
+		rawPubInputs = append(rawPubInputs, append(append(append(append(append(rawBigR, rawPub...), rawBigFis...), nonces[index]...), 2), encryptedFis[index]...)...)
 	}
 	sumHash := helper.GetHash(rawPubInputs)
 	rawSumHash := make([]frontend.Variable, len(sumHash))
