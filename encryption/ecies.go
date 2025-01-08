@@ -32,6 +32,9 @@ func ECIESEncrypt(pub *ecies.PublicKey, plaintext []byte) (nonce []byte, ciphert
 	}
 	// Generate random r, bigR=rG
 	_, g := secp256k1.Generators()
+	var rs fr_secp.Element
+	rs.SetRandom()
+	rs.BigInt(&r)
 	bigR.ScalarMultiplication(&g, &r)
 	// Compute rPub=r*PublicKey
 	var rPub secp256k1.G1Affine
