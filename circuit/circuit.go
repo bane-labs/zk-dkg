@@ -1,7 +1,10 @@
 package circuit
 
 import (
+	"fmt"
 	"math/big"
+	"reflect"
+	"sync"
 
 	"github.com/bane-labs/zk-dkg/helper"
 	"github.com/consensys/gnark-crypto/ecc"
@@ -9,11 +12,14 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/secp256k1"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	fr_secp "github.com/consensys/gnark-crypto/ecc/secp256k1/fr"
+	"github.com/consensys/gnark/backend/groth16/bn254"
+	"github.com/consensys/gnark/backend/witness"
 	"github.com/consensys/gnark/constraint"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
 	"github.com/consensys/gnark/std/math/emulated"
+	stdgroth16 "github.com/consensys/gnark/std/recursion/groth16"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 )
 
@@ -244,6 +250,108 @@ func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.Publ
 	css, err = frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
 	if err != nil {
 		return nil, circuit, nil, err
+	}
+	return
+}
+
+type AccountProof struct {
+	VerifyingKey groth16.VerifyingKey
+	Proof        *groth16.Proof
+	Witness      witness.Witness
+}
+
+func generateSingleKeyShareProof(phase1Path string, phase2Path string, pubKey *ecies.PublicKey, rs big.Int, bigR secp256k1.G1Affine, fiBytes []byte, fiInt big.Int, bigFi bls12381.G1Affine, encryptedFi []byte, nonce []byte) (vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
+	css, _, assignment, err := ComputeSingleKeyShareEncryptionAssignment(pubKey, rs, bigR, fiBytes, fiInt, bigFi, encryptedFi, nonce)
+	if err != nil {
+		return groth16.VerifyingKey{}, nil, nil, err
+	}
+	_, vk, proof, witness, err = helper.ComputeProof(phase1Path, phase2Path, css, &assignment)
+	if err != nil {
+		return groth16.VerifyingKey{}, nil, nil, err
+	}
+	return
+}
+
+func ComputeMultipleKeyShareEncryptionAssignmentAggregated(phase1Path string, phase2Path string, batch int, pubKey []*ecies.PublicKey, rs []big.Int, bigRs []secp256k1.G1Affine, fisBytes [][]byte, fisInts []big.Int, bigFis []bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) (css constraint.ConstraintSystem, circuit AggregateEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], assignment *BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], err error) {
+	// concurrently generate proofs
+	proofChan := make(chan AccountProof, batch)
+	errorChan := make(chan error, batch)
+
+	wg := sync.WaitGroup{}
+	wg.Add(batch)
+	for i := 0; i < batch; i++ {
+		go func(i int) {
+			defer wg.Done()
+			vk, proof, witness, err := generateSingleKeyShareProof(phase1Path, phase2Path, pubKey[i], rs[i], bigRs[i], fisBytes[i], fisInts[i], bigFis[i], encryptedFis[i], nonces[i])
+			if err != nil {
+				errorChan <- fmt.Errorf("proof generation failed at index %d: %w", i, err)
+				return
+			}
+			proofChan <- AccountProof{
+				VerifyingKey: vk,
+				Proof:        proof,
+				Witness:      witness,
+			}
+		}(i)
+	}
+
+	wg.Wait()
+	close(proofChan)
+	close(errorChan)
+
+	for err := range errorChan {
+		if err != nil {
+			return nil, circuit, nil, err
+		}
+	}
+
+	// start aggregating proofs
+	circuit = AggregateEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
+		Proof:        make([]stdgroth16.Proof[emulated.Secp256k1Fr, emulated.BLS12381Fp], batch),
+		VerifyingKey: make([]stdgroth16.VerifyingKey[emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], batch),
+		InnerWitness: make([]stdgroth16.Witness[emulated.Secp256k1Fp], batch),
+	}
+
+	for ap := range proofChan {
+		// initialize the witness elements
+		fmt.Printf("ap.VerifyingKey: %s\n", reflect.TypeOf(ap.VerifyingKey))
+		fmt.Printf("Type of ap.VerifyingKey: %+v\n", reflect.TypeOf(ap.VerifyingKey))
+		fmt.Printf("ap.Witness: %s\n", reflect.TypeOf(ap.Witness))
+		fmt.Printf("ap.Proof: %+v\n", ap.Proof)
+		vk, err := stdgroth16.ValueOfVerifyingKey[emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr](&ap.VerifyingKey)
+		if err != nil {
+			return nil, circuit, nil, err
+		}
+		witness, err := stdgroth16.ValueOfWitness[emulated.Secp256k1Fp](ap.Witness)
+		if err != nil {
+			return nil, circuit, nil, err
+		}
+		proof, err := stdgroth16.ValueOfProof[emulated.Secp256k1Fr, emulated.BLS12381Fp](ap.Proof)
+		if err != nil {
+			return nil, circuit, nil, err
+		}
+		circuit.Proof = append(circuit.Proof, proof)
+		circuit.VerifyingKey = append(circuit.VerifyingKey, vk)
+		circuit.InnerWitness = append(circuit.InnerWitness, witness)
+	}
+
+	css, err = frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
+	if err != nil {
+		return nil, circuit, nil, err
+	}
+
+	return
+}
+
+func InitializeAggregateEncryptionWrapperCircuit(length int) (css constraint.ConstraintSystem, circuit AggregateEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], err error) {
+	circuit = AggregateEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
+		Proof:        make([]stdgroth16.Proof[emulated.Secp256k1Fr, emulated.BLS12381Fp], length),
+		VerifyingKey: make([]stdgroth16.VerifyingKey[emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], length),
+		InnerWitness: make([]stdgroth16.Witness[emulated.Secp256k1Fp], length),
+	}
+	css, err = frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
+	if err != nil {
+		return nil, circuit, err
 	}
 	return
 }

@@ -91,3 +91,16 @@ func ProveMultipleKeyShareEncryption(phase1Path string, phase2Path string, pubKe
 		println(b.String())*/
 	return
 }
+
+
+func ProveMultipleKeyShareEncryptionAggregated(phase1Path string, phase2Path string, pubKey []*ecies.PublicKey, rs []big.Int, bigRs []secp256k1.G1Affine, fisBytes [][]byte, fisInts []big.Int, bigFis []bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) (vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
+	css, _, assignment, err := circuit.ComputeMultipleKeyShareEncryptionAssignmentAggregated(phase1Path, phase2Path, len(pubKey), pubKey, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
+	if err != nil {
+		return groth16.VerifyingKey{}, nil, nil, err
+	}
+	_, vk, proof, witness, err = helper.ComputeProof(phase1Path, phase2Path, css, assignment)
+	if err != nil {
+		return groth16.VerifyingKey{}, nil, nil, err
+	}
+	return
+}
