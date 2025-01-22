@@ -3,8 +3,8 @@ package circuit
 import (
 	"fmt"
 
-	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
-	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
+	fp_bls "github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
+	fp_secp "github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
 	zksha3 "github.com/consensys/gnark/std/hash/sha3"
@@ -93,7 +93,7 @@ func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(api frontend.API, plainChunks, ciphe
 	cr.AssertIsOnCurve(&rPub)
 	cr.AssertIsEqual(cr.ScalarMul(&pub, &r), &rPub)
 	// Generate key=hash(rPub)
-	nbBits := 8 * ((fp.Modulus().BitLen() + 7) / 8)
+	nbBits := 8 * ((fp_secp.Modulus().BitLen() + 7) / 8)
 	rawRpub := make([]uints.U8, 2*nbBits)
 	raw := cr.MarshalG1(rPub)
 	for i := range raw {
@@ -141,8 +141,8 @@ func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(api frontend.API, plainChunks, ciphe
 	rawBigR := cr.MarshalG1(bigR)
 	rawPub := cr.MarshalG1(pub)
 	rawBigFi := cr2.MarshalG1(bigFi)
-	nbBits1 := 8 * ((fp.Modulus().BitLen() + 7) / 8)
-	nbBits2 := 8 * ((fr_bls12381.Modulus().BitLen() + 7) / 8)
+	nbBits1 := 8 * ((fp_secp.Modulus().BitLen() + 7) / 8)
+	nbBits2 := 8 * ((fp_bls.Modulus().BitLen() + 7) / 8)
 	bigRU8s := variableToU8s(rawBigR, nbBits1)
 	pubU8s := variableToU8s(rawPub, nbBits1)
 	bigFiU8s := variableToU8s(rawBigFi, nbBits2)
@@ -153,17 +153,17 @@ func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(api frontend.API, plainChunks, ciphe
 		pubInputs[i] = bigRU8s[i]
 	}
 	for i := range pubU8s {
-		pubInputs[len(pubU8s)+i] = pubU8s[i]
+		pubInputs[len(bigRU8s)+i] = pubU8s[i]
 	}
 	for i := range bigFiU8s {
-		pubInputs[len(bigFiU8s)+len(bigFiU8s)+i] = bigFiU8s[i]
+		pubInputs[len(bigRU8s)+len(pubU8s)+i] = bigFiU8s[i]
 	}
 	for i := range iv {
 		pubInputs[len(bigRU8s)+len(pubU8s)+len(bigFiU8s)+i] = uints.U8{Val: iv[i]}
 	}
 	pubInputs[len(bigRU8s)+len(pubU8s)+len(bigFiU8s)+len(iv)] = uints.U8{Val: chunkIndex}
 	for i := range cipherChunks {
-		pubInputs[len(bigRU8s)+len(bigFiU8s)+len(bigFiU8s)+len(iv)+1+i] = uints.U8{Val: cipherChunks[i]}
+		pubInputs[len(bigRU8s)+len(pubU8s)+len(bigFiU8s)+len(iv)+1+i] = uints.U8{Val: cipherChunks[i]}
 	}
 	return
 }

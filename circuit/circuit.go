@@ -8,7 +8,6 @@ import (
 	bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
-	fr_secp "github.com/consensys/gnark-crypto/ecc/secp256k1/fr"
 	"github.com/consensys/gnark/constraint"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
@@ -59,24 +58,25 @@ func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r big.In
 	var rPub secp256k1.G1Affine
 	rPub.ScalarMultiplication(&pub, &r)
 	// Compute allHash
-	nbBytes := 2 * fr_secp.Bytes
+	secp256k1G1ByteLength := secp256k1.SizeOfG1AffineUncompressed
+	bls12381G1ByteLength := bls12381.SizeOfG1AffineUncompressed
 	bigRBytes := bigR.RawBytes()
-	rawBigR := make([]byte, 2*fr_secp.Bytes*8)
-	for i := 0; i < nbBytes; i++ {
+	rawBigR := make([]byte, secp256k1G1ByteLength*8)
+	for i := 0; i < secp256k1G1ByteLength; i++ {
 		for j := 0; j < 8; j++ {
 			rawBigR[i*8+j] = (bigRBytes[i] >> (7 - j)) & 1
 		}
 	}
 	pubBytes := pub.RawBytes()
-	rawPub := make([]byte, 2*fr_secp.Bytes*8)
-	for i := 0; i < nbBytes; i++ {
+	rawPub := make([]byte, secp256k1G1ByteLength*8)
+	for i := 0; i < secp256k1G1ByteLength; i++ {
 		for j := 0; j < 8; j++ {
 			rawPub[i*8+j] = (pubBytes[i] >> (7 - j)) & 1
 		}
 	}
 	bigFiBytes := bigFi.RawBytes()
-	rawBigFi := make([]byte, 2*fr_secp.Bytes*8)
-	for i := 0; i < nbBytes; i++ {
+	rawBigFi := make([]byte, bls12381G1ByteLength*8)
+	for i := 0; i < bls12381G1ByteLength; i++ {
 		for j := 0; j < 8; j++ {
 			rawBigFi[i*8+j] = (bigFiBytes[i] >> (7 - j)) & 1
 		}
@@ -174,24 +174,25 @@ func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.Publ
 		var rPub secp256k1.G1Affine
 		rPub.ScalarMultiplication(&pub, &rs[index])
 		// Compute allHash
-		nbBytes := 2 * fr_secp.Bytes
+		secp256k1G1ByteLength := secp256k1.SizeOfG1AffineUncompressed
+		bls12381G1ByteLength := bls12381.SizeOfG1AffineUncompressed
 		bigRBytes := bigRs[index].RawBytes()
-		rawBigR := make([]byte, 2*fr_secp.Bytes*8)
-		for i := 0; i < nbBytes; i++ {
+		rawBigR := make([]byte, secp256k1G1ByteLength*8)
+		for i := 0; i < secp256k1G1ByteLength; i++ {
 			for j := 0; j < 8; j++ {
 				rawBigR[i*8+j] = (bigRBytes[i] >> (7 - j)) & 1
 			}
 		}
 		pubBytes := pub.RawBytes()
-		rawPub := make([]byte, 2*fr_secp.Bytes*8)
-		for i := 0; i < nbBytes; i++ {
+		rawPub := make([]byte, secp256k1G1ByteLength*8)
+		for i := 0; i < secp256k1G1ByteLength; i++ {
 			for j := 0; j < 8; j++ {
 				rawPub[i*8+j] = (pubBytes[i] >> (7 - j)) & 1
 			}
 		}
 		bigFisBytes := bigFis[index].RawBytes()
-		rawBigFis := make([]byte, 2*fr_secp.Bytes*8)
-		for i := 0; i < nbBytes; i++ {
+		rawBigFis := make([]byte, bls12381G1ByteLength*8)
+		for i := 0; i < bls12381G1ByteLength; i++ {
 			for j := 0; j < 8; j++ {
 				rawBigFis[i*8+j] = (bigFisBytes[i] >> (7 - j)) & 1
 			}
