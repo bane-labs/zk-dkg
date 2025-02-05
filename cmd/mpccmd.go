@@ -12,6 +12,8 @@ import (
 	"github.com/bane-labs/zk-dkg/mpc"
 	"github.com/consensys/gnark-crypto/ecc"
 	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
+	groth16 "github.com/consensys/gnark/backend/groth16/bn254"
+	cs "github.com/consensys/gnark/constraint/bn254"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"github.com/consensys/gnark/std/math/emulated"
@@ -249,7 +251,11 @@ func exportContract(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	_, vk, _ := helper.GetInitParamsFromExistedMPCSetUp(css, phase1FilePath, phase2FilePath)
+	pk, vk, _ := helper.GetInitParamsFromExistedMPCSetUp(css, phase1FilePath, phase2FilePath)
+	err = groth16.Setup(css.(*cs.R1CS), &pk, &vk)
+	if err != nil {
+		return err
+	}
 	helper.ExportContract(vk, contractFilePath)
 	return nil
 }
