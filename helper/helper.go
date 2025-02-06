@@ -111,14 +111,13 @@ func GetHash(data []byte) []byte {
 }
 
 /**
- * Function: GetOutputData
+ * Function: GetContractInput
  * @Description: get the data submitted to the chain
  * @param proof: zk proof
- * @return Output: data submitted to the chain
+ * @return []*big.Int: data submitted to the chain
  */
-func GetOutputData(proof *groth16.Proof) Output {
+func GetContractInput(proof *groth16.Proof) ([8]*big.Int, []*big.Int, [2]*big.Int) {
 	// Solidity contract inputs
-	var output Output
 	proofBytes := proof.MarshalSolidity()
 	fpSize := 4 * 8
 	var prf [8]*big.Int
@@ -126,43 +125,16 @@ func GetOutputData(proof *groth16.Proof) Output {
 	for i := 0; i < 8; i++ {
 		prf[i] = new(big.Int).SetBytes(proofBytes[fpSize*i : fpSize*(i+1)])
 	}
-	output.proof = prf[:]
 	c := new(big.Int).SetBytes(proofBytes[fpSize*8 : fpSize*8+4])
 	cmtCount := int(c.Int64())
-	var cmts = make([]big.Int, 2*cmtCount)
+	var cmts = make([]*big.Int, 2*cmtCount)
 	// commitments
 	for i := 0; i < 2*cmtCount; i++ {
-		cmts[i].SetBytes(proofBytes[fpSize*8+4+i*fpSize : fpSize*8+4+(i+1)*fpSize])
+		cmts[i] = new(big.Int).SetBytes(proofBytes[fpSize*8+4+i*fpSize : fpSize*8+4+(i+1)*fpSize])
 	}
-	output.commitments = cmts
 	var cmtPok [2]*big.Int
 	// commitmentPok
 	cmtPok[0] = new(big.Int).SetBytes(proofBytes[fpSize*8+4+2*cmtCount*fpSize : fpSize*8+4+2*cmtCount*fpSize+fpSize])
 	cmtPok[1] = new(big.Int).SetBytes(proofBytes[fpSize*8+4+2*cmtCount*fpSize+fpSize : fpSize*8+4+2*cmtCount*fpSize+2*fpSize])
-	output.commitmentPok = cmtPok[:]
-	return output
-}
-
-type Output struct {
-	proof         []*big.Int
-	commitments   []big.Int
-	commitmentPok []*big.Int
-}
-
-func (output *Output) Printf() {
-	// proof.Ar, proof.Bs, proof.Krs
-	println("printf proof:")
-	for i := 0; i < 8; i++ {
-		println("proof:" + output.proof[i].String())
-	}
-	// commitments
-	println("printf commitments")
-	for i := 0; i < len(output.commitments); i++ {
-		println(output.commitments[i].String())
-	}
-	// commitmentPok
-	println("printf commitmentPok")
-	for i := 0; i < len(output.commitmentPok); i++ {
-		println(output.commitmentPok[i].String())
-	}
+	return prf, cmts, cmtPok
 }

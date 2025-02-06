@@ -70,8 +70,22 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 	// Export solidity contract
 	helper.ExportContract(vk, "Verify.sol")
 	// Output verify data
-	data := helper.GetOutputData(proof)
-	data.Printf()
+	proofData, cmts, cmtPok := helper.GetContractInput(proof)
+	// proof.Ar, proof.Bs, proof.Krs
+	println("printf proof:")
+	for i := 0; i < 8; i++ {
+		println("proof:" + proofData[i].String())
+	}
+	// commitments
+	println("printf commitments")
+	for i := 0; i < len(cmts); i++ {
+		println(cmts[i].String())
+	}
+	// commitmentPok
+	println("printf commitmentPok")
+	for i := 0; i < len(cmtPok); i++ {
+		println(cmtPok[i].String())
+	}
 }
 
 func randScalar() *big.Int {
