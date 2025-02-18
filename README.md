@@ -27,14 +27,19 @@ For easy of use, `zkdkg` provides:
 - Batch proof: `TestBatchEncryptionCircuit` and `TestBatchEncryptionWithMPC`.
 
 ## MPC usage process
-Stage one: in the `phase1` class
-1) Call `InitPhase1(path string, power int)` to set the size of powoftau;
-2) The current participant calls `ContributePhase1(prevPath string, nextPath string)` in sequence to set the file path and generation path of the previous participant. The function will also verify the legality of the files of the participants in the previous round;
-3) Other participants call `VerifyPhase1(prevPath string, curPath string)` to verify the legality of the file submitted by the current participant;
-4) Cycle through steps two and three until all participants complete calculation and verification.
-   
-Second stage: in `phase2` class
-1) Call `InitPhase2(ccs constraint.ConstraintSystem, phase1Path string, phase2Path string)` to set the circuit rules of phase 2, the phase 1 file path and the phase 2 file generation path;
-2) The current participant calls `ContributePhase2(prevPath string, nextPath string)` in sequence to set the file path and generation path of the previous participant. The function will also verify the legality of the files of the participants in the previous round;
-3) Other participants call `VerifyPhase2(prevPath string, curPath string)` to verify the legality of the file submitted by the current participant;
-4) Cycle through steps two and three until all participants complete calculation and verification.
+Stage one:
+1) `go run mpccmd.go phase1 init --output <phase1 file path>`,this command is used to generate the phase1 initial file
+2) `go run mpccmd.go phase1 contribute --input <prev phase1 file path> --output <curr phase1 file path>`,this command is used by participants in this round to calculate phase1 data
+3) `go run mpccmd.go phase1 verify --input <prev phase1 file path> --output <curr phase1 file path>`,this command is used by other participants to verify phase1 data
+
+Repeat steps 2-3 in a loop until all participants complete the calculation and verification work of phase1.
+
+Stage two:
+1) `go run mpccmd.go phase2 init --input <phase1 file path> --output <phase2 file path> --batch <batch size>`,此this command is used to generate the phase2 initial file
+2) `go run mpccmd.go phase2 contribute --input <prev phase2 file path> --output <curr phase2 file path>`,this command is used by participants in this round to calculate phase2 data
+3) `go run mpccmd.go phase2 verify --input <prev phase2 file path> --output <curr phase2 file path>`,this command is used by other participants to verify phase2 data
+
+Repeat steps 2-3 in a loop until all participants complete the calculation and verification work of phase2.
+
+Export contract:
+- `go run mpccmd.go contract export --phase1file <phase1 file path> --phase2file <phase2 file path> --batch <batch size> --contract <verify-contract file path>`,this command is used to export verification contracts after mpc has completed
