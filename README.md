@@ -35,7 +35,7 @@ Stage one:
 Repeat steps 2-3 in a loop until all participants complete the calculation and verification work of phase1.
 
 Stage two:
-1) `go run mpccmd.go phase2 init --input <phase1 file path> --output <phase2 file path> --batch <batch size>`,此this command is used to generate the phase2 initial file
+1) `go run mpccmd.go phase2 init --input <phase1 file path> --output <phase2 file path> --batch <batch size>`,this command is used to generate the phase2 initial file
 2) `go run mpccmd.go phase2 contribute --input <prev phase2 file path> --output <curr phase2 file path>`,this command is used by participants in this round to calculate phase2 data
 3) `go run mpccmd.go phase2 verify --input <prev phase2 file path> --output <curr phase2 file path>`,this command is used by other participants to verify phase2 data
 
