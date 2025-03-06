@@ -3,7 +3,7 @@ package circuit
 import (
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
-	zksha3 "github.com/consensys/gnark/std/hash/sha3"
+	"github.com/consensys/gnark/std/hash/sha2"
 	"github.com/consensys/gnark/std/math/emulated"
 	"github.com/consensys/gnark/std/math/uints"
 )
@@ -53,7 +53,7 @@ func (c *BatchEncryptionWrapper[T1, S1, T2, S2]) Define(api frontend.API) error 
 		pubInputs = append(pubInputs, pis...)
 	}
 	// Compute comments hash
-	mc, _ := zksha3.New256(api)
+	mc, _ := sha2.New(api)
 	mc.Write(pubInputs)
 	result := mc.Sum()
 	// Check comments hash
