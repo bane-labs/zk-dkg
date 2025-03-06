@@ -72,19 +72,19 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 	// Output verify data
 	proofData, cmts, cmtPok := helper.GetContractInput(proof)
 	// proof.Ar, proof.Bs, proof.Krs
-	println("printf proof:")
+	t.Log("Proof:")
 	for i := 0; i < 8; i++ {
-		println("proof:" + proofData[i].String())
+		t.Log(proofData[i].String())
 	}
 	// commitments
-	println("printf commitments")
+	t.Log("Commitments:")
 	for i := 0; i < len(cmts); i++ {
-		println(cmts[i].String())
+		t.Log(cmts[i].String())
 	}
 	// commitmentPok
-	println("printf commitmentPok")
+	t.Log("CommitmentPok:")
 	for i := 0; i < len(cmtPok); i++ {
-		println(cmtPok[i].String())
+		t.Log(cmtPok[i].String())
 	}
 }
 
