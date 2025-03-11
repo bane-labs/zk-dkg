@@ -7,7 +7,8 @@ import (
 	fp_secp "github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
-	zksha3 "github.com/consensys/gnark/std/hash/sha3"
+	"github.com/consensys/gnark/std/hash/sha2"
+	"github.com/consensys/gnark/std/hash/sha3"
 	"github.com/consensys/gnark/std/math/bits"
 	"github.com/consensys/gnark/std/math/emulated"
 	"github.com/consensys/gnark/std/math/uints"
@@ -37,7 +38,7 @@ func (c *ECIESWrapper[T1, S1, T2, S2]) Define(api frontend.API) error {
 	if err != nil {
 		return err
 	}
-	mc, err := zksha3.New256(api)
+	mc, err := sha2.New(api)
 	if err != nil {
 		return err
 	}
@@ -99,7 +100,7 @@ func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(api frontend.API, plainChunks, ciphe
 	for i := range raw {
 		rawRpub[i] = uints.U8{Val: raw[i]}
 	}
-	hasher, err := zksha3.New256(api)
+	hasher, err := sha3.New256(api)
 	if err != nil {
 		return nil, fmt.Errorf("hash function unknown ")
 	}

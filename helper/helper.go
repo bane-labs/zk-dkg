@@ -15,7 +15,6 @@ import (
 	"github.com/consensys/gnark/constraint"
 	cs "github.com/consensys/gnark/constraint/bn254"
 	"github.com/consensys/gnark/frontend"
-	"golang.org/x/crypto/sha3"
 )
 
 /**
@@ -105,9 +104,8 @@ func ExportContract(vk groth16.VerifyingKey, path string) {
  * @return []byte: hash
  */
 func GetHash(data []byte) []byte {
-	hashBuilder := sha3.New256()
-	hashBuilder.Write(data)
-	return hashBuilder.Sum(nil)
+	hash := sha256.Sum256(data)
+	return hash[:]
 }
 
 /**
