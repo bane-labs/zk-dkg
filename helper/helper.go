@@ -63,22 +63,26 @@ func ComputeProof(phase1Path string, phase2Path string, css constraint.Constrain
  */
 func GetInitParamsFromExistedMPCSetUp(ccs constraint.ConstraintSystem, phase1Path string, phase2Path string) (pk groth16.ProvingKey, vk groth16.VerifyingKey, err error) {
 	// Get phase1 data
-	srs1, err := mpc.ReadPhase1FromFile(phase1Path)
+	srs1, err := mpc.ReadSrsCommonsFromFile(phase1Path)
 	if err != nil {
 		return groth16.ProvingKey{}, groth16.VerifyingKey{}, err
 	}
 	// Get phase1.5 data
 	var evals mpcsetup.Phase2Evaluations
 	r1cs := ccs.(*cs.R1CS)
-	_, evals = mpcsetup.InitPhase2(r1cs, &srs1)
+
+	p2 := new(mpcsetup.Phase2)
+	evals = p2.Initialize(r1cs, &srs1)
 	// Get phase2 data
-	srs2, err := mpc.ReadPhase2FromFile(phase2Path)
+	phase2, err := mpc.ReadPhase2FromFile(phase2Path)
 	if err != nil {
 		return groth16.ProvingKey{}, groth16.VerifyingKey{}, err
 	}
 	// Generate proving and verifying keys
-	pk, vk = mpcsetup.ExtractKeys(&srs1, &srs2, &evals, ccs.GetNbConstraints())
-	return pk, vk, nil
+	p1, v1 := phase2.Seal(&srs1, &evals, []byte("beacon Phase 2"))
+	pk = p1.(groth16.ProvingKey)
+	vk = v1.(groth16.VerifyingKey)
+	return
 }
 
 /**

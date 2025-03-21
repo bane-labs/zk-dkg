@@ -14,8 +14,8 @@ import (
  * @return phase1: initialization phase1 data
  * @return err: error
  */
-func InitPhase1(path string, power int) (phase1 mpcsetup.Phase1, err error) {
-	phase1 = mpcsetup.InitPhase1(power)
+func InitPhase1(path string, power uint64) (phase1 mpcsetup.Phase1, err error) {
+	phase1.Initialize(power)
 	f, err := os.Create(path)
 	if err != nil {
 		return phase1, err
@@ -45,9 +45,8 @@ func ContributePhase1(prevPath string, nextPath string) (prev mpcsetup.Phase1, n
 	if err != nil {
 		return mpcsetup.Phase1{}, mpcsetup.Phase1{}, err
 	}
-	next = phase1clone(prev)
-	next.Contribute()
-	err = mpcsetup.VerifyPhase1(&prev, &next)
+	prev.Contribute()
+	next = prev
 	if err != nil {
 		return prev, next, err
 	}
@@ -79,11 +78,29 @@ func VerifyPhase1(prevPath string, curPath string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	err = mpcsetup.VerifyPhase1(&prev, &cur)
+	err = prev.Verify(&cur)
 	if err != nil {
 		return false, err
 	}
 	return true, nil
+}
+
+func Seal(prevPath string, outputPath string) (srs mpcsetup.SrsCommons, err error) {
+	prev, err := ReadPhase1FromFile(prevPath)
+	if err != nil {
+		return srs, err
+	}
+	beaconChallenge := []byte("beacon Phase 1")
+	srs = prev.Seal(beaconChallenge)
+	f, err := os.Create(outputPath)
+	if err != nil {
+		return srs, err
+	}
+	_, err = srs.WriteTo(f)
+	if err != nil {
+		return srs, err
+	}
+	return srs, nil
 }
 
 /**
@@ -92,7 +109,7 @@ func VerifyPhase1(prevPath string, curPath string) (bool, error) {
  * @param phase1: phase1 data
  * @return: copy of phase1 data
  */
-func phase1clone(phase1 mpcsetup.Phase1) mpcsetup.Phase1 {
+/*func phase1clone(phase1 mpcsetup.Phase1) mpcsetup.Phase1 {
 	r := mpcsetup.Phase1{}
 	r.Parameters.G1.Tau = append(r.Parameters.G1.Tau, phase1.Parameters.G1.Tau...)
 	r.Parameters.G1.AlphaTau = append(r.Parameters.G1.AlphaTau, phase1.Parameters.G1.AlphaTau...)
@@ -104,7 +121,7 @@ func phase1clone(phase1 mpcsetup.Phase1) mpcsetup.Phase1 {
 	r.PublicKeys = phase1.PublicKeys
 	r.Hash = append(r.Hash, phase1.Hash...)
 	return r
-}
+}*/
 
 /**
  * Function: ReadPhase1FromFile
