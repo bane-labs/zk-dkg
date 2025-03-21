@@ -36,29 +36,25 @@ func InitPhase1(path string, power uint64) (phase1 mpcsetup.Phase1, err error) {
  * @Description: participate in the MPC process of phase1
  * @param prevPath: previous round phase1 file path
  * @param nextPath: the writing path of the phase1 file in this round
- * @return prev: previous phase1 data
  * @return next: current phase1 data
  * @return err: error
  */
-func ContributePhase1(prevPath string, nextPath string) (prev mpcsetup.Phase1, next mpcsetup.Phase1, err error) {
-	prev, err = ReadPhase1FromFile(prevPath)
+func ContributePhase1(prevPath string, nextPath string) (next mpcsetup.Phase1, err error) {
+	prev, err := ReadPhase1FromFile(prevPath)
 	if err != nil {
-		return mpcsetup.Phase1{}, mpcsetup.Phase1{}, err
+		return mpcsetup.Phase1{}, err
 	}
 	prev.Contribute()
 	next = prev
-	if err != nil {
-		return prev, next, err
-	}
 	f, err := os.Create(nextPath)
 	if err != nil {
-		return prev, next, err
+		return next, err
 	}
 	_, err = next.WriteTo(f)
 	if err != nil {
-		return prev, next, err
+		return next, err
 	}
-	return prev, next, nil
+	return next, nil
 }
 
 /**
@@ -85,8 +81,16 @@ func VerifyPhase1(prevPath string, curPath string) (bool, error) {
 	return true, nil
 }
 
-func Seal(prevPath string, outputPath string) (srs mpcsetup.SrsCommons, err error) {
-	prev, err := ReadPhase1FromFile(prevPath)
+/**
+ * Function: Seal
+ * @Description: Convert phase1 to srs public string
+ * @param phase1Path: phase1 file path
+ * @param outputPath: current round phase1 file path
+ * @return srs: common srs
+ * @return err: error
+ */
+func Seal(phase1Path string, outputPath string) (srs mpcsetup.SrsCommons, err error) {
+	prev, err := ReadPhase1FromFile(phase1Path)
 	if err != nil {
 		return srs, err
 	}
@@ -104,26 +108,6 @@ func Seal(prevPath string, outputPath string) (srs mpcsetup.SrsCommons, err erro
 }
 
 /**
- * Function: phase1clone
- * @Description: clone phase1 data
- * @param phase1: phase1 data
- * @return: copy of phase1 data
- */
-/*func phase1clone(phase1 mpcsetup.Phase1) mpcsetup.Phase1 {
-	r := mpcsetup.Phase1{}
-	r.Parameters.G1.Tau = append(r.Parameters.G1.Tau, phase1.Parameters.G1.Tau...)
-	r.Parameters.G1.AlphaTau = append(r.Parameters.G1.AlphaTau, phase1.Parameters.G1.AlphaTau...)
-	r.Parameters.G1.BetaTau = append(r.Parameters.G1.BetaTau, phase1.Parameters.G1.BetaTau...)
-
-	r.Parameters.G2.Tau = append(r.Parameters.G2.Tau, phase1.Parameters.G2.Tau...)
-	r.Parameters.G2.Beta = phase1.Parameters.G2.Beta
-
-	r.PublicKeys = phase1.PublicKeys
-	r.Hash = append(r.Hash, phase1.Hash...)
-	return r
-}*/
-
-/**
  * Function: ReadPhase1FromFile
  * @Description: get phase1 data from file
  * @param path: file path
@@ -138,4 +122,14 @@ func ReadPhase1FromFile(path string) (mpcsetup.Phase1, error) {
 	}
 	_, err = phase1.ReadFrom(f)
 	return phase1, err
+}
+
+func ReadSrsCommonsFromFile(path string) (mpcsetup.SrsCommons, error) {
+	var srs mpcsetup.SrsCommons
+	f, err := os.Open(path)
+	if err != nil {
+		return srs, err
+	}
+	_, err = srs.ReadFrom(f)
+	return srs, err
 }

@@ -30,23 +30,18 @@ import (
  * @return witness: witness
  * @return err: error
  */
-func ComputeProof(phase1Path string, phase2Path string, css constraint.ConstraintSystem, assignment frontend.Circuit) (pk groth16.ProvingKey, vk groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
+func ComputeProof(phase1Path string, phase2Path string, css constraint.ConstraintSystem, assignment frontend.Circuit) (pk *groth16.ProvingKey, vk *groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
 	// Get proving and verifying keys
-	pk, vk, _ = GetInitParamsFromExistedMPCSetUp(css, phase1Path, phase2Path)
-	// Init setup
-	err = groth16.Setup(css.(*cs.R1CS), &pk, &vk)
-	if err != nil {
-		return groth16.ProvingKey{}, groth16.VerifyingKey{}, nil, nil, err
-	}
+	pk, vk, err = GetInitParamsFromExistedMPCSetUp(css, phase1Path, phase2Path)
 	// Compute witness
 	witness, err = frontend.NewWitness(assignment, ecc.BN254.ScalarField())
 	if err != nil {
-		return groth16.ProvingKey{}, groth16.VerifyingKey{}, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	// Compute proof
-	proof, err = groth16.Prove(css.(*cs.R1CS), &pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
+	proof, err = groth16.Prove(css.(*cs.R1CS), pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
 	if err != nil {
-		return groth16.ProvingKey{}, groth16.VerifyingKey{}, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	return
 }
@@ -61,27 +56,25 @@ func ComputeProof(phase1Path string, phase2Path string, css constraint.Constrain
  * @return vk: verification key
  * @return err: error
  */
-func GetInitParamsFromExistedMPCSetUp(ccs constraint.ConstraintSystem, phase1Path string, phase2Path string) (pk groth16.ProvingKey, vk groth16.VerifyingKey, err error) {
+func GetInitParamsFromExistedMPCSetUp(ccs constraint.ConstraintSystem, phase1Path string, phase2Path string) (pk *groth16.ProvingKey, vk *groth16.VerifyingKey, err error) {
 	// Get phase1 data
-	srs1, err := mpc.ReadSrsCommonsFromFile(phase1Path)
+	srs, err := mpc.ReadSrsCommonsFromFile(phase1Path)
 	if err != nil {
-		return groth16.ProvingKey{}, groth16.VerifyingKey{}, err
+		return nil, nil, err
 	}
 	// Get phase1.5 data
-	var evals mpcsetup.Phase2Evaluations
 	r1cs := ccs.(*cs.R1CS)
-
 	p2 := new(mpcsetup.Phase2)
-	evals = p2.Initialize(r1cs, &srs1)
+	evals := p2.Initialize(r1cs, &srs)
 	// Get phase2 data
 	phase2, err := mpc.ReadPhase2FromFile(phase2Path)
 	if err != nil {
-		return groth16.ProvingKey{}, groth16.VerifyingKey{}, err
+		return nil, nil, err
 	}
 	// Generate proving and verifying keys
-	p1, v1 := phase2.Seal(&srs1, &evals, []byte("beacon Phase 2"))
-	pk = p1.(groth16.ProvingKey)
-	vk = v1.(groth16.VerifyingKey)
+	p1, v1 := phase2.Seal(&srs, &evals, []byte("beacon Phase 2"))
+	pk = p1.(*groth16.ProvingKey)
+	vk = v1.(*groth16.VerifyingKey)
 	return
 }
 
@@ -90,7 +83,7 @@ func GetInitParamsFromExistedMPCSetUp(ccs constraint.ConstraintSystem, phase1Pat
  * @Description: export solidity file
  * @param vk: verifying key
  */
-func ExportContract(vk groth16.VerifyingKey, path string) {
+func ExportContract(vk *groth16.VerifyingKey, path string) {
 	contract, err := os.Create(path)
 	if err != nil {
 		panic(err)

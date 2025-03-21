@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"os"
 	"time"
@@ -112,6 +113,19 @@ to the unverified output file.`,
 will generate a new phase1 file based on the input one, every
 participant should do this only once and one by one, so that a
 chain of this contribute operations realize a MPC.`,
+					},
+					{
+						Name:   "getCommonSRS",
+						Usage:  "Convert Phase1 data to common srs",
+						Action: getCommonSRS,
+						Flags: []cli.Flag{
+							inputFileFlag,
+							outputFileFlag,
+						},
+						Description: `
+	phase1 getCommonSRS --input <filepath> --output <filepath>
+
+will convert Phase1 data to common srs,each participant can execute this operation locally to verify that the correct public SRS string is used`,
 					},
 				},
 			},
@@ -252,7 +266,7 @@ func exportContract(ctx *cli.Context) error {
 		return err
 	}
 	pk, vk, _ := helper.GetInitParamsFromExistedMPCSetUp(css, phase1FilePath, phase2FilePath)
-	err = groth16.Setup(css.(*cs.R1CS), &pk, &vk)
+	err = groth16.Setup(css.(*cs.R1CS), pk, vk)
 	if err != nil {
 		return err
 	}
@@ -265,7 +279,7 @@ func initPhase1(ctx *cli.Context) error {
 	if path == "" {
 		path = DefaultPhase1FilePrefix + "1"
 	}
-	_, err := mpc.InitPhase1(path, 24)
+	_, err := mpc.InitPhase1(path, uint64(math.Pow(2, 24)))
 	if err != nil {
 		return err
 	}
@@ -285,7 +299,7 @@ func verifyPhase1(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("phase1 verify pass")
+	fmt.Println("Phase1 verify : OK")
 	return nil
 }
 
@@ -298,7 +312,23 @@ func contributePhase1(ctx *cli.Context) error {
 	if outputPath == "" {
 		return errors.New("outputFile path can not be nil")
 	}
-	_, _, err := mpc.ContributePhase1(inputPath, outputPath)
+	_, err := mpc.ContributePhase1(inputPath, outputPath)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func getCommonSRS(ctx *cli.Context) error {
+	inputPath := ctx.Path(inputFileFlag.Name)
+	if inputPath == "" {
+		return errors.New("inputFile1 path can not be nil")
+	}
+	outputPath := ctx.Path(outputFileFlag.Name)
+	if outputPath == "" {
+		return errors.New("outputFile path can not be nil")
+	}
+	_, err := mpc.Seal(inputPath, outputPath)
 	if err != nil {
 		return err
 	}
@@ -378,7 +408,7 @@ func contributePhase2(ctx *cli.Context) error {
 	if outputPath == "" {
 		return errors.New("outputFile path can not be nil")
 	}
-	_, _, err := mpc.ContributePhase2(inputPath, outputPath)
+	_, err := mpc.ContributePhase2(inputPath, outputPath)
 	if err != nil {
 		return err
 	}

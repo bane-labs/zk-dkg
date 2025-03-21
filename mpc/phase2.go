@@ -46,26 +46,25 @@ func InitPhase2(ccs constraint.ConstraintSystem, srsCommonsPath string, phase2Pa
  * @Description: participate in the MPC process of phase2
  * @param prevPath: previous round phase2 file path
  * @param nextPath: the writing path of the phase2 file in this round
- * @return prev: previous phase2 data
  * @return next: current phase2 data
  * @return err: error
  */
-func ContributePhase2(prevPath string, nextPath string) (prev mpcsetup.Phase2, next mpcsetup.Phase2, err error) {
-	prev, err = ReadPhase2FromFile(prevPath)
+func ContributePhase2(prevPath string, nextPath string) (next mpcsetup.Phase2, err error) {
+	prev, err := ReadPhase2FromFile(prevPath)
 	if err != nil {
-		return mpcsetup.Phase2{}, mpcsetup.Phase2{}, err
+		return mpcsetup.Phase2{}, err
 	}
 	prev.Contribute()
 	next = prev
 	FilePhase2Next, err := os.Create(nextPath)
 	if err != nil {
-		return prev, next, err
+		return next, err
 	}
 	_, err = next.WriteTo(FilePhase2Next)
 	if err != nil {
-		return prev, next, err
+		return next, err
 	}
-	return prev, next, nil
+	return next, nil
 }
 
 /**
@@ -93,23 +92,6 @@ func VerifyPhase2(prevPath string, curPath string) (bool, error) {
 }
 
 /**
- * Function: phase2clone
- * @Description: clone phase2 data
- * @param phase2: phase2 data
- * @return: copy of phase2 data
- */
-/*func phase2clone(phase2 mpcsetup.Phase2) mpcsetup.Phase2 {
-	r := mpcsetup.Phase2{}
-	r.Parameters.G1.Delta = phase2.Parameters.G1.Delta
-	r.Parameters.G1.L = append(r.Parameters.G1.L, phase2.Parameters.G1.L...)
-	r.Parameters.G1.Z = append(r.Parameters.G1.Z, phase2.Parameters.G1.Z...)
-	r.Parameters.G2.Delta = phase2.Parameters.G2.Delta
-	r.PublicKey = phase2.PublicKey
-	r.Hash = append(r.Hash, phase2.Hash...)
-	return r
-}*/
-
-/**
  * Function: ReadPhase2FromFile
  * @Description: get phase2 data from file
  * @param path: file path
@@ -124,14 +106,4 @@ func ReadPhase2FromFile(path string) (mpcsetup.Phase2, error) {
 	}
 	_, err = phase2.ReadFrom(f)
 	return phase2, err
-}
-
-func ReadSrsCommonsFromFile(path string) (mpcsetup.SrsCommons, error) {
-	var srs mpcsetup.SrsCommons
-	f, err := os.Open(path)
-	if err != nil {
-		return srs, err
-	}
-	_, err = srs.ReadFrom(f)
-	return srs, err
 }

@@ -7,9 +7,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/bane-labs/zk-dkg/mpc"
+	"github.com/consensys/gnark/backend/groth16/bn254/mpcsetup"
 	cs "github.com/consensys/gnark/constraint/bn254"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
+	"github.com/consensys/gnark/std/hash/sha2"
+	"github.com/consensys/gnark/std/math/uints"
 	"github.com/stretchr/testify/assert"
 	"io"
 	"math/big"
@@ -74,7 +77,7 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 	publicWitness, err := witness.Public()
 	assert.NoError(err)
 	// Verify proof
-	err = groth16.Verify(proof, &vk, publicWitness.Vector().(fr_bn254.Vector), backend.WithVerifierHashToFieldFunction(sha256.New()))
+	err = groth16.Verify(proof, vk, publicWitness.Vector().(fr_bn254.Vector), backend.WithVerifierHashToFieldFunction(sha256.New()))
 	assert.NoError(err)
 	// Export solidity contract
 	helper.ExportContract(vk, "Verify.sol")
@@ -101,15 +104,24 @@ func TestTemp(t *testing.T) {
 	prevPhase1 := "Temp_Phase1_1"
 	curPhase1 := "Temp_Phase1_2"
 	finalPhase1 := "Temp_Phase1_final"
-	_, err := mpc.InitPhase1(prevPhase1, 9)
+
+	_, err := mpc.InitPhase1(prevPhase1, 262144)
 	if err != nil {
 		assert.Error(t, err)
 	}
 	mpc.ContributePhase1(prevPhase1, curPhase1)
 	mpc.Seal(curPhase1, finalPhase1)
 
-	var myCircuit TempCircuit
+	var myCircuit = TempCircuit{
+		Data:         make([]frontend.Variable, 10),
+		CommentsHash: make([]frontend.Variable, 32),
+	}
 	css, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &myCircuit)
+	if err != nil {
+		assert.Error(t, err)
+	}
+
+	srs, err := mpc.ReadSrsCommonsFromFile(finalPhase1)
 	if err != nil {
 		assert.Error(t, err)
 	}
@@ -118,29 +130,50 @@ func TestTemp(t *testing.T) {
 	curPhase2 := "Temp_Phase2_2"
 
 	_, _, _, err = mpc.InitPhase2(css, finalPhase1, prevPhase2)
-	_, phase2, err := mpc.ContributePhase2(prevPhase2, curPhase2)
+	_, err = mpc.ContributePhase2(prevPhase2, curPhase2)
 	if err != nil {
 		return
 	}
 
-	phase2.Seal()
+	var p2 mpcsetup.Phase2
+	r1cs := css.(*cs.R1CS)
+	evals := p2.Initialize(r1cs, &srs)
 
-	contractFilePath1 := "Verify_temp1.sol"
-	contractFilePath2 := "Verify_temp2.sol"
-	vkpath1 := "vk1_"
-	vkpath2 := "vk2_"
-	doWork(curPhase1, curPhase2, contractFilePath1, vkpath1)
-	pk, vk, err := doWork(curPhase1, curPhase2, contractFilePath2, vkpath2)
-	if err != nil {
-		return
-	}
-
-	// Compute witness
-	witness, err := frontend.NewWitness(&TempCircuit{Prev: 1, Currr: 1}, ecc.BN254.ScalarField())
+	phase2, err := mpc.ReadPhase2FromFile(curPhase2)
 	if err != nil {
 		assert.Error(t, err)
 	}
-	proof, err := groth16.Prove(css.(*cs.R1CS), &pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
+	p1, v1 := phase2.Seal(&srs, &evals, []byte("beacon Phase 2"))
+	pk := p1.(*groth16.ProvingKey)
+	vk := v1.(*groth16.VerifyingKey)
+
+	contractFilePath := "Verify_temp2.sol"
+	//groth16.Setup(css.(*cs.R1CS), pk, vk)
+	helper.ExportContract(vk, contractFilePath)
+
+	data := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+
+	rawData := make([]frontend.Variable, len(data))
+	for i := 0; i < len(data); i++ {
+		rawData[i] = data[i]
+	}
+	sumHash := helper.GetHash(data)
+	rawSumHash := make([]frontend.Variable, len(sumHash))
+	for i := 0; i < len(sumHash); i++ {
+		rawSumHash[i] = sumHash[i]
+	}
+
+	// Compute witness
+	assignment := &TempCircuit{
+		Data:         rawData,
+		CommentsHash: rawSumHash,
+	}
+
+	witness, err := frontend.NewWitness(assignment, ecc.BN254.ScalarField())
+	if err != nil {
+		assert.Error(t, err)
+	}
+	proof, err := groth16.Prove(css.(*cs.R1CS), pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
 	if err != nil {
 		assert.Error(t, err)
 	}
@@ -149,48 +182,11 @@ func TestTemp(t *testing.T) {
 	if err != nil {
 		assert.Error(t, err)
 	}
-	err = groth16.Verify(proof, &vk, pubWitness.Vector().(fr_bn254.Vector), backend.WithVerifierHashToFieldFunction(sha256.New()))
+	err = groth16.Verify(proof, vk, pubWitness.Vector().(fr_bn254.Vector), backend.WithVerifierHashToFieldFunction(sha256.New()))
 	if err != nil {
 		assert.Error(t, err)
 	}
 
-}
-
-func doWork(path1, path2, contractFilePath, vkpath string) (pk groth16.ProvingKey, vk groth16.VerifyingKey, err error) {
-	var myCircuit2 TempCircuit
-	css2, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &myCircuit2)
-	if err != nil {
-		return groth16.ProvingKey{}, groth16.VerifyingKey{}, err
-	}
-	pk, vk, err = helper.GetInitParamsFromExistedMPCSetUp(css2, path1, path2)
-	if err != nil {
-		return groth16.ProvingKey{}, groth16.VerifyingKey{}, err
-	}
-
-	f1, err := os.Create(vkpath + "1")
-	if err != nil {
-		return groth16.ProvingKey{}, groth16.VerifyingKey{}, err
-	}
-	_, err = vk.WriteTo(f1)
-	defer f1.Close()
-	err = groth16.Setup(css2.(*cs.R1CS), &pk, &vk)
-	if err != nil {
-		return groth16.ProvingKey{}, groth16.VerifyingKey{}, err
-	}
-	f2, err := os.Create(vkpath + "2")
-	if err != nil {
-		return groth16.ProvingKey{}, groth16.VerifyingKey{}, err
-	}
-	_, err = vk.WriteTo(f2)
-	defer f2.Close()
-	helper.ExportContract(vk, contractFilePath)
-
-	fmt.Printf("First File:")
-	computeMd5(vkpath + "1")
-	fmt.Printf("Second File:")
-	computeMd5(vkpath + "2")
-
-	return
 }
 
 func computeMd5(path string) error {
@@ -214,15 +210,25 @@ func computeMd5(path string) error {
 }
 
 type TempCircuit struct {
-	Prev  frontend.Variable
-	Currr frontend.Variable //`gnark:",public"`
+	Data         []frontend.Variable `gnark:",secret"`
+	CommentsHash []frontend.Variable `gnark:",public"`
 }
 
 // Define declares the circuit's constraints
 // Hash = mimc(PreImage)
-func (circuit *TempCircuit) Define(api frontend.API) error {
+func (c *TempCircuit) Define(api frontend.API) error {
+	DataBytes := make([]uints.U8, len(c.Data))
+	for i := 0; i < len(DataBytes); i++ {
+		DataBytes[i] = uints.U8{Val: c.Data[i]}
+	}
 	// hash function
-	api.AssertIsEqual(circuit.Prev, circuit.Currr)
+	mc, _ := sha2.New(api)
+	mc.Write(DataBytes)
+	result := mc.Sum()
+	// Check comments hash
+	for i := 0; i < len(result); i++ {
+		api.AssertIsEqual(result[i].Val, c.CommentsHash[i])
+	}
 	return nil
 }
 
