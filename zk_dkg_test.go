@@ -6,14 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"github.com/bane-labs/zk-dkg/mpc"
-	"github.com/consensys/gnark/backend/groth16/bn254/mpcsetup"
-	cs "github.com/consensys/gnark/constraint/bn254"
-	"github.com/consensys/gnark/frontend"
-	"github.com/consensys/gnark/frontend/cs/r1cs"
-	"github.com/consensys/gnark/std/hash/sha2"
-	"github.com/consensys/gnark/std/math/uints"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"math/big"
 	"math/rand"
@@ -21,6 +13,14 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/bane-labs/zk-dkg/mpc"
+	"github.com/consensys/gnark/backend/groth16/bn254/mpcsetup"
+	cs "github.com/consensys/gnark/constraint/bn254"
+	"github.com/consensys/gnark/frontend"
+	"github.com/consensys/gnark/frontend/cs/r1cs"
+	"github.com/consensys/gnark/std/hash/sha2"
+	"github.com/consensys/gnark/std/math/uints"
 
 	"github.com/bane-labs/zk-dkg/circuit"
 	"github.com/bane-labs/zk-dkg/helper"
@@ -100,15 +100,14 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 	}
 }
 
-func TestTemp(t *testing.T) {
-	prevPhase1 := "Temp_Phase1_1"
-	curPhase1 := "Temp_Phase1_2"
-	finalPhase1 := "Temp_Phase1_final"
+func TestMPC(t *testing.T) {
+	assert := test.NewAssert(t)
+	prevPhase1 := t.TempDir() + "Phase1_1"
+	curPhase1 := t.TempDir() + "Phase1_2"
+	finalPhase1 := t.TempDir() + "Phase1_final"
 
 	_, err := mpc.InitPhase1(prevPhase1, 262144)
-	if err != nil {
-		assert.Error(t, err)
-	}
+	assert.NoError(err)
 	mpc.ContributePhase1(prevPhase1, curPhase1)
 	mpc.Seal(curPhase1, finalPhase1)
 
@@ -117,38 +116,30 @@ func TestTemp(t *testing.T) {
 		CommentsHash: make([]frontend.Variable, 32),
 	}
 	css, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &myCircuit)
-	if err != nil {
-		assert.Error(t, err)
-	}
+	assert.NoError(err)
 
 	srs, err := mpc.ReadSrsCommonsFromFile(finalPhase1)
-	if err != nil {
-		assert.Error(t, err)
-	}
+	assert.NoError(err)
 
-	prevPhase2 := "Temp_Phase2_1"
-	curPhase2 := "Temp_Phase2_2"
+	prevPhase2 := t.TempDir() + "Phase2_1"
+	curPhase2 := t.TempDir() + "Phase2_2"
 
 	_, _, _, err = mpc.InitPhase2(css, finalPhase1, prevPhase2)
+	assert.NoError(err)
 	_, err = mpc.ContributePhase2(prevPhase2, curPhase2)
-	if err != nil {
-		return
-	}
+	assert.NoError(err)
 
 	var p2 mpcsetup.Phase2
 	r1cs := css.(*cs.R1CS)
 	evals := p2.Initialize(r1cs, &srs)
 
 	phase2, err := mpc.ReadPhase2FromFile(curPhase2)
-	if err != nil {
-		assert.Error(t, err)
-	}
+	assert.NoError(err)
 	p1, v1 := phase2.Seal(&srs, &evals, []byte("beacon Phase 2"))
 	pk := p1.(*groth16.ProvingKey)
 	vk := v1.(*groth16.VerifyingKey)
 
-	contractFilePath := "Verify_temp2.sol"
-	//groth16.Setup(css.(*cs.R1CS), pk, vk)
+	contractFilePath := "Verifier.sol"
 	helper.ExportContract(vk, contractFilePath)
 
 	data := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
@@ -170,43 +161,13 @@ func TestTemp(t *testing.T) {
 	}
 
 	witness, err := frontend.NewWitness(assignment, ecc.BN254.ScalarField())
-	if err != nil {
-		assert.Error(t, err)
-	}
+	assert.NoError(err)
 	proof, err := groth16.Prove(css.(*cs.R1CS), pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
-	if err != nil {
-		assert.Error(t, err)
-	}
-
+	assert.NoError(err)
 	pubWitness, err := witness.Public()
-	if err != nil {
-		assert.Error(t, err)
-	}
+	assert.NoError(err)
 	err = groth16.Verify(proof, vk, pubWitness.Vector().(fr_bn254.Vector), backend.WithVerifierHashToFieldFunction(sha256.New()))
-	if err != nil {
-		assert.Error(t, err)
-	}
-
-}
-
-func computeMd5(path string) error {
-	file, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	hash := md5.New()
-
-	// 将文件内容复制到hash实例中
-	if _, err := io.Copy(hash, file); err != nil {
-		return err
-	}
-	// 计算最终的MD5哈希值
-	md5sum := hash.Sum(nil)
-	// 将字节转换为16进制字符串
-	fmt.Printf("MD5 of the file: %x\n", md5sum)
-	return nil
+	assert.NoError(err)
 }
 
 type TempCircuit struct {
@@ -274,4 +235,24 @@ func encodeMessages(encryptedFis [][]byte, bigRs []secp256k1.G1Affine, nonces []
 		result = append(result, append(prefix, encryptedFis[i]...))
 	}
 	return result
+}
+
+func computeMd5(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	hash := md5.New()
+
+	// Copy file to hasher
+	if _, err := io.Copy(hash, file); err != nil {
+		return err
+	}
+	// Compute md5
+	md5sum := hash.Sum(nil)
+	// Print the result
+	fmt.Printf("MD5 of the file: %x\n", md5sum)
+	return nil
 }
