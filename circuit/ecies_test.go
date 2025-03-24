@@ -15,7 +15,6 @@ import (
 	fr_bn254 "github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark/backend"
 	groth16 "github.com/consensys/gnark/backend/groth16/bn254"
-	"github.com/consensys/gnark/backend/groth16/bn254/mpcsetup"
 	"github.com/consensys/gnark/backend/witness"
 	"github.com/consensys/gnark/constraint"
 	cs "github.com/consensys/gnark/constraint/bn254"
@@ -69,7 +68,7 @@ func TestECIESWithMPC(t *testing.T) {
 	publicWitness, err := witness.Public()
 	assert.NoError(err)
 	// Verify proof
-	err = groth16.Verify(proof, &vk, publicWitness.Vector().(fr_bn254.Vector))
+	err = groth16.Verify(proof, vk, publicWitness.Vector().(fr_bn254.Vector))
 	assert.NoError(err)
 	// Export solidity contract
 	helper.ExportContract(vk, "Verify.sol")
@@ -77,25 +76,25 @@ func TestECIESWithMPC(t *testing.T) {
 	helper.GetContractInput(proof)
 }
 
-func computingProof2(css constraint.ConstraintSystem, assignment frontend.Circuit) (groth16.ProvingKey, groth16.VerifyingKey, *groth16.Proof, witness.Witness, error) {
-	pk, vk, err := demoMPCSetUp(css, 3, 3, 24)
+func computingProof2(css constraint.ConstraintSystem, assignment frontend.Circuit) (*groth16.ProvingKey, *groth16.VerifyingKey, *groth16.Proof, witness.Witness, error) {
+	pk, vk, err := demoMPCSetUp(css, 3, 3, 16777216) //2^24
 	if err != nil {
-		return groth16.ProvingKey{}, groth16.VerifyingKey{}, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	// Setup
-	err = groth16.Setup(css.(*cs.R1CS), &pk, &vk)
+	err = groth16.Setup(css.(*cs.R1CS), pk, vk)
 	if err != nil {
-		return groth16.ProvingKey{}, groth16.VerifyingKey{}, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	// Compute witness
 	witness, err := frontend.NewWitness(assignment, ecc.BN254.ScalarField())
 	if err != nil {
-		return groth16.ProvingKey{}, groth16.VerifyingKey{}, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	// Compute proof
-	proof, err := groth16.Prove(css.(*cs.R1CS), &pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
+	proof, err := groth16.Prove(css.(*cs.R1CS), pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
 	if err != nil {
-		return groth16.ProvingKey{}, groth16.VerifyingKey{}, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	return pk, vk, proof, witness, err
 }
@@ -103,40 +102,42 @@ func computingProof2(css constraint.ConstraintSystem, assignment frontend.Circui
 // nContributionsPhase1 = 3
 // nContributionsPhase2 = 3
 // power                = 22 //element count range 2^0-2^27
-func demoMPCSetUp(ccs constraint.ConstraintSystem, nContributionsPhase1 int, nContributionsPhase2 int, power int) (groth16.ProvingKey, groth16.VerifyingKey, error) {
-	var pk groth16.ProvingKey
-	var vk groth16.VerifyingKey
-	_, err := mpc.InitPhase1("Phase1_1", power)
+func demoMPCSetUp(ccs constraint.ConstraintSystem, nContributionsPhase1 int, nContributionsPhase2 int, power int) (*groth16.ProvingKey, *groth16.VerifyingKey, error) {
+	_, err := mpc.InitPhase1("Phase1_1", uint64(power))
 	if err != nil {
-		return pk, vk, err
+		return nil, nil, err
 	}
 	// All members build and verify contributions for phase1
 	for i := 1; i < nContributionsPhase1; i++ {
 		prepath := "Phase1_" + strconv.Itoa(i)
 		nextPath := "Phase1_" + strconv.Itoa(i+1)
-		_, _, err = mpc.ContributePhase1(prepath, nextPath)
+		_, err = mpc.ContributePhase1(prepath, nextPath)
 		if err != nil {
-			return pk, vk, err
+			return nil, nil, err
 		}
 	}
-	evals, srs1, _, err := mpc.InitPhase2(ccs, "Phase1_"+strconv.Itoa(nContributionsPhase1), "Phase2_1")
+	mpc.Seal("Phase1_"+strconv.Itoa(nContributionsPhase1), "Phase1_final")
+
+	evals, srs, _, err := mpc.InitPhase2(ccs, "Phase1_Phase1_final", "Phase2_1")
 	if err != nil {
-		return pk, vk, err
+		return nil, nil, err
 	}
 	// All members build and verify contributions for phase2
 	for i := 1; i < nContributionsPhase2; i++ {
 		prepath := "Phase2_" + strconv.Itoa(i)
 		nextPath := "Phase2_" + strconv.Itoa(i+1)
-		_, _, err = mpc.ContributePhase2(prepath, nextPath)
+		_, err = mpc.ContributePhase2(prepath, nextPath)
 		if err != nil {
-			return pk, vk, err
+			return nil, nil, err
 		}
 	}
-	srs2, err := mpc.ReadPhase2FromFile("Phase2_" + strconv.Itoa(nContributionsPhase1))
+	phase2, err := mpc.ReadPhase2FromFile("Phase2_" + strconv.Itoa(nContributionsPhase1))
 	if err != nil {
-		return groth16.ProvingKey{}, groth16.VerifyingKey{}, err
+		return nil, nil, err
 	}
 	// Extract the proving and verifying keys
-	pk, vk = mpcsetup.ExtractKeys(&srs1, &srs2, &evals, ccs.GetNbConstraints())
+	p1, v1 := phase2.Seal(&srs, &evals, []byte("beacon Phase 2"))
+	pk := p1.(*groth16.ProvingKey)
+	vk := v1.(*groth16.VerifyingKey)
 	return pk, vk, err
 }
