@@ -33,6 +33,9 @@ import (
 func ComputeProof(phase1Path string, phase2Path string, css constraint.ConstraintSystem, assignment frontend.Circuit) (pk *groth16.ProvingKey, vk *groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
 	// Get proving and verifying keys
 	pk, vk, err = GetInitParamsFromExistedMPCSetUp(css, phase1Path, phase2Path)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
 	// Compute witness
 	witness, err = frontend.NewWitness(assignment, ecc.BN254.ScalarField())
 	if err != nil {
