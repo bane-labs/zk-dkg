@@ -20,33 +20,25 @@ import (
 /**
  * Function: ComputeProof
  * @Description: a general zk proof calculation method
- * @param phase1Path: phase1 file path required for proof calculation
- * @param phase2Path: phase2 file path required for proof calculation
  * @param css: circuit constraints
+ * @param pk: proving key
  * @param assignment: input data collection
- * @return pk: proving key
- * @return vk: verification key
  * @return proof: zk proof
  * @return witness: witness
  * @return err: error
  */
-func ComputeProof(phase1Path string, phase2Path string, css constraint.ConstraintSystem, assignment frontend.Circuit) (pk *groth16.ProvingKey, vk *groth16.VerifyingKey, proof *groth16.Proof, witness witness.Witness, err error) {
-	// Get proving and verifying keys
-	pk, vk, err = GetInitParamsFromExistedMPCSetUp(css, phase1Path, phase2Path)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
+func ComputeProof(css constraint.ConstraintSystem, pk *groth16.ProvingKey, assignment frontend.Circuit) (*groth16.Proof, witness.Witness, error) {
 	// Compute witness
-	witness, err = frontend.NewWitness(assignment, ecc.BN254.ScalarField())
+	witness, err := frontend.NewWitness(assignment, ecc.BN254.ScalarField())
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, err
 	}
 	// Compute proof
-	proof, err = groth16.Prove(css.(*cs.R1CS), pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
+	proof, err := groth16.Prove(css.(*cs.R1CS), pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, err
 	}
-	return
+	return proof, witness, nil
 }
 
 /**
@@ -59,7 +51,7 @@ func ComputeProof(phase1Path string, phase2Path string, css constraint.Constrain
  * @return vk: verification key
  * @return err: error
  */
-func GetInitParamsFromExistedMPCSetUp(ccs constraint.ConstraintSystem, phase1Path string, phase2Path string) (pk *groth16.ProvingKey, vk *groth16.VerifyingKey, err error) {
+func GetInitParamsFromExistedMPCSetUp(ccs constraint.ConstraintSystem, phase1Path string, phase2Path string) (*groth16.ProvingKey, *groth16.VerifyingKey, error) {
 	// Get phase1 data
 	srs, err := mpc.ReadSrsCommonsFromFile(phase1Path)
 	if err != nil {
@@ -75,10 +67,76 @@ func GetInitParamsFromExistedMPCSetUp(ccs constraint.ConstraintSystem, phase1Pat
 		return nil, nil, err
 	}
 	// Generate proving and verifying keys
-	p1, v1 := phase2.Seal(&srs, &evals, []byte("beacon Phase 2"))
-	pk = p1.(*groth16.ProvingKey)
-	vk = v1.(*groth16.VerifyingKey)
-	return
+	pk, vk := phase2.Seal(&srs, &evals, []byte("beacon Phase 2"))
+	return pk.(*groth16.ProvingKey), vk.(*groth16.VerifyingKey), nil
+}
+
+/**
+ * Function: ReadProvingKey
+ * @Description: import proving key file
+ * @param path: proving key file path
+ */
+func ReadProvingKey(path string) (*groth16.ProvingKey, error) {
+	pk := new(groth16.ProvingKey)
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	_, err = pk.ReadFrom(file)
+	if err != nil {
+		return nil, err
+	}
+	return pk, nil
+}
+
+/**
+ * Function: ExportProvingKey
+ * @Description: export proving key file
+ * @param pk: proving key
+ */
+func ExportProvingKey(pk *groth16.ProvingKey, path string) {
+	file, err := os.Create(path)
+	if err != nil {
+		panic(err)
+	}
+	_, err = pk.WriteTo(file)
+	if err != nil {
+		panic(err)
+	}
+}
+
+/**
+ * Function: ReadVerifyingKey
+ * @Description: import verifying key file
+ * @param path: verifying key file path
+ */
+func ReadVerifyingKey(path string) (*groth16.VerifyingKey, error) {
+	vk := new(groth16.VerifyingKey)
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	_, err = vk.ReadFrom(file)
+	if err != nil {
+		return nil, err
+	}
+	return vk, nil
+}
+
+/**
+ * Function: ExportVerifyingKey
+ * @Description: export verifying key file
+ * @param vk: verifying key
+ */
+func ExportVerifyingKey(vk *groth16.VerifyingKey, path string) {
+	file, err := os.Create(path)
+	if err != nil {
+		panic(err)
+	}
+	_, err = vk.WriteTo(file)
+	if err != nil {
+		panic(err)
+	}
 }
 
 /**

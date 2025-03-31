@@ -53,7 +53,17 @@ var (
 	contractFileFlag = &cli.PathFlag{
 		Name:  "contract",
 		Usage: "The out file path of contract exportation",
-		Value: "Verify.sol",
+		Value: "Verifier.sol",
+	}
+	provingKeyFileFlag = &cli.PathFlag{
+		Name:  "provingkey",
+		Usage: "The out file path of proving key",
+		Value: "ProvingKey",
+	}
+	verifyingKeyFileFlag = &cli.PathFlag{
+		Name:  "verifyingkey",
+		Usage: "The out file path of verifying key",
+		Value: "VerifyingKey",
 	}
 )
 
@@ -186,29 +196,25 @@ chain of this contribute operations realize a MPC.`,
 				},
 			},
 			{
-				Name:        "contract",
-				Usage:       "Commands about solidity contract",
-				Description: ``,
-				Subcommands: []*cli.Command{
-					{
-						Name:   "export",
-						Usage:  "Export Solidity verification contracts based on MPC files",
-						Action: exportContract,
-						Flags: []cli.Flag{
-							phase1FileFlag,
-							phase2FileFlag,
-							batchFlag,
-							contractFileFlag,
-						},
-						Description: `
-	contract export --batch <size> --phase1file <filepath> --phase2file <filepath>
-
-will generate a Solidity verification contract file based on the
-input MPC phase1 and phase2 files, the same parameter "batch" used
-in "phase2 init" should also be provided, please refer
-https://github.com/bane-labs/zk-dkg/blob/v0.1.0/circuit/batch_encryption.go#L33.`,
-					},
+				Name:   "seal",
+				Usage:  "Export the proving key, verifying key and the verifier contract",
+				Action: exportSeal,
+				Flags: []cli.Flag{
+					phase1FileFlag,
+					phase2FileFlag,
+					batchFlag,
+					contractFileFlag,
+					provingKeyFileFlag,
+					verifyingKeyFileFlag,
 				},
+				Description: `
+	seal --batch <size> --phase1file <filepath> --phase2file <filepath> --contract <filepath> --provingkey <filepath> --verifyingkey <filepath>
+
+will generate a proving key file, a verifying key file, and a
+Solidity verifier contract based on the input MPC phase1 and
+phase2 files, the same parameter "batch" used in "phase2 init"
+should also be provided, please refer
+https://github.com/bane-labs/zk-dkg/blob/v0.1.0/circuit/batch_encryption.go#L33.`,
 			},
 		},
 	}
@@ -219,7 +225,7 @@ https://github.com/bane-labs/zk-dkg/blob/v0.1.0/circuit/batch_encryption.go#L33.
 	}
 }
 
-func exportContract(ctx *cli.Context) error {
+func exportSeal(ctx *cli.Context) error {
 	phase1FilePath := ctx.Path(phase1FileFlag.Name)
 	if phase1FilePath == "" {
 		return errors.New("invalid phase1 file path")
@@ -235,6 +241,14 @@ func exportContract(ctx *cli.Context) error {
 	contractFilePath := ctx.Path(contractFileFlag.Name)
 	if contractFilePath == "" {
 		return errors.New("invalid contract file path")
+	}
+	provingKeyFilePath := ctx.Path(provingKeyFileFlag.Name)
+	if provingKeyFilePath == "" {
+		return errors.New("invalid provingkey file path")
+	}
+	verifyingKeyFilePath := ctx.Path(verifyingKeyFileFlag.Name)
+	if verifyingKeyFilePath == "" {
+		return errors.New("invalid verifyingkey file path")
 	}
 	// Generate node private key
 	source := rand.NewSource(time.Now().UnixNano())
@@ -263,11 +277,13 @@ func exportContract(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	_, vk, err := helper.GetInitParamsFromExistedMPCSetUp(css, phase1FilePath, phase2FilePath)
+	pk, vk, err := helper.GetInitParamsFromExistedMPCSetUp(css, phase1FilePath, phase2FilePath)
 	if err != nil {
 		return err
 	}
 	helper.ExportContract(vk, contractFilePath)
+	helper.ExportProvingKey(pk, provingKeyFilePath)
+	helper.ExportVerifyingKey(vk, verifyingKeyFilePath)
 	return nil
 }
 
