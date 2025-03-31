@@ -4,13 +4,10 @@ import (
 	"math/big"
 
 	"github.com/bane-labs/zk-dkg/helper"
-	"github.com/consensys/gnark-crypto/ecc"
 	bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
-	"github.com/consensys/gnark/constraint"
 	"github.com/consensys/gnark/frontend"
-	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
 	"github.com/consensys/gnark/std/math/emulated"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
@@ -32,7 +29,7 @@ import (
  * @return assignment: input data collection
  * @return err: error
  */
-func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r big.Int, bigR secp256k1.G1Affine, fiBytes []byte, fiInt big.Int, bigFi bls12381.G1Affine, encryptedFi []byte, nonce []byte) (css constraint.ConstraintSystem, circuit ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], assignment ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], err error) {
+func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r big.Int, bigR secp256k1.G1Affine, fiBytes []byte, fiInt big.Int, bigFi bls12381.G1Affine, encryptedFi []byte, nonce []byte) *ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr] {
 	// Format data
 	plainChunksBytes := make([]frontend.Variable, len(fiBytes))
 	for i := 0; i < len(fiBytes); i++ {
@@ -87,19 +84,7 @@ func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r big.In
 	for i := 0; i < len(rawSumHash); i++ {
 		rawSumHash[i] = sumHash[i]
 	}
-
-	// Compute proof
-	circuit = ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
-		PlainChunks:  make([]frontend.Variable, len(plainChunksBytes)),
-		CipherChunks: make([]frontend.Variable, len(ciphertextBytes)),
-		PubInputHash: make([]frontend.Variable, len(rawSumHash)),
-	}
-	css, err = frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
-	if err != nil {
-		return nil, circuit, assignment, err
-	}
-
-	assignment = ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
+	return &ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
 		SmallR: emulated.ValueOf[emulated.Secp256k1Fr](r),
 		BigR: sw_emulated.AffinePoint[emulated.Secp256k1Fp]{
 			X: emulated.ValueOf[emulated.Secp256k1Fp](bigR.X),
@@ -125,7 +110,6 @@ func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r big.In
 		},
 		PubInputHash: rawSumHash,
 	}
-	return
 }
 
 /**
@@ -145,7 +129,7 @@ func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r big.In
  * @return assignment: input data collection
  * @return err: error
  */
-func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.PublicKey, rs []big.Int, bigRs []secp256k1.G1Affine, fisBytes [][]byte, fisInts []big.Int, bigFis []bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) (css constraint.ConstraintSystem, circuit BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], assignment *BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], err error) {
+func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.PublicKey, rs []big.Int, bigRs []secp256k1.G1Affine, fisBytes [][]byte, fisInts []big.Int, bigFis []bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) *BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr] {
 	accounts := make([]AccountConstraints[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], batch)
 	rawPubInputs := make([]byte, 0)
 	for index := 0; index < batch; index++ {
@@ -229,22 +213,8 @@ func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.Publ
 	for i := 0; i < len(sumHash); i++ {
 		rawSumHash[i] = sumHash[i]
 	}
-	assignment = &BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
+	return &BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
 		Account:      accounts,
 		CommentsHash: rawSumHash,
 	}
-	circuit = BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
-		Account:      make([]AccountConstraints[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], batch),
-		CommentsHash: make([]frontend.Variable, 32),
-	}
-	for i := 0; i < batch; i++ {
-		circuit.Account[i].PlainChunks = make([]frontend.Variable, len(fisBytes[i]))
-		circuit.Account[i].CipherChunks = make([]frontend.Variable, len(encryptedFis[i]))
-	}
-
-	css, err = frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
-	if err != nil {
-		return nil, circuit, nil, err
-	}
-	return
 }

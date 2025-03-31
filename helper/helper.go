@@ -140,6 +140,40 @@ func ExportVerifyingKey(vk *groth16.VerifyingKey, path string) {
 }
 
 /**
+ * Function: ReadCSS
+ * @Description: import r1cs file
+ * @param path: r1cs file path
+ */
+func ReadCSS(path string) (constraint.ConstraintSystem, error) {
+	css := new(cs.R1CS)
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	_, err = css.ReadFrom(file)
+	if err != nil {
+		return nil, err
+	}
+	return css, nil
+}
+
+/**
+ * Function: ExportCSS
+ * @Description: export r1cs file
+ * @param css: r1cs
+ */
+func ExportCSS(css constraint.ConstraintSystem, path string) {
+	file, err := os.Create(path)
+	if err != nil {
+		panic(err)
+	}
+	_, err = css.WriteTo(file)
+	if err != nil {
+		panic(err)
+	}
+}
+
+/**
  * Function: ExportContract
  * @Description: export solidity file
  * @param vk: verifying key

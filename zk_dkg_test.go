@@ -62,17 +62,21 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 	for i := 0; i < batch; i++ {
 		t.Logf("Share message: %s", hex.EncodeToString(messages[i]))
 	}
-	// Compute proof
-	provingKeyPath := "ProvingKey"
+	// Read files
+	provingKeyPath := "ProvingKey_" + strconv.Itoa(3)
 	pk, err := helper.ReadProvingKey(provingKeyPath)
-	assert.NoError(err)
-	proof, witness, err := ProveMultipleKeyShareEncryption(pk, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
-	assert.NoError(err)
-	// Verify proof
-	publicWitness, err := witness.Public()
 	assert.NoError(err)
 	verifyingKeyPath := "VerifyingKey_" + strconv.Itoa(3)
 	vk, err := helper.ReadVerifyingKey(verifyingKeyPath)
+	assert.NoError(err)
+	r1csPath := "R1CS_" + strconv.Itoa(3)
+	css, err := helper.ReadCSS(r1csPath)
+	assert.NoError(err)
+	// Compute proof
+	proof, witness, err := ProveMultipleKeyShareEncryption(css, pk, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
+	assert.NoError(err)
+	// Verify proof
+	publicWitness, err := witness.Public()
 	assert.NoError(err)
 	err = groth16.Verify(proof, vk, publicWitness.Vector().(fr_bn254.Vector), backend.WithVerifierHashToFieldFunction(sha256.New()))
 	assert.NoError(err)
@@ -127,17 +131,21 @@ func TestTwoRecoverMessageGeneration(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		t.Logf("Share message: %s", hex.EncodeToString(messages[i]))
 	}
-	// Compute proof
-	provingKeyPath := "ProvingKey"
+	// Read files
+	provingKeyPath := "ProvingKey_" + strconv.Itoa(3)
 	pk, err := helper.ReadProvingKey(provingKeyPath)
-	assert.NoError(err)
-	proof, witness, err := ProveMultipleKeyShareEncryption(pk, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
-	assert.NoError(err)
-	// Verify proof
-	publicWitness, err := witness.Public()
 	assert.NoError(err)
 	verifyingKeyPath := "VerifyingKey_" + strconv.Itoa(3)
 	vk, err := helper.ReadVerifyingKey(verifyingKeyPath)
+	assert.NoError(err)
+	r1csPath := "R1CS_" + strconv.Itoa(3)
+	css, err := helper.ReadCSS(r1csPath)
+	assert.NoError(err)
+	// Compute proof
+	proof, witness, err := ProveMultipleKeyShareEncryption(css, pk, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
+	assert.NoError(err)
+	// Verify proof
+	publicWitness, err := witness.Public()
 	assert.NoError(err)
 	err = groth16.Verify(proof, vk, publicWitness.Vector().(fr_bn254.Vector), backend.WithVerifierHashToFieldFunction(sha256.New()))
 	assert.NoError(err)

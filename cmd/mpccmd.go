@@ -65,6 +65,11 @@ var (
 		Usage: "The out file path of verifying key",
 		Value: "VerifyingKey",
 	}
+	r1csFileFlag = &cli.PathFlag{
+		Name:  "r1cs",
+		Usage: "The out file path of r1cs",
+		Value: "R1CS",
+	}
 )
 
 func main() {
@@ -206,9 +211,10 @@ chain of this contribute operations realize a MPC.`,
 					contractFileFlag,
 					provingKeyFileFlag,
 					verifyingKeyFileFlag,
+					r1csFileFlag,
 				},
 				Description: `
-	seal --batch <size> --phase1file <filepath> --phase2file <filepath> --contract <filepath> --provingkey <filepath> --verifyingkey <filepath>
+	seal --batch <size> --phase1file <filepath> --phase2file <filepath> --contract <filepath> --provingkey <filepath> --verifyingkey <filepath> --r1cs <filepath>
 
 will generate a proving key file, a verifying key file, and a
 Solidity verifier contract based on the input MPC phase1 and
@@ -250,6 +256,10 @@ func exportSeal(ctx *cli.Context) error {
 	if verifyingKeyFilePath == "" {
 		return errors.New("invalid verifyingkey file path")
 	}
+	r1csFilePath := ctx.Path(r1csFileFlag.Name)
+	if r1csFilePath == "" {
+		return errors.New("invalid r1cs file path")
+	}
 	// Generate node private key
 	source := rand.NewSource(time.Now().UnixNano())
 	rand := rand.New(source)
@@ -272,7 +282,6 @@ func exportSeal(ctx *cli.Context) error {
 		c.Account[i].PlainChunks = make([]frontend.Variable, len(fisBytes[i]))
 		c.Account[i].CipherChunks = make([]frontend.Variable, len(encryptedFis[i]))
 	}
-
 	css, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &c)
 	if err != nil {
 		return err
@@ -284,6 +293,7 @@ func exportSeal(ctx *cli.Context) error {
 	helper.ExportContract(vk, contractFilePath)
 	helper.ExportProvingKey(pk, provingKeyFilePath)
 	helper.ExportVerifyingKey(vk, verifyingKeyFilePath)
+	helper.ExportCSS(css, r1csFilePath)
 	return nil
 }
 
