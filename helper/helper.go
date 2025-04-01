@@ -45,15 +45,15 @@ func ComputeProof(css constraint.ConstraintSystem, pk *groth16.ProvingKey, assig
  * Function: GetInitParamsFromExistedMPCSetUp
  * @Description: get proving key and verification key required for zk proof calculation from the existing MPC file
  * @param ccs: circuit constraints
- * @param phase1Path: phase1 file path required for proof calculation
+ * @param srsPath: phase1 SRS file path required for proof calculation
  * @param phase2Path: phase2 file path required for proof calculation
  * @return pk: proving key
  * @return vk: verification key
  * @return err: error
  */
-func GetInitParamsFromExistedMPCSetUp(ccs constraint.ConstraintSystem, phase1Path string, phase2Path string) (*groth16.ProvingKey, *groth16.VerifyingKey, error) {
+func GetInitParamsFromExistedMPCSetUp(ccs constraint.ConstraintSystem, srsPath string, phase2Path string) (*groth16.ProvingKey, *groth16.VerifyingKey, error) {
 	// Get phase1 data
-	srs, err := mpc.ReadSrsCommonsFromFile(phase1Path)
+	srs, err := mpc.ReadSrsCommonsFromFile(srsPath)
 	if err != nil {
 		return nil, nil, err
 	}
