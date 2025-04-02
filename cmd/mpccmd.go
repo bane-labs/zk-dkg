@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
@@ -302,10 +304,15 @@ func initPhase1(ctx *cli.Context) error {
 	if path == "" {
 		path = DefaultPhase1FilePrefix + "1"
 	}
-	_, err := mpc.InitPhase1(path, uint64(math.Pow(2, 24)))
+	p, err := mpc.InitPhase1(path, uint64(math.Pow(2, 24)))
 	if err != nil {
 		return err
 	}
+	sha := sha256.New()
+	if _, err := p.WriteTo(sha); err != nil {
+		panic(err)
+	}
+	fmt.Println("File challenge:", hex.EncodeToString(sha.Sum(nil)))
 	return nil
 }
 
@@ -318,11 +325,11 @@ func verifyPhase1(ctx *cli.Context) error {
 	if path2 == "" {
 		return errors.New("invalid output file path")
 	}
-	_, err := mpc.VerifyPhase1(path1, path2)
+	challenge, err := mpc.VerifyPhase1(path1, path2)
 	if err != nil {
 		return err
 	}
-	fmt.Println("Phase1 verify : OK")
+	fmt.Println("Phase1 verified, and the previous challenge is", hex.EncodeToString(challenge))
 	return nil
 }
 
@@ -335,10 +342,16 @@ func contributePhase1(ctx *cli.Context) error {
 	if outputPath == "" {
 		return errors.New("invalid output file path")
 	}
-	_, err := mpc.ContributePhase1(inputPath, outputPath)
+	p, err := mpc.ContributePhase1(inputPath, outputPath)
 	if err != nil {
 		return err
 	}
+	fmt.Println("Contributed to:", hex.EncodeToString(p.Challenge))
+	sha := sha256.New()
+	if _, err := p.WriteTo(sha); err != nil {
+		panic(err)
+	}
+	fmt.Println("File challenge:", hex.EncodeToString(sha.Sum(nil)))
 	return nil
 }
 
@@ -398,10 +411,15 @@ func initPhase2(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	_, _, _, err = mpc.InitPhase2(css, inputPath, outputpath)
+	_, _, p, err := mpc.InitPhase2(css, inputPath, outputpath)
 	if err != nil {
 		return err
 	}
+	sha := sha256.New()
+	if _, err := p.WriteTo(sha); err != nil {
+		panic(err)
+	}
+	fmt.Println("File challenge:", hex.EncodeToString(sha.Sum(nil)))
 	return nil
 }
 
@@ -414,11 +432,11 @@ func verifyPhase2(ctx *cli.Context) error {
 	if path2 == "" {
 		return errors.New("invalid output file path")
 	}
-	_, err := mpc.VerifyPhase2(path1, path2)
+	challenge, err := mpc.VerifyPhase2(path1, path2)
 	if err != nil {
 		return err
 	}
-	fmt.Println("phase2 verify pass")
+	fmt.Println("Phase2 verified, and the previous challenge is", hex.EncodeToString(challenge))
 	return nil
 }
 
@@ -431,9 +449,15 @@ func contributePhase2(ctx *cli.Context) error {
 	if outputPath == "" {
 		return errors.New("invalid output file path")
 	}
-	_, err := mpc.ContributePhase2(inputPath, outputPath)
+	p, err := mpc.ContributePhase2(inputPath, outputPath)
 	if err != nil {
 		return err
 	}
+	fmt.Println("Contributed to:", hex.EncodeToString(p.Challenge))
+	sha := sha256.New()
+	if _, err := p.WriteTo(sha); err != nil {
+		panic(err)
+	}
+	fmt.Println("File challenge:", hex.EncodeToString(sha.Sum(nil)))
 	return nil
 }

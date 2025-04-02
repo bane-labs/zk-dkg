@@ -72,23 +72,23 @@ func ContributePhase2(prevPath string, nextPath string) (next mpcsetup.Phase2, e
  * @Description: verify phase2 file is calculated correctly
  * @param prevPath: previous round phase2 file path
  * @param curPath: current round phase2 file path
- * @return bool: check result
+ * @return []byte: the hash of previous round phase2
  * @return error: error
  */
-func VerifyPhase2(prevPath string, curPath string) (bool, error) {
+func VerifyPhase2(prevPath string, curPath string) ([]byte, error) {
 	prev, err := ReadPhase2FromFile(prevPath)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	cur, err := ReadPhase2FromFile(curPath)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	err = prev.Verify(&cur)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	return true, nil
+	return cur.Challenge, nil
 }
 
 /**
