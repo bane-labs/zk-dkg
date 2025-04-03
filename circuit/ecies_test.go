@@ -19,6 +19,8 @@ import (
 	"github.com/consensys/gnark/constraint"
 	cs "github.com/consensys/gnark/constraint/bn254"
 	"github.com/consensys/gnark/frontend"
+	"github.com/consensys/gnark/frontend/cs/r1cs"
+	"github.com/consensys/gnark/std/math/emulated"
 	"github.com/consensys/gnark/test"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
@@ -36,10 +38,14 @@ func TestECIESCircuit(t *testing.T) {
 	fi.SetRandom()
 	fiBytes, fiInt, bigFi := transformKeyShare(fi)
 	nonce, encryptedFi, r, bigR := encryptKeyShare(&privKey.PublicKey, fiBytes)
-	// Compute proof
-	_, circuit, assignment, err := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, bigR, fiBytes, fiInt, bigFi, encryptedFi, nonce)
-	assert.NoError(err)
-	err = test.IsSolved(&circuit, &assignment, ecc.BN254.ScalarField())
+	// Verify circuit
+	circuit := ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
+		PlainChunks:  make([]frontend.Variable, len(fiBytes)),
+		CipherChunks: make([]frontend.Variable, len(encryptedFi)),
+		PubInputHash: make([]frontend.Variable, 32),
+	}
+	assignment := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, bigR, fiBytes, fiInt, bigFi, encryptedFi, nonce)
+	err = test.IsSolved(&circuit, assignment, ecc.BN254.ScalarField())
 	assert.NoError(err)
 }
 
@@ -55,15 +61,16 @@ func TestECIESWithMPC(t *testing.T) {
 	fi.SetRandom()
 	fiBytes, fiInt, bigFi := transformKeyShare(fi)
 	nonce, encryptedFi, r, bigR := encryptKeyShare(&privKey.PublicKey, fiBytes)
-	// Compute proof (two ways)
-	// 1) From an existing MPC file
-	/*	phase1Path := "Phase1_" + strconv.Itoa(3)
-		phase2Path := "Phase2_" + strconv.Itoa(3)
-		vk, proof, witness, err := GenerateProof(phase1Path, phase2Path, privKey.PublicKey, r, bigR, fiBytes, fiInt, bigFi, encryptedFi, nonce)*/
-	// 2) From a new MPC file
-	css, _, assignment, err := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, bigR, fiBytes, fiInt, bigFi, encryptedFi, nonce)
+	// Compute proof
+	circuit := ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
+		PlainChunks:  make([]frontend.Variable, len(fiBytes)),
+		CipherChunks: make([]frontend.Variable, len(encryptedFi)),
+		PubInputHash: make([]frontend.Variable, 32),
+	}
+	css, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
 	assert.NoError(err)
-	_, vk, proof, witness, err := computingProof2(css, &assignment)
+	assignment := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, bigR, fiBytes, fiInt, bigFi, encryptedFi, nonce)
+	_, vk, proof, witness, err := computingProof2(css, assignment)
 	assert.NoError(err)
 	publicWitness, err := witness.Public()
 	assert.NoError(err)

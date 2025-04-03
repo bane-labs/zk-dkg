@@ -62,25 +62,25 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 	for i := 0; i < batch; i++ {
 		t.Logf("Share message: %s", hex.EncodeToString(messages[i]))
 	}
-	// There are two ways to compute a proof
-	// 1) From an existing MPC file
-	phase1Path := "Phase1_" + strconv.Itoa(3)
-	phase2Path := "Phase2_" + strconv.Itoa(3)
-	vk, proof, witness, err := ProveMultipleKeyShareEncryption(phase1Path, phase2Path, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
+	// Read files
+	provingKeyPath := "ProvingKey_" + strconv.Itoa(3)
+	pk, err := helper.ReadProvingKey(provingKeyPath)
 	assert.NoError(err)
-	// 2) From a new MPC file
-	/*	css, _, assignment, err := circuit.BatchComputingAssignment(batch, pubKeys, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
-		assert.NoError(err)
-		_, vk, proof, witness, err := computingProof2(css, assignment)
-		assert.NoError(err)*/
-	publicWitness, err := witness.Public()
+	verifyingKeyPath := "VerifyingKey_" + strconv.Itoa(3)
+	vk, err := helper.ReadVerifyingKey(verifyingKeyPath)
+	assert.NoError(err)
+	r1csPath := "R1CS_" + strconv.Itoa(3)
+	css, err := helper.ReadCSS(r1csPath)
+	assert.NoError(err)
+	// Compute proof
+	proof, witness, err := ProveMultipleKeyShareEncryption(css, pk, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
 	assert.NoError(err)
 	// Verify proof
+	publicWitness, err := witness.Public()
+	assert.NoError(err)
 	err = groth16.Verify(proof, vk, publicWitness.Vector().(fr_bn254.Vector), backend.WithVerifierHashToFieldFunction(sha256.New()))
 	assert.NoError(err)
-	// Export solidity contract
-	helper.ExportContract(vk, "Verify.sol")
-	// Output verify data
+	// Output proof data
 	proofData, cmts, cmtPok := helper.GetContractInput(proof)
 	// proof.Ar, proof.Bs, proof.Krs
 	t.Log("Proof:")
@@ -131,23 +131,25 @@ func TestTwoRecoverMessageGeneration(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		t.Logf("Share message: %s", hex.EncodeToString(messages[i]))
 	}
-	// There are two ways to compute a proof
-	// 1) From an existing MPC file
-	phase1Path := "Phase1_" + strconv.Itoa(3)
-	phase2Path := "Phase2_" + strconv.Itoa(3)
-	vk, proof, witness, err := ProveMultipleKeyShareEncryption(phase1Path, phase2Path, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
+	// Read files
+	provingKeyPath := "ProvingKey_" + strconv.Itoa(3)
+	pk, err := helper.ReadProvingKey(provingKeyPath)
 	assert.NoError(err)
-	// 2) From a new MPC file
-	/*	css, _, assignment, err := circuit.BatchComputingAssignment(batch, pubKeys, rs, rb, fiBytes, sfi, bfi, ctt, nonce)
-		assert.NoError(err)
-		_, vk, proof, witness, err := computingProof2(css, assignment)
-		assert.NoError(err)*/
-	publicWitness, err := witness.Public()
+	verifyingKeyPath := "VerifyingKey_" + strconv.Itoa(3)
+	vk, err := helper.ReadVerifyingKey(verifyingKeyPath)
+	assert.NoError(err)
+	r1csPath := "R1CS_" + strconv.Itoa(3)
+	css, err := helper.ReadCSS(r1csPath)
+	assert.NoError(err)
+	// Compute proof
+	proof, witness, err := ProveMultipleKeyShareEncryption(css, pk, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
 	assert.NoError(err)
 	// Verify proof
+	publicWitness, err := witness.Public()
+	assert.NoError(err)
 	err = groth16.Verify(proof, vk, publicWitness.Vector().(fr_bn254.Vector), backend.WithVerifierHashToFieldFunction(sha256.New()))
 	assert.NoError(err)
-	// Output verify data
+	// Output proof data
 	proofData, cmts, cmtPok := helper.GetContractInput(proof)
 	// proof.Ar, proof.Bs, proof.Krs
 	t.Log("Proof:")

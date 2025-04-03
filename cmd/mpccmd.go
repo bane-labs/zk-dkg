@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
@@ -29,9 +31,17 @@ const (
 
 var (
 	// Flags for MPC
-	inputFileFlag = &cli.PathFlag{
-		Name:  "input",
-		Usage: "The input file path of a MPC contribution",
+	phase1FileFlag = &cli.PathFlag{
+		Name:  "phase1file",
+		Usage: "The input file path of a phase1 contribution file",
+	}
+	phase2FileFlag = &cli.PathFlag{
+		Name:  "phase2file",
+		Usage: "The input file path of a phase2 contribution file",
+	}
+	srsFileFlag = &cli.PathFlag{
+		Name:  "srsfile",
+		Usage: "The input file path of a phase1 SRS file",
 	}
 	outputFileFlag = &cli.PathFlag{
 		Name:  "output",
@@ -42,18 +52,25 @@ var (
 		Usage: "The expected amount of messages for a circuit to encrypt",
 	}
 	// Flags for contract generation
-	phase1FileFlag = &cli.PathFlag{
-		Name:  "phase1file",
-		Usage: "The final MPC phase1 file for production",
-	}
-	phase2FileFlag = &cli.PathFlag{
-		Name:  "phase2file",
-		Usage: "The final MPC phase2 file for production",
-	}
 	contractFileFlag = &cli.PathFlag{
 		Name:  "contract",
 		Usage: "The out file path of contract exportation",
-		Value: "Verify.sol",
+		Value: "Verifier.sol",
+	}
+	provingKeyFileFlag = &cli.PathFlag{
+		Name:  "provingkey",
+		Usage: "The out file path of proving key",
+		Value: "ProvingKey",
+	}
+	verifyingKeyFileFlag = &cli.PathFlag{
+		Name:  "verifyingkey",
+		Usage: "The out file path of verifying key",
+		Value: "VerifyingKey",
+	}
+	r1csFileFlag = &cli.PathFlag{
+		Name:  "r1cs",
+		Usage: "The out file path of r1cs",
+		Value: "R1CS",
 	}
 )
 
@@ -87,11 +104,11 @@ the first participant to generate the first file.`,
 						Usage:  "Verify the phase1 file step forward",
 						Action: verifyPhase1,
 						Flags: []cli.Flag{
-							inputFileFlag,
+							phase1FileFlag,
 							outputFileFlag,
 						},
 						Description: `
-	phase1 verify --input <filepath> --output <filepath>
+	phase1 verify --phase1file <filepath> --output <filepath>
 
 will verify the contribute operation that takes place on the input
 file to the output file, should be used before any further contribution
@@ -102,26 +119,26 @@ to the unverified output file.`,
 						Usage:  "Contribute to the phase1 MPC",
 						Action: contributePhase1,
 						Flags: []cli.Flag{
-							inputFileFlag,
+							phase1FileFlag,
 							outputFileFlag,
 						},
 						Description: `
-	phase1 contribute --input <filepath> --output <filepath>
+	phase1 contribute --phase1file <filepath> --output <filepath>
 
 will generate a new phase1 file based on the input one, every
 participant should do this only once and one by one, so that a
 chain of this contribute operations realize a MPC.`,
 					},
 					{
-						Name:   "getCommonSRS",
-						Usage:  "Convert Phase1 data to common srs",
-						Action: getCommonSRS,
+						Name:   "seal",
+						Usage:  "Convert Phase1 data to common SRS",
+						Action: sealPhase1,
 						Flags: []cli.Flag{
-							inputFileFlag,
+							phase1FileFlag,
 							outputFileFlag,
 						},
 						Description: `
-	phase1 getCommonSRS --input <filepath> --output <filepath>
+	phase1 seal --phase1file <filepath> --output <filepath>
 
 will convert Phase1 data to common srs,each participant can execute this operation locally to verify that the correct public SRS string is used`,
 					},
@@ -140,12 +157,12 @@ phase1, and later can be used by this application repeatedly.`,
 						Usage:  "Generate the first phase2 file",
 						Action: initPhase2,
 						Flags: []cli.Flag{
-							inputFileFlag,
+							srsFileFlag,
 							outputFileFlag,
 							batchFlag,
 						},
 						Description: `
-	phase2 init --batch <size> --input <filepath> --output <filepath>
+	phase2 init --batch <size> --srsfile <filepath> --output <filepath>
 
 will generate a phase2 file with a phase1 input, should be used by
 the first participant to generate the first file. A parameter "batch"
@@ -158,11 +175,11 @@ https://github.com/bane-labs/zk-dkg/blob/v0.1.0/circuit/batch_encryption.go#L33`
 						Usage:  "Verify the phase2 file step forward",
 						Action: verifyPhase2,
 						Flags: []cli.Flag{
-							inputFileFlag,
+							phase2FileFlag,
 							outputFileFlag,
 						},
 						Description: `
-	phase2 verify --input <filepath> --output <filepath>
+	phase2 verify --phase2file <filepath> --output <filepath>
 
 will verify the contribute operation that takes place on the input
 file to the output file, should be used before any further contribution
@@ -173,11 +190,11 @@ to the unverified output file.`,
 						Usage:  "Contribute to the phase2 MPC",
 						Action: contributePhase2,
 						Flags: []cli.Flag{
-							inputFileFlag,
+							phase2FileFlag,
 							outputFileFlag,
 						},
 						Description: `
-	phase2 contribute --input <filepath> --output <filepath>
+	phase2 contribute --phase2file <filepath> --output <filepath>
 
 will generate a new phase2 file based on the input one, every
 participant should do this only once and one by one, so that a
@@ -186,29 +203,26 @@ chain of this contribute operations realize a MPC.`,
 				},
 			},
 			{
-				Name:        "contract",
-				Usage:       "Commands about solidity contract",
-				Description: ``,
-				Subcommands: []*cli.Command{
-					{
-						Name:   "export",
-						Usage:  "Export Solidity verification contracts based on MPC files",
-						Action: exportContract,
-						Flags: []cli.Flag{
-							phase1FileFlag,
-							phase2FileFlag,
-							batchFlag,
-							contractFileFlag,
-						},
-						Description: `
-	contract export --batch <size> --phase1file <filepath> --phase2file <filepath>
-
-will generate a Solidity verification contract file based on the
-input MPC phase1 and phase2 files, the same parameter "batch" used
-in "phase2 init" should also be provided, please refer
-https://github.com/bane-labs/zk-dkg/blob/v0.1.0/circuit/batch_encryption.go#L33.`,
-					},
+				Name:   "seal",
+				Usage:  "Export the proving key, verifying key and the verifier contract",
+				Action: exportSeal,
+				Flags: []cli.Flag{
+					srsFileFlag,
+					phase2FileFlag,
+					batchFlag,
+					contractFileFlag,
+					provingKeyFileFlag,
+					verifyingKeyFileFlag,
+					r1csFileFlag,
 				},
+				Description: `
+	seal --batch <size> --srsfile <filepath> --phase2file <filepath> --contract <filepath> --provingkey <filepath> --verifyingkey <filepath> --r1cs <filepath>
+
+will generate a proving key file, a verifying key file, and a
+Solidity verifier contract based on the input MPC phase1 and
+phase2 files, the same parameter "batch" used in "phase2 init"
+should also be provided, please refer
+https://github.com/bane-labs/zk-dkg/blob/v0.1.0/circuit/batch_encryption.go#L33.`,
 			},
 		},
 	}
@@ -219,10 +233,10 @@ https://github.com/bane-labs/zk-dkg/blob/v0.1.0/circuit/batch_encryption.go#L33.
 	}
 }
 
-func exportContract(ctx *cli.Context) error {
-	phase1FilePath := ctx.Path(phase1FileFlag.Name)
-	if phase1FilePath == "" {
-		return errors.New("invalid phase1 file path")
+func exportSeal(ctx *cli.Context) error {
+	srsFilePath := ctx.Path(srsFileFlag.Name)
+	if srsFilePath == "" {
+		return errors.New("invalid phase1 SRS file path")
 	}
 	phase2FilePath := ctx.Path(phase2FileFlag.Name)
 	if phase2FilePath == "" {
@@ -235,6 +249,18 @@ func exportContract(ctx *cli.Context) error {
 	contractFilePath := ctx.Path(contractFileFlag.Name)
 	if contractFilePath == "" {
 		return errors.New("invalid contract file path")
+	}
+	provingKeyFilePath := ctx.Path(provingKeyFileFlag.Name)
+	if provingKeyFilePath == "" {
+		return errors.New("invalid provingkey file path")
+	}
+	verifyingKeyFilePath := ctx.Path(verifyingKeyFileFlag.Name)
+	if verifyingKeyFilePath == "" {
+		return errors.New("invalid verifyingkey file path")
+	}
+	r1csFilePath := ctx.Path(r1csFileFlag.Name)
+	if r1csFilePath == "" {
+		return errors.New("invalid r1cs file path")
 	}
 	// Generate node private key
 	source := rand.NewSource(time.Now().UnixNano())
@@ -258,16 +284,18 @@ func exportContract(ctx *cli.Context) error {
 		c.Account[i].PlainChunks = make([]frontend.Variable, len(fisBytes[i]))
 		c.Account[i].CipherChunks = make([]frontend.Variable, len(encryptedFis[i]))
 	}
-
 	css, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &c)
 	if err != nil {
 		return err
 	}
-	_, vk, err := helper.GetInitParamsFromExistedMPCSetUp(css, phase1FilePath, phase2FilePath)
+	pk, vk, err := helper.GetInitParamsFromExistedMPCSetUp(css, srsFilePath, phase2FilePath)
 	if err != nil {
 		return err
 	}
 	helper.ExportContract(vk, contractFilePath)
+	helper.ExportProvingKey(pk, provingKeyFilePath)
+	helper.ExportVerifyingKey(vk, verifyingKeyFilePath)
+	helper.ExportCSS(css, r1csFilePath)
 	return nil
 }
 
@@ -276,54 +304,65 @@ func initPhase1(ctx *cli.Context) error {
 	if path == "" {
 		path = DefaultPhase1FilePrefix + "1"
 	}
-	_, err := mpc.InitPhase1(path, uint64(math.Pow(2, 24)))
+	p, err := mpc.InitPhase1(path, uint64(math.Pow(2, 24)))
 	if err != nil {
 		return err
 	}
+	sha := sha256.New()
+	if _, err := p.WriteTo(sha); err != nil {
+		panic(err)
+	}
+	fmt.Println("File challenge:", hex.EncodeToString(sha.Sum(nil)))
 	return nil
 }
 
 func verifyPhase1(ctx *cli.Context) error {
-	path1 := ctx.Path(inputFileFlag.Name)
+	path1 := ctx.Path(phase1FileFlag.Name)
 	if path1 == "" {
-		return errors.New("inputFile path can not be nil")
+		return errors.New("invalid phase1 file path")
 	}
 	path2 := ctx.Path(outputFileFlag.Name)
 	if path2 == "" {
-		return errors.New("outputFile path can not be nil")
+		return errors.New("invalid output file path")
 	}
-	_, err := mpc.VerifyPhase1(path1, path2)
+	challenge, err := mpc.VerifyPhase1(path1, path2)
 	if err != nil {
 		return err
 	}
-	fmt.Println("Phase1 verify : OK")
+	fmt.Println("Phase1 verified, and the previous challenge is", hex.EncodeToString(challenge))
 	return nil
 }
 
 func contributePhase1(ctx *cli.Context) error {
-	inputPath := ctx.Path(inputFileFlag.Name)
+	inputPath := ctx.Path(phase1FileFlag.Name)
 	if inputPath == "" {
-		return errors.New("inputFile1 path can not be nil")
+		return errors.New("invalid phase1 file path")
 	}
 	outputPath := ctx.Path(outputFileFlag.Name)
 	if outputPath == "" {
-		return errors.New("outputFile path can not be nil")
+		return errors.New("invalid output file path")
 	}
-	_, err := mpc.ContributePhase1(inputPath, outputPath)
+	p, err := mpc.ContributePhase1(inputPath, outputPath)
 	if err != nil {
 		return err
 	}
+	fmt.Println("Contributed to:", hex.EncodeToString(p.Challenge))
+	sha := sha256.New()
+	if _, err := p.WriteTo(sha); err != nil {
+		panic(err)
+	}
+	fmt.Println("File challenge:", hex.EncodeToString(sha.Sum(nil)))
 	return nil
 }
 
-func getCommonSRS(ctx *cli.Context) error {
-	inputPath := ctx.Path(inputFileFlag.Name)
+func sealPhase1(ctx *cli.Context) error {
+	inputPath := ctx.Path(phase1FileFlag.Name)
 	if inputPath == "" {
-		return errors.New("inputFile1 path can not be nil")
+		return errors.New("invalid phase1 file path")
 	}
 	outputPath := ctx.Path(outputFileFlag.Name)
 	if outputPath == "" {
-		return errors.New("outputFile path can not be nil")
+		return errors.New("invalid output file path")
 	}
 	_, err := mpc.Seal(inputPath, outputPath)
 	if err != nil {
@@ -333,9 +372,9 @@ func getCommonSRS(ctx *cli.Context) error {
 }
 
 func initPhase2(ctx *cli.Context) error {
-	inputPath := ctx.Path(inputFileFlag.Name)
+	inputPath := ctx.Path(srsFileFlag.Name)
 	if inputPath == "" {
-		return errors.New("inputFile path can not be nil")
+		return errors.New("invalid phase1 SRS file path")
 	}
 	outputpath := ctx.Path(outputFileFlag.Name)
 	if outputpath == "" {
@@ -372,42 +411,53 @@ func initPhase2(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	_, _, _, err = mpc.InitPhase2(css, inputPath, outputpath)
+	_, _, p, err := mpc.InitPhase2(css, inputPath, outputpath)
 	if err != nil {
 		return err
 	}
+	sha := sha256.New()
+	if _, err := p.WriteTo(sha); err != nil {
+		panic(err)
+	}
+	fmt.Println("File challenge:", hex.EncodeToString(sha.Sum(nil)))
 	return nil
 }
 
 func verifyPhase2(ctx *cli.Context) error {
-	path1 := ctx.Path(inputFileFlag.Name)
+	path1 := ctx.Path(phase2FileFlag.Name)
 	if path1 == "" {
-		return errors.New("inputFile path can not be nil")
+		return errors.New("invalid phase2 file path")
 	}
 	path2 := ctx.Path(outputFileFlag.Name)
 	if path2 == "" {
-		return errors.New("outputFile path can not be nil")
+		return errors.New("invalid output file path")
 	}
-	_, err := mpc.VerifyPhase2(path1, path2)
+	challenge, err := mpc.VerifyPhase2(path1, path2)
 	if err != nil {
 		return err
 	}
-	fmt.Println("phase2 verify pass")
+	fmt.Println("Phase2 verified, and the previous challenge is", hex.EncodeToString(challenge))
 	return nil
 }
 
 func contributePhase2(ctx *cli.Context) error {
-	inputPath := ctx.Path(inputFileFlag.Name)
+	inputPath := ctx.Path(phase2FileFlag.Name)
 	if inputPath == "" {
-		return errors.New("inputFile path can not be nil")
+		return errors.New("invalid phase2 file path")
 	}
 	outputPath := ctx.Path(outputFileFlag.Name)
 	if outputPath == "" {
-		return errors.New("outputFile path can not be nil")
+		return errors.New("invalid output file path")
 	}
-	_, err := mpc.ContributePhase2(inputPath, outputPath)
+	p, err := mpc.ContributePhase2(inputPath, outputPath)
 	if err != nil {
 		return err
 	}
+	fmt.Println("Contributed to:", hex.EncodeToString(p.Challenge))
+	sha := sha256.New()
+	if _, err := p.WriteTo(sha); err != nil {
+		panic(err)
+	}
+	fmt.Println("File challenge:", hex.EncodeToString(sha.Sum(nil)))
 	return nil
 }
