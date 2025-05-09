@@ -25,7 +25,7 @@ func TestPlonkRecursionHash(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	_, _, err = mockMPCSetUp(mockinnerCcs, 2, 2, 262144)
+	_, _, err = mockMPCSetUp("", mockinnerCcs, 2, 2, 262144)
 	if err != nil {
 		panic(err)
 	}

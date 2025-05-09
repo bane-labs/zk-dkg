@@ -32,7 +32,6 @@ type OuterBatchCircuit[FR emulated.FieldParams, G1El algebra.G1ElementT, G2El al
 }
 
 func (c *OuterBatchCircuit[FR, G1El, G2El, GtEl]) Define(api frontend.API) error {
-
 	for i := 0; i < len(c.Proof); i++ {
 		verifier, err := stdgroth16.NewVerifier[FR, G1El, G2El, GtEl](api)
 		if err != nil {
