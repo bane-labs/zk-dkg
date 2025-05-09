@@ -4,14 +4,17 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="76c7e93c-b97b-4c74-abad-f14aaf1c8f3c" name="Changes" comment="add plonk demo">
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/circuit/Phase1_1" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/circuit/Phase1_2" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/circuit/Phase1_final" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/circuit/Phase2_1" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/circuit/Phase2_2" afterDir="false" />
+    <list default="true" id="76c7e93c-b97b-4c74-abad-f14aaf1c8f3c" name="Changes" comment="add batch">
+      <change afterPath="$PROJECT_DIR$/circuit/contract_plonk.sol" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/circuit/test_ccs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/circuit/test_pk" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/circuit/test_vk" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/circuit/Phase1_1" beforeDir="false" afterPath="$PROJECT_DIR$/circuit/Phase1_1" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/circuit/Phase1_2" beforeDir="false" afterPath="$PROJECT_DIR$/circuit/Phase1_2" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/circuit/Phase1_final" beforeDir="false" afterPath="$PROJECT_DIR$/circuit/Phase1_final" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/circuit/Phase2_1" beforeDir="false" afterPath="$PROJECT_DIR$/circuit/Phase2_1" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/circuit/Phase2_2" beforeDir="false" afterPath="$PROJECT_DIR$/circuit/Phase2_2" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/circuit/plonk_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/circuit/plonk_test.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -67,7 +70,7 @@
       <recent name="C:\Users\lmy09\Desktop\work\neo\sidechain\mev\zk-dkg\circuit" />
     </key>
   </component>
-  <component name="RunManager" selected="Go Test.TestPlonkRecursionBatch in github.com/bane-labs/zk-dkg/circuit">
+  <component name="RunManager" selected="Go Test.TestPlonkRecursionHash in github.com/bane-labs/zk-dkg/circuit">
     <configuration name="TestPlonk in github.com/bane-labs/zk-dkg/circuit" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
       <module name="zk-dkg" />
       <working_directory value="$PROJECT_DIR$/circuit" />
@@ -90,18 +93,6 @@
       <filePath value="$PROJECT_DIR$" />
       <framework value="gotest" />
       <pattern value="^\QTestPlonkByMPC\E$" />
-      <method v="2" />
-    </configuration>
-    <configuration name="TestPlonkCircuit in github.com/bane-labs/zk-dkg/circuit" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
-      <module name="zk-dkg" />
-      <working_directory value="$PROJECT_DIR$/circuit" />
-      <root_directory value="$PROJECT_DIR$" />
-      <kind value="PACKAGE" />
-      <package value="github.com/bane-labs/zk-dkg/circuit" />
-      <directory value="$PROJECT_DIR$" />
-      <filePath value="$PROJECT_DIR$" />
-      <framework value="gotest" />
-      <pattern value="^\QTestPlonkCircuit\E$" />
       <method v="2" />
     </configuration>
     <configuration name="TestPlonkRecursion in github.com/bane-labs/zk-dkg/circuit" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
@@ -128,13 +119,25 @@
       <pattern value="^\QTestPlonkRecursionBatch\E$" />
       <method v="2" />
     </configuration>
+    <configuration name="TestPlonkRecursionHash in github.com/bane-labs/zk-dkg/circuit" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="zk-dkg" />
+      <working_directory value="$PROJECT_DIR$/circuit" />
+      <root_directory value="$PROJECT_DIR$" />
+      <kind value="PACKAGE" />
+      <package value="github.com/bane-labs/zk-dkg/circuit" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$" />
+      <framework value="gotest" />
+      <pattern value="^\QTestPlonkRecursionHash\E$" />
+      <method v="2" />
+    </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Go Test.TestPlonkRecursionHash in github.com/bane-labs/zk-dkg/circuit" />
         <item itemvalue="Go Test.TestPlonkRecursionBatch in github.com/bane-labs/zk-dkg/circuit" />
         <item itemvalue="Go Test.TestPlonkRecursion in github.com/bane-labs/zk-dkg/circuit" />
         <item itemvalue="Go Test.TestPlonkByMPC in github.com/bane-labs/zk-dkg/circuit" />
         <item itemvalue="Go Test.TestPlonk in github.com/bane-labs/zk-dkg/circuit" />
-        <item itemvalue="Go Test.TestPlonkCircuit in github.com/bane-labs/zk-dkg/circuit" />
       </list>
     </recent_temporary>
   </component>
@@ -148,7 +151,8 @@
     <MESSAGE value="improve" />
     <MESSAGE value="remove unused setup" />
     <MESSAGE value="add plonk demo" />
-    <option name="LAST_COMMIT_MESSAGE" value="add plonk demo" />
+    <MESSAGE value="add batch" />
+    <option name="LAST_COMMIT_MESSAGE" value="add batch" />
   </component>
   <component name="VgoProject">
     <settings-migrated>true</settings-migrated>
