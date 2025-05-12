@@ -2,11 +2,10 @@ package circuit
 
 import (
 	"fmt"
-
-	fr_bn254 "github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/algebra"
 	"github.com/consensys/gnark/std/hash/sha2"
+	"github.com/consensys/gnark/std/math/bits"
 	"github.com/consensys/gnark/std/math/emulated"
 	"github.com/consensys/gnark/std/math/uints"
 
@@ -53,7 +52,11 @@ func (c *OuterHashCircuit[FR, G1El, G2El, GtEl]) Define(api frontend.API) error 
 	if err != nil {
 		return err
 	}
-
+	field, err := emulated.NewField[FR](api)
+	if err != nil {
+		return err
+	}
+	allHash := make([]uints.U8, 0)
 	for i := 0; i < len(c.Proof); i++ {
 		verifier, err := stdgroth16.NewVerifier[FR, G1El, G2El, GtEl](api)
 		if err != nil {
@@ -63,15 +66,20 @@ func (c *OuterHashCircuit[FR, G1El, G2El, GtEl]) Define(api frontend.API) error 
 		if err != nil {
 			return fmt.Errorf("inner circuit verify fault: %w", err)
 		}
-		nbBits := 8 * ((fr_bn254.Modulus().BitLen() + 7) / 8)
-		for _, input := range c.InnerWitness[i].Public {
-			// Write the limbs of each public input to the hash function
-			innerhash := variableToU8s(input.Limbs, nbBits)
-			hasher.Write(innerhash)
+		uapi, err := uints.New[uints.U64](api)
+		if err != nil {
+			return err
 		}
+		innerhash := make([]uints.U8, 32)
+		//nbBits := 8 * ((fr_bn254.Modulus().BitLen() + 7) / 8)
+		for j, input := range c.InnerWitness[i].Public {
+			inputbits := field.ToBits(&input)
+			innerhash[j] = uapi.ByteValueOf(bits.FromBinary(api, inputbits, bits.WithUnconstrainedInputs()))
+		}
+		allHash = append(allHash, innerhash...)
 	}
+	hasher.Write(allHash)
 	result := hasher.Sum()
-	//api.AssertIsEqual(result, c.PublicInputs)
 	for i := 0; i < len(result); i++ {
 		api.AssertIsEqual(result[i].Val, c.PublicInputs[i])
 	}

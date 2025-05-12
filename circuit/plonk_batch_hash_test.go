@@ -12,7 +12,6 @@ import (
 	"github.com/consensys/gnark/constraint"
 	cs "github.com/consensys/gnark/constraint/bn254"
 	"github.com/consensys/gnark/frontend"
-	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_bn254"
 	"github.com/consensys/gnark/test"
 
@@ -21,14 +20,14 @@ import (
 
 func TestPlonkRecursionHash(t *testing.T) {
 	//mock inner circuit
-	mockinnerCcs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &InnerHashCircuit{PubInputHash: make([]frontend.Variable, 32)})
-	if err != nil {
-		panic(err)
-	}
-	_, _, err = mockMPCSetUp("", mockinnerCcs, 2, 2, 262144)
-	if err != nil {
-		panic(err)
-	}
+	/*	mockinnerCcs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &InnerHashCircuit{PubInputHash: make([]frontend.Variable, 32)})
+		if err != nil {
+			panic(err)
+		}
+		_, _, err = mockMPCSetUp("", mockinnerCcs, 2, 2, 262144)
+		if err != nil {
+			panic(err)
+		}*/
 	//computer inner circuit
 	var batch = 1
 	innerCcs, innerVK, innerWitness, innerProof := getInnerProofBatch(ecc.BN254.ScalarField(), ecc.BN254.ScalarField(), batch)
@@ -83,7 +82,7 @@ func TestPlonkRecursionHash(t *testing.T) {
 		//outerCircuit.VerifyingKey[i] = stdgroth16.PlaceholderVerifyingKey[sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl](innerCcs[i])
 	}
 
-	err = test.IsSolved(outerCircuit, outerAssignment, ecc.BN254.ScalarField())
+	err := test.IsSolved(outerCircuit, outerAssignment, ecc.BN254.ScalarField())
 	if err != nil {
 		panic(err)
 	}

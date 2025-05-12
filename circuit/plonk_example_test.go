@@ -60,7 +60,7 @@ func TestPlonkWithMPC(t *testing.T) {
 
 	var w InnerCircuit
 	w.X = 4
-	w.Y = 4
+	w.Y = 2
 
 	witness, err := frontend.NewWitness(&w, ecc.BN254.ScalarField())
 	require.NoError(t, err)
