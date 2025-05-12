@@ -90,7 +90,6 @@ func TestPlonkRecursionHash(t *testing.T) {
 }
 
 func getInnerProofBatch(field, outer *big.Int, batch int) ([]constraint.ConstraintSystem, []*groth16.VerifyingKey, []witness.Witness, []*groth16.Proof) {
-
 	innerCcss := make([]constraint.ConstraintSystem, batch)
 	innerVKs := make([]*groth16.VerifyingKey, batch)
 	innerPubWitnesss := make([]witness.Witness, batch)
@@ -111,12 +110,7 @@ func getInnerProofBatch(field, outer *big.Int, batch int) ([]constraint.Constrai
 	if err != nil {
 		panic(err)
 	}
-
 	r1cs := innerCcs.(*cs.R1CS)
-	err = groth16.Setup(innerCcs.(*cs.R1CS), innerPK, innerVK)
-	if err != nil {
-		panic(err)
-	}
 
 	// inner proof
 	var x = uint8(5)

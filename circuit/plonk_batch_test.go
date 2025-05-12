@@ -128,8 +128,6 @@ func computeInnerProof(t *testing.T, field, outer *big.Int) (constraint.Constrai
 	innerPK, innerVK, err := mockMPCSetUp(t.TempDir(), innerCcs, 2, 2, 2)
 	require.NoError(t, err)
 	r1cs := innerCcs.(*cs.R1CS)
-	err = groth16.Setup(innerCcs.(*cs.R1CS), innerPK, innerVK)
-	require.NoError(t, err)
 
 	// inner proof
 	innerAssignment := &InnerCircuit{
