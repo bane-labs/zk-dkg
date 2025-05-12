@@ -5,9 +5,10 @@ go 1.22
 toolchain go1.22.8
 
 require (
-	github.com/consensys/gnark v0.12.1-0.20250319074137-a123a4045e01
+	github.com/consensys/gnark v0.12.1-0.20250320152310-b51a3d4535cb
 	github.com/consensys/gnark-crypto v0.16.1-0.20250217214835-5ed804970f85
 	github.com/ethereum/go-ethereum v1.14.12
+	github.com/stretchr/testify v1.10.0
 	github.com/urfave/cli/v2 v2.25.7
 	golang.org/x/crypto v0.33.0
 )
@@ -30,7 +31,6 @@ require (
 	github.com/ronanh/intcomp v1.1.0 // indirect
 	github.com/rs/zerolog v1.33.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	golang.org/x/exp v0.0.0-20240823005443-9b4947da3948 // indirect
