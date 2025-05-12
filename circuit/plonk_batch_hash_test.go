@@ -83,7 +83,7 @@ func TestPlonkRecursionHash(t *testing.T) {
 		//outerCircuit.VerifyingKey[i] = stdgroth16.PlaceholderVerifyingKey[sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl](innerCcs[i])
 	}
 
-	err = test.IsSolved(outerCircuit, outerAssignment, ecc.BW6_761.ScalarField())
+	err = test.IsSolved(outerCircuit, outerAssignment, ecc.BN254.ScalarField())
 	if err != nil {
 		panic(err)
 	}
