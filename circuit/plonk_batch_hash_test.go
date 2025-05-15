@@ -24,7 +24,7 @@ func TestPlonkRecursionHash(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}
-		_, _, err = mockMPCSetUp("", mockinnerCcs, 2, 2, 262144)
+		_, _, err = mockInnerCircuitMPC("", mockinnerCcs, 2, 2, uint64(math.Pow(2, 19))
 		if err != nil {
 			panic(err)
 		}*/

@@ -1,6 +1,8 @@
 package zkdkg
 
 import (
+	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark/backend/plonk"
 	"math/big"
 
 	"github.com/bane-labs/zk-dkg/circuit"
@@ -30,7 +32,7 @@ import (
  * @return witness: witness of zk proof
  * @return err:
  */
-func ProveSingleKeyShareEncryption(css constraint.ConstraintSystem, provingKey *groth16.ProvingKey, pubKey *ecies.PublicKey, r big.Int, bigR secp256k1.G1Affine, fiBytes []byte, fiInt big.Int, bigFi bls12381.G1Affine, encryptedFi []byte, nonce []byte) (*groth16.Proof, witness.Witness, error) {
+func ProveSingleKeyShareEncryption(css constraint.ConstraintSystem, provingKey plonk.ProvingKey, pubKey *ecies.PublicKey, r big.Int, bigR secp256k1.G1Affine, fiBytes []byte, fiInt big.Int, bigFi bls12381.G1Affine, encryptedFi []byte, nonce []byte) (plonk.Proof, witness.Witness, error) {
 	assignment := circuit.ComputeSingleKeyShareEncryptionAssignment(pubKey, r, bigR, fiBytes, fiInt, bigFi, encryptedFi, nonce)
 	proof, witness, err := helper.ComputeProof(css, provingKey, assignment)
 	if err != nil {
@@ -56,9 +58,12 @@ func ProveSingleKeyShareEncryption(css constraint.ConstraintSystem, provingKey *
  * @return witness: witness of zk proof
  * @return err:
  */
-func ProveMultipleKeyShareEncryption(css constraint.ConstraintSystem, provingKey *groth16.ProvingKey, pubKey []*ecies.PublicKey, rs []big.Int, bigRs []secp256k1.G1Affine, fisBytes [][]byte, fisInts []big.Int, bigFis []bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) (*groth16.Proof, witness.Witness, error) {
-	assignment := circuit.ComputeMultipleKeyShareEncryptionAssignment(len(pubKey), pubKey, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
-	proof, witness, err := helper.ComputeProof(css, provingKey, assignment)
+func ProveMultipleKeyShareEncryption(outerCss constraint.ConstraintSystem, outerProvingKey plonk.ProvingKey, innerCcss []constraint.ConstraintSystem, innerPKs []*groth16.ProvingKey, innerVKs []*groth16.VerifyingKey, pubKey []*ecies.PublicKey, rs []big.Int, bigRs []secp256k1.G1Affine, fisBytes [][]byte, fisInts []big.Int, bigFis []bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) (plonk.Proof, witness.Witness, error) {
+	batch := len(innerCcss)
+	innerAssignments := circuit.ComputeMultipleKeyShareEncryptionAssignment(batch, pubKey, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
+	commentsHash := circuit.ComputeCommHash(batch, pubKey, rs, bigRs, fisBytes, bigFis, encryptedFis, nonces)
+	outerAssignment := circuit.ComputeRecursionEncryptionAssignment(ecc.BN254.ScalarField(), ecc.BN254.ScalarField(), batch, innerCcss, innerPKs, innerVKs, innerAssignments, commentsHash)
+	proof, witness, err := helper.ComputeProof(outerCss, outerProvingKey, outerAssignment)
 	if err != nil {
 		return nil, nil, err
 	}

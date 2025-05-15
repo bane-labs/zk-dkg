@@ -4,18 +4,30 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="76c7e93c-b97b-4c74-abad-f14aaf1c8f3c" name="Changes" comment="add batch">
+    <list default="true" id="76c7e93c-b97b-4c74-abad-f14aaf1c8f3c" name="Changes" comment="fix bug">
       <change afterPath="$PROJECT_DIR$/circuit/Phase1_1" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/circuit/Phase1_2" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/circuit/Phase1_final" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/circuit/Phase2_1" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/circuit/Phase2_2" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/circuit/PlonkMPC_1" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/circuit/recursion_encryption_test.go" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/circuit/test_ccs" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/circuit/test_pk" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/circuit/test_vk" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/circuit/plonk_batch_hash.go" beforeDir="false" afterPath="$PROJECT_DIR$/circuit/plonk_batch_hash.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/circuit/batch_encryption.go" beforeDir="false" afterPath="$PROJECT_DIR$/circuit/recursion_encryption.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/circuit/batch_encryption_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/circuit/circuit.go" beforeDir="false" afterPath="$PROJECT_DIR$/circuit/circuit.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/circuit/ecies_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/circuit/ecies_test.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/circuit/plonk_batch.go" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/circuit/plonk_batch_hash_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/circuit/plonk_batch_hash_test.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/circuit/plonk_batch_test.go" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/circuit/plonk_example_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/circuit/plonk_example_test.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cmd/mpccmd.go" beforeDir="false" afterPath="$PROJECT_DIR$/cmd/mpccmd.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/helper/helper.go" beforeDir="false" afterPath="$PROJECT_DIR$/helper/helper.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/zk_dkg.go" beforeDir="false" afterPath="$PROJECT_DIR$/zk_dkg.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/zk_dkg_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/zk_dkg_test.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -45,33 +57,34 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ASKED_ADD_EXTERNAL_FILES&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.go.formatter.settings.were.checked&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.go.migrated.go.modules.settings&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.go.modules.automatic.dependencies.download&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.go.modules.go.list.on.any.changes.was.set&quot;: &quot;true&quot;,
-    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;recursion__plonk__groth16&quot;,
-    &quot;go.import.settings.migrated&quot;: &quot;true&quot;,
-    &quot;go.sdk.automatically.set&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/lmy09/Desktop/work/neo/sidechain/mev/zk-dkg/circuit&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;two.files.diff.last.used.file&quot;: &quot;C:/Users/lmy09/Desktop/work/neo/sidechain/mev/zk-dkg/Verify_temp2.sol&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ASKED_ADD_EXTERNAL_FILES": "true",
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.go.formatter.settings.were.checked": "true",
+    "RunOnceActivity.go.migrated.go.modules.settings": "true",
+    "RunOnceActivity.go.modules.automatic.dependencies.download": "true",
+    "RunOnceActivity.go.modules.go.list.on.any.changes.was.set": "true",
+    "WebServerToolWindowFactoryState": "false",
+    "git-widget-placeholder": "recursion__plonk__groth16",
+    "go.import.settings.migrated": "true",
+    "go.sdk.automatically.set": "true",
+    "last_opened_file_path": "C:/Users/lmy09/Desktop/work/neo/sidechain/mev/zk-dkg/circuit",
+    "node.js.detected.package.eslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "preferences.lookFeel",
+    "two.files.diff.last.used.file": "C:/Users/lmy09/Desktop/work/neo/sidechain/mev/zk-dkg/Verify_temp2.sol"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\lmy09\Desktop\work\neo\sidechain\mev\zk-dkg\circuit" />
     </key>
   </component>
-  <component name="RunManager" selected="Go Test.TestPlonkRecursionHash in github.com/bane-labs/zk-dkg/circuit (1)">
-    <configuration name="TestPlonkRecursion in github.com/bane-labs/zk-dkg/circuit" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Go Test.TestRecursionEncryptionCircuit in github.com/bane-labs/zk-dkg/circuit">
+    <configuration name="TestPlonk in github.com/bane-labs/zk-dkg/circuit" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
       <module name="zk-dkg" />
       <working_directory value="$PROJECT_DIR$/circuit" />
       <root_directory value="$PROJECT_DIR$" />
@@ -80,19 +93,7 @@
       <directory value="$PROJECT_DIR$" />
       <filePath value="$PROJECT_DIR$" />
       <framework value="gotest" />
-      <pattern value="^\QTestPlonkRecursion\E$" />
-      <method v="2" />
-    </configuration>
-    <configuration name="TestPlonkRecursionBatch in github.com/bane-labs/zk-dkg/circuit" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
-      <module name="zk-dkg" />
-      <working_directory value="$PROJECT_DIR$/circuit" />
-      <root_directory value="$PROJECT_DIR$" />
-      <kind value="PACKAGE" />
-      <package value="github.com/bane-labs/zk-dkg/circuit" />
-      <directory value="$PROJECT_DIR$" />
-      <filePath value="$PROJECT_DIR$" />
-      <framework value="gotest" />
-      <pattern value="^\QTestPlonkRecursionBatch\E$" />
+      <pattern value="^\QTestPlonk\E$" />
       <method v="2" />
     </configuration>
     <configuration name="TestPlonkRecursionHash in github.com/bane-labs/zk-dkg/circuit (1)" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
@@ -131,13 +132,25 @@
       <pattern value="^\QTestPlonkWithMPC\E$" />
       <method v="2" />
     </configuration>
+    <configuration name="TestRecursionEncryptionCircuit in github.com/bane-labs/zk-dkg/circuit" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="zk-dkg" />
+      <working_directory value="$PROJECT_DIR$/circuit" />
+      <root_directory value="$PROJECT_DIR$" />
+      <kind value="PACKAGE" />
+      <package value="github.com/bane-labs/zk-dkg/circuit" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$" />
+      <framework value="gotest" />
+      <pattern value="^\QTestRecursionEncryptionCircuit\E$" />
+      <method v="2" />
+    </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Go Test.TestPlonkRecursionHash in github.com/bane-labs/zk-dkg/circuit (1)" />
+        <item itemvalue="Go Test.TestRecursionEncryptionCircuit in github.com/bane-labs/zk-dkg/circuit" />
+        <item itemvalue="Go Test.TestPlonk in github.com/bane-labs/zk-dkg/circuit" />
         <item itemvalue="Go Test.TestPlonkWithMPC in github.com/bane-labs/zk-dkg/circuit" />
+        <item itemvalue="Go Test.TestPlonkRecursionHash in github.com/bane-labs/zk-dkg/circuit (1)" />
         <item itemvalue="Go Test.TestPlonkRecursionHash in github.com/bane-labs/zk-dkg/circuit" />
-        <item itemvalue="Go Test.TestPlonkRecursionBatch in github.com/bane-labs/zk-dkg/circuit" />
-        <item itemvalue="Go Test.TestPlonkRecursion in github.com/bane-labs/zk-dkg/circuit" />
       </list>
     </recent_temporary>
   </component>
@@ -152,7 +165,8 @@
     <MESSAGE value="remove unused setup" />
     <MESSAGE value="add plonk demo" />
     <MESSAGE value="add batch" />
-    <option name="LAST_COMMIT_MESSAGE" value="add batch" />
+    <MESSAGE value="fix bug" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix bug" />
   </component>
   <component name="VgoProject">
     <settings-migrated>true</settings-migrated>
@@ -206,14 +220,29 @@
           <option name="timeStamp" value="13" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="DlvLineBreakpoint">
-          <url>file://$PROJECT_DIR$/circuit/plonk_batch_hash.go</url>
-          <line>80</line>
-          <option name="timeStamp" value="14" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
           <url>file://$PROJECT_DIR$/circuit/plonk_batch_hash_test.go</url>
           <line>85</line>
           <option name="timeStamp" value="16" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/circuit/plonk_example_test.go</url>
+          <line>71</line>
+          <option name="timeStamp" value="19" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/circuit/plonk_batch_hash.go</url>
+          <line>49</line>
+          <option name="timeStamp" value="20" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/circuit/circuit.go</url>
+          <line>147</line>
+          <option name="timeStamp" value="21" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/circuit/circuit.go</url>
+          <line>195</line>
+          <option name="timeStamp" value="23" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

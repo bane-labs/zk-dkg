@@ -2,7 +2,6 @@ package helper
 
 import (
 	"crypto/sha256"
-	"math/big"
 	"os"
 
 	"github.com/bane-labs/zk-dkg/mpc"
@@ -10,6 +9,7 @@ import (
 	"github.com/consensys/gnark/backend"
 	groth16 "github.com/consensys/gnark/backend/groth16/bn254"
 	"github.com/consensys/gnark/backend/groth16/bn254/mpcsetup"
+	"github.com/consensys/gnark/backend/plonk"
 	"github.com/consensys/gnark/backend/solidity"
 	"github.com/consensys/gnark/backend/witness"
 	"github.com/consensys/gnark/constraint"
@@ -27,14 +27,15 @@ import (
  * @return witness: witness
  * @return err: error
  */
-func ComputeProof(css constraint.ConstraintSystem, pk *groth16.ProvingKey, assignment frontend.Circuit) (*groth16.Proof, witness.Witness, error) {
+func ComputeProof(ccs constraint.ConstraintSystem, pk plonk.ProvingKey, assignment frontend.Circuit) (plonk.Proof, witness.Witness, error) {
+
 	// Compute witness
 	witness, err := frontend.NewWitness(assignment, ecc.BN254.ScalarField())
 	if err != nil {
 		return nil, nil, err
 	}
 	// Compute proof
-	proof, err := groth16.Prove(css.(*cs.R1CS), pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
+	proof, err := plonk.Prove(ccs.(*cs.R1CS), pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -89,6 +90,19 @@ func ReadProvingKey(path string) (*groth16.ProvingKey, error) {
 	return pk, nil
 }
 
+func ReadPlonkProvingKey(path string) (plonk.ProvingKey, error) {
+	pk := plonk.NewProvingKey(ecc.BN254)
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	_, err = pk.ReadFrom(file)
+	if err != nil {
+		return nil, err
+	}
+	return pk, nil
+}
+
 /**
  * Function: ExportProvingKey
  * @Description: export proving key file
@@ -112,6 +126,19 @@ func ExportProvingKey(pk *groth16.ProvingKey, path string) {
  */
 func ReadVerifyingKey(path string) (*groth16.VerifyingKey, error) {
 	vk := new(groth16.VerifyingKey)
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	_, err = vk.ReadFrom(file)
+	if err != nil {
+		return nil, err
+	}
+	return vk, nil
+}
+
+func ReadPlonkVerifyingKey(path string) (plonk.VerifyingKey, error) {
+	vk := plonk.NewVerifyingKey(ecc.BN254)
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -206,8 +233,17 @@ func GetHash(data []byte) []byte {
  * @param proof: zk proof
  * @return []*big.Int: data submitted to the chain
  */
-func GetContractInput(proof *groth16.Proof) ([8]*big.Int, []*big.Int, [2]*big.Int) {
+/*func GetContractInput(proof plonk.Proof) ([8]*big.Int, []*big.Int, [2]*big.Int) {
 	// Solidity contract inputs
+	p := proof.(*plonk_bn254.Proof)
+	serializedProof := p.MarshalSolidity()
+	serializedProof
+
+	f, err := os.Create("contract_plonk.sol")
+	require.NoError(t, err)
+	err = vk.ExportSolidity(f)
+	require.NoError(t, err)
+
 	proofBytes := proof.MarshalSolidity()
 	fpSize := 4 * 8
 	var prf [8]*big.Int
@@ -228,3 +264,4 @@ func GetContractInput(proof *groth16.Proof) ([8]*big.Int, []*big.Int, [2]*big.In
 	cmtPok[1] = new(big.Int).SetBytes(proofBytes[fpSize*8+4+2*cmtCount*fpSize+fpSize : fpSize*8+4+2*cmtCount*fpSize+2*fpSize])
 	return prf, cmts, cmtPok
 }
+*/

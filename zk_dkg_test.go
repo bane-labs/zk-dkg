@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/consensys/gnark/backend/plonk"
 	"io"
 	"math/big"
 	"math/rand"
@@ -63,40 +64,47 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 		t.Logf("Share message: %s", hex.EncodeToString(messages[i]))
 	}
 	// Read files
-	provingKeyPath := "ProvingKey_" + strconv.Itoa(3)
-	pk, err := helper.ReadProvingKey(provingKeyPath)
+	outerPKPath := "ProvingKey_" + strconv.Itoa(3)
+	outerPK, err := helper.ReadPlonkProvingKey(outerPKPath)
 	assert.NoError(err)
-	verifyingKeyPath := "VerifyingKey_" + strconv.Itoa(3)
-	vk, err := helper.ReadVerifyingKey(verifyingKeyPath)
+	outerVKPath := "VerifyingKey_" + strconv.Itoa(3)
+	outerVK, err := helper.ReadPlonkVerifyingKey(outerVKPath)
 	assert.NoError(err)
-	r1csPath := "R1CS_" + strconv.Itoa(3)
-	css, err := helper.ReadCSS(r1csPath)
+	outerCcsPath := "R1CS_" + strconv.Itoa(3)
+	outerCcs, err := helper.ReadCSS(outerCcsPath)
 	assert.NoError(err)
+
+	innerCcsPath := "test_ccs"
+	innerPKPath := "test_pk"
+	innerVKPath := "test_vk"
+
 	// Compute proof
-	proof, witness, err := ProveMultipleKeyShareEncryption(css, pk, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
+	innerCcss, innerPKs, innerVKs := circuit.ComputeMultipleKeyShareEncryptionCircuitByFile(batch, innerCcsPath, innerPKPath, innerVKPath)
+	proof, witness, err := ProveMultipleKeyShareEncryption(outerCcs, outerPK, innerCcss, innerPKs, innerVKs, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
 	assert.NoError(err)
+
 	// Verify proof
 	publicWitness, err := witness.Public()
 	assert.NoError(err)
-	err = groth16.Verify(proof, vk, publicWitness.Vector().(fr_bn254.Vector), backend.WithVerifierHashToFieldFunction(sha256.New()))
+	err = plonk.Verify(proof, outerVK, publicWitness, backend.WithVerifierHashToFieldFunction(sha256.New()))
 	assert.NoError(err)
 	// Output proof data
-	proofData, cmts, cmtPok := helper.GetContractInput(proof)
-	// proof.Ar, proof.Bs, proof.Krs
-	t.Log("Proof:")
-	for i := 0; i < 8; i++ {
-		t.Log(proofData[i].String())
-	}
-	// commitments
-	t.Log("Commitments:")
-	for i := 0; i < len(cmts); i++ {
-		t.Log(cmts[i].String())
-	}
-	// commitmentPok
-	t.Log("CommitmentPok:")
-	for i := 0; i < len(cmtPok); i++ {
-		t.Log(cmtPok[i].String())
-	}
+	/*	proofData, cmts, cmtPok := helper.GetContractInput(&proof)
+		// proof.Ar, proof.Bs, proof.Krs
+		t.Log("Proof:")
+		for i := 0; i < 8; i++ {
+			t.Log(proofData[i].String())
+		}
+		// commitments
+		t.Log("Commitments:")
+		for i := 0; i < len(cmts); i++ {
+			t.Log(cmts[i].String())
+		}
+		// commitmentPok
+		t.Log("CommitmentPok:")
+		for i := 0; i < len(cmtPok); i++ {
+			t.Log(cmtPok[i].String())
+		}*/
 }
 
 func TestTwoRecoverMessageGeneration(t *testing.T) {
@@ -132,40 +140,47 @@ func TestTwoRecoverMessageGeneration(t *testing.T) {
 		t.Logf("Share message: %s", hex.EncodeToString(messages[i]))
 	}
 	// Read files
-	provingKeyPath := "ProvingKey_" + strconv.Itoa(3)
-	pk, err := helper.ReadProvingKey(provingKeyPath)
+	outerPKPath := "ProvingKey_" + strconv.Itoa(3)
+	outerPK, err := helper.ReadPlonkProvingKey(outerPKPath)
 	assert.NoError(err)
-	verifyingKeyPath := "VerifyingKey_" + strconv.Itoa(3)
-	vk, err := helper.ReadVerifyingKey(verifyingKeyPath)
+	outerVKPath := "VerifyingKey_" + strconv.Itoa(3)
+	outerVK, err := helper.ReadPlonkVerifyingKey(outerVKPath)
 	assert.NoError(err)
-	r1csPath := "R1CS_" + strconv.Itoa(3)
-	css, err := helper.ReadCSS(r1csPath)
+	outerCcsPath := "R1CS_" + strconv.Itoa(3)
+	outerCcs, err := helper.ReadCSS(outerCcsPath)
 	assert.NoError(err)
+
+	innerCcsPath := "test_ccs"
+	innerPKPath := "test_pk"
+	innerVKPath := "test_vk"
+
+	innerCcss, innerPKs, innerVKs := circuit.ComputeMultipleKeyShareEncryptionCircuitByFile(2, innerCcsPath, innerPKPath, innerVKPath)
+
 	// Compute proof
-	proof, witness, err := ProveMultipleKeyShareEncryption(css, pk, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
+	proof, witness, err := ProveMultipleKeyShareEncryption(outerCcs, outerPK, innerCcss, innerPKs, innerVKs, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
 	assert.NoError(err)
 	// Verify proof
 	publicWitness, err := witness.Public()
 	assert.NoError(err)
-	err = groth16.Verify(proof, vk, publicWitness.Vector().(fr_bn254.Vector), backend.WithVerifierHashToFieldFunction(sha256.New()))
+	err = plonk.Verify(proof, outerVK, publicWitness, backend.WithVerifierHashToFieldFunction(sha256.New()))
 	assert.NoError(err)
 	// Output proof data
-	proofData, cmts, cmtPok := helper.GetContractInput(proof)
-	// proof.Ar, proof.Bs, proof.Krs
-	t.Log("Proof:")
-	for i := 0; i < 8; i++ {
-		t.Log(proofData[i].String())
-	}
-	// commitments
-	t.Log("Commitments:")
-	for i := 0; i < len(cmts); i++ {
-		t.Log(cmts[i].String())
-	}
-	// commitmentPok
-	t.Log("CommitmentPok:")
-	for i := 0; i < len(cmtPok); i++ {
-		t.Log(cmtPok[i].String())
-	}
+	/*	proofData, cmts, cmtPok := helper.GetContractInput(proof)
+		// proof.Ar, proof.Bs, proof.Krs
+		t.Log("Proof:")
+		for i := 0; i < 8; i++ {
+			t.Log(proofData[i].String())
+		}
+		// commitments
+		t.Log("Commitments:")
+		for i := 0; i < len(cmts); i++ {
+			t.Log(cmts[i].String())
+		}
+		// commitmentPok
+		t.Log("CommitmentPok:")
+		for i := 0; i < len(cmtPok); i++ {
+			t.Log(cmtPok[i].String())
+		}*/
 }
 
 func TestMPC(t *testing.T) {

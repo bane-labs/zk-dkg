@@ -80,7 +80,7 @@ func TestECIESWithMPC(t *testing.T) {
 	// Export solidity contract
 	helper.ExportContract(vk, "Verify.sol")
 	// Output verify data
-	helper.GetContractInput(proof)
+	//helper.GetContractInput(proof)
 }
 
 func computingProof2(css constraint.ConstraintSystem, assignment frontend.Circuit) (*groth16.ProvingKey, *groth16.VerifyingKey, *groth16.Proof, witness.Witness, error) {

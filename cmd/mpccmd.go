@@ -17,7 +17,6 @@ import (
 	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
-	"github.com/consensys/gnark/std/math/emulated"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 
@@ -276,15 +275,10 @@ func exportSeal(ctx *cli.Context) error {
 		fis[i] = fi
 	}
 	fisBytes, _, _, _, encryptedFis, _, _ := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
-	c := circuit.BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
-		Account:      make([]circuit.AccountConstraints[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], size),
-		CommentsHash: make([]frontend.Variable, 32),
-	}
-	for i := 0; i < size; i++ {
-		c.Account[i].PlainChunks = make([]frontend.Variable, len(fisBytes[i]))
-		c.Account[i].CipherChunks = make([]frontend.Variable, len(encryptedFis[i]))
-	}
-	css, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &c)
+
+	innerCircuit := circuit.ComputeSingleKeyShareEncryptionCircuit(fisBytes[0], encryptedFis[0])
+
+	css, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, innerCircuit)
 	if err != nil {
 		return err
 	}
@@ -292,7 +286,7 @@ func exportSeal(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	helper.ExportContract(vk, contractFilePath)
+	//helper.ExportContract(vk, contractFilePath)
 	helper.ExportProvingKey(pk, provingKeyFilePath)
 	helper.ExportVerifyingKey(vk, verifyingKeyFilePath)
 	helper.ExportCSS(css, r1csFilePath)
@@ -398,16 +392,8 @@ func initPhase2(ctx *cli.Context) error {
 		fis[i] = fi
 	}
 	fisBytes, _, _, _, encryptedFis, _, _ := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
-	c := circuit.BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
-		Account:      make([]circuit.AccountConstraints[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], size),
-		CommentsHash: make([]frontend.Variable, 32),
-	}
-	for i := 0; i < size; i++ {
-		c.Account[i].PlainChunks = make([]frontend.Variable, len(fisBytes[i]))
-		c.Account[i].CipherChunks = make([]frontend.Variable, len(encryptedFis[i]))
-	}
-
-	css, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &c)
+	innerCircuit := circuit.ComputeSingleKeyShareEncryptionCircuit(fisBytes[0], encryptedFis[0])
+	css, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, innerCircuit)
 	if err != nil {
 		return err
 	}
