@@ -1,7 +1,13 @@
 package circuit
 
 import (
-	"fmt"
+	"math"
+	"math/rand"
+	"os"
+	"strconv"
+	"testing"
+	"time"
+
 	"github.com/bane-labs/zk-dkg/helper"
 	"github.com/bane-labs/zk-dkg/mpc"
 	"github.com/consensys/gnark-crypto/ecc"
@@ -18,12 +24,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/stretchr/testify/require"
-	"math"
-	"math/rand"
-	"os"
-	"strconv"
-	"testing"
-	"time"
 )
 
 func TestRecursionEncryptionCircuit(t *testing.T) {
@@ -90,7 +90,7 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 	require.NoError(t, err)
 	witnessPub, err := witness.Public()
 	require.NoError(t, err)
-	pk, vk, err := plonk.Setup(ccs, &srs, srsLagrange)
+	pk, vk, err := plonk.Setup(ccs, srs, srsLagrange)
 	require.NoError(t, err)
 	proof, err := plonk.Prove(ccs, pk, witness)
 	require.NoError(t, err)
@@ -149,64 +149,37 @@ func mockInnerCircuitMPC(folderPath string, ccs constraint.ConstraintSystem, nCo
 	return pk, vk, err
 }
 
-func mockSRCMPC(folderPath string, nContributions int, srsSize int) (kzg_bn254.SRS, error) {
+func mockSRCMPC(folderPath string, nContributions int, srsSize int) (*kzg_bn254.SRS, error) {
 	p := kzg_bn254.InitializeSetup(srsSize)
-	initFilePath := folderPath + "_" + strconv.Itoa(1)
-	initFile, err := os.Create(initFilePath)
-	if err != nil {
-		return kzg_bn254.SRS{}, err
-	}
-	_, err = p.WriteTo(initFile)
-	if err != nil {
-		return kzg_bn254.SRS{}, err
-	}
-	initFile.Close()
-	fmt.Println("initFile 写入成功，")
-	//prev := p
-	for i := 1; i < nContributions; i++ {
-		prevFilePath := folderPath + "_" + strconv.Itoa(i)
-		prevFile, err := os.Open(prevFilePath)
-		if err != nil {
-			return kzg_bn254.SRS{}, err
+	for i := range nContributions {
+		if i > 0 {
+			in, err := os.Open(folderPath + strconv.Itoa(i))
+			if err != nil {
+				return nil, err
+			}
+			_, err = p.ReadFrom(in)
+			if err != nil {
+				return nil, err
+			}
+			err = in.Close()
+			if err != nil {
+				return nil, err
+			}
 		}
-		prev := kzg_bn254.MpcSetup{}
-		_, err = prev.ReadFrom(prevFile)
+		p.Contribute()
+		out, err := os.Create(folderPath + strconv.Itoa(i+1))
 		if err != nil {
-			return kzg_bn254.SRS{}, err
+			return nil, err
 		}
-		err = prevFile.Close()
+		_, err = p.WriteTo(out)
 		if err != nil {
-			return kzg_bn254.SRS{}, err
+			return nil, err
 		}
-		fmt.Println(strconv.Itoa(i) + "_File 读取成功，")
-		cur := prev
-		cur.Contribute()
-
-		curFilePath := folderPath + "_" + strconv.Itoa(i+1)
-		curFile, err := os.Create(curFilePath)
+		err = out.Close()
 		if err != nil {
-			return kzg_bn254.SRS{}, err
+			return nil, err
 		}
-		_, err = cur.WriteTo(curFile)
-		if err != nil {
-			return kzg_bn254.SRS{}, err
-		}
-		curFile.Close()
-		fmt.Println(strconv.Itoa(i+1) + "_File 写入成功，")
 	}
-	finalFilePath := folderPath + "_" + strconv.Itoa(nContributions)
-	finalMpc := kzg_bn254.MpcSetup{}
-	finalFile, err := os.Open(finalFilePath)
-	if err != nil {
-		return kzg_bn254.SRS{}, err
-	}
-	_, err = finalMpc.ReadFrom(finalFile)
-	if err != nil {
-		return kzg_bn254.SRS{}, err
-	}
-	finalFile.Close()
-	fmt.Println(strconv.Itoa(nContributions) + "_File 读取成功，")
-	srs := finalMpc.Seal([]byte("test"))
-	//srs
-	return srs, nil
+	res := p.Seal([]byte("test"))
+	return &res, nil
 }
