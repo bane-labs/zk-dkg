@@ -1,23 +1,23 @@
 package circuit
 
 import (
+	"github.com/bane-labs/zk-dkg/helper"
+	bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381"
 	fr_bn254 "github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/consensys/gnark-crypto/ecc/secp256k1"
+	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	groth16 "github.com/consensys/gnark/backend/groth16/bn254"
+	"github.com/consensys/gnark/backend/plonk"
 	"github.com/consensys/gnark/backend/witness"
 	"github.com/consensys/gnark/constraint"
 	cs "github.com/consensys/gnark/constraint/bn254"
-	"github.com/consensys/gnark/std/algebra/emulated/sw_bn254"
-	stdgroth16 "github.com/consensys/gnark/std/recursion/groth16"
-	"math/big"
-
-	"github.com/bane-labs/zk-dkg/helper"
-	bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381"
-	"github.com/consensys/gnark-crypto/ecc/secp256k1"
-	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	"github.com/consensys/gnark/frontend"
+	"github.com/consensys/gnark/std/algebra/emulated/sw_bn254"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
 	"github.com/consensys/gnark/std/math/emulated"
+	stdgroth16 "github.com/consensys/gnark/std/recursion/groth16"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
+	"math/big"
 )
 
 /**
@@ -134,11 +134,11 @@ func ComputeSingleKeyShareEncryptionCircuitByFile(ccsPath, pkPath, vkPath string
 	if err != nil {
 		panic(err)
 	}
-	pK, err := helper.ReadProvingKey(pkPath)
+	pK, err := helper.ReadInnerProvingKey(pkPath)
 	if err != nil {
 		panic(err)
 	}
-	vK, err := helper.ReadVerifyingKey(vkPath)
+	vK, err := helper.ReadInnerVerifyingKey(vkPath)
 	if err != nil {
 		panic(err)
 	}
@@ -191,6 +191,22 @@ func ComputeRecursionEncryptionCircuit(batch int, innerCcss []constraint.Constra
 		outerCircuit.Proof[i] = stdgroth16.PlaceholderProof[sw_bn254.G1Affine, sw_bn254.G2Affine](innerCcss[i])
 	}
 	return outerCircuit
+}
+
+func ComputeRecursionEncryptionCircuitByFile(ccsPath, pkPath, vkPath string) (constraint.ConstraintSystem, plonk.ProvingKey, plonk.VerifyingKey) {
+	ccs, err := helper.ReadCSS(ccsPath)
+	if err != nil {
+		panic(err)
+	}
+	pK, err := helper.ReadOuterProvingKey(pkPath)
+	if err != nil {
+		panic(err)
+	}
+	vK, err := helper.ReadOuterVerifyingKey(vkPath)
+	if err != nil {
+		panic(err)
+	}
+	return ccs, pK, vK
 }
 
 func ComputeRecursionEncryptionAssignment(field, outer *big.Int, batch int, innerCcss []constraint.ConstraintSystem, innerPKs []*groth16.ProvingKey, innerVKs []*groth16.VerifyingKey, innerAssignments []*ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], commentsHash []frontend.Variable) *RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl] {
@@ -258,7 +274,7 @@ func ComputeInnerProofs(field, outer *big.Int, batch int, innerccss []constraint
 	return innerProofs, innerPubWitnesss
 }
 
-func ComputeCommHash(batch int, pubKey []*ecies.PublicKey, rs []big.Int, bigRs []secp256k1.G1Affine, fisBytes [][]byte, bigFis []bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) []frontend.Variable {
+func ComputeCommHash(batch int, pubKey []*ecies.PublicKey, rs []big.Int, bigRs []secp256k1.G1Affine, fisBytes [][]byte, bigFis []bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) ([]frontend.Variable, []byte) {
 	allHash := make([]byte, 0)
 	for index := 0; index < batch; index++ {
 		// Format data
@@ -320,5 +336,5 @@ func ComputeCommHash(batch int, pubKey []*ecies.PublicKey, rs []big.Int, bigRs [
 	for i := 0; i < len(commonHash); i++ {
 		rawSumHash[i] = commonHash[i]
 	}
-	return rawSumHash
+	return rawSumHash, commonHash
 }

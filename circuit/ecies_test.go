@@ -110,7 +110,7 @@ func computingProof2(css constraint.ConstraintSystem, assignment frontend.Circui
 // nContributionsPhase2 = 3
 // power                = 22 //element count range 2^0-2^27
 func demoMPCSetUp(ccs constraint.ConstraintSystem, nContributionsPhase1 int, nContributionsPhase2 int, power int) (*groth16.ProvingKey, *groth16.VerifyingKey, error) {
-	_, err := mpc.InitPhase1("Phase1_1", uint64(power))
+	_, err := mpc.InitInnerPhase1("Phase1_1", uint64(power))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -118,14 +118,14 @@ func demoMPCSetUp(ccs constraint.ConstraintSystem, nContributionsPhase1 int, nCo
 	for i := 1; i < nContributionsPhase1; i++ {
 		prepath := "Phase1_" + strconv.Itoa(i)
 		nextPath := "Phase1_" + strconv.Itoa(i+1)
-		_, err = mpc.ContributePhase1(prepath, nextPath)
+		_, err = mpc.ContributeInnerPhase1(prepath, nextPath)
 		if err != nil {
 			return nil, nil, err
 		}
 	}
-	mpc.Seal("Phase1_"+strconv.Itoa(nContributionsPhase1), "Phase1_final")
+	mpc.InnerSeal("Phase1_"+strconv.Itoa(nContributionsPhase1), "Phase1_final")
 
-	evals, srs, _, err := mpc.InitPhase2(ccs, "Phase1_Phase1_final", "Phase2_1")
+	evals, srs, _, err := mpc.InitInnerPhase2(ccs, "Phase1_Phase1_final", "Phase2_1")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -133,12 +133,12 @@ func demoMPCSetUp(ccs constraint.ConstraintSystem, nContributionsPhase1 int, nCo
 	for i := 1; i < nContributionsPhase2; i++ {
 		prepath := "Phase2_" + strconv.Itoa(i)
 		nextPath := "Phase2_" + strconv.Itoa(i+1)
-		_, err = mpc.ContributePhase2(prepath, nextPath)
+		_, err = mpc.ContributeInnerPhase2(prepath, nextPath)
 		if err != nil {
 			return nil, nil, err
 		}
 	}
-	phase2, err := mpc.ReadPhase2FromFile("Phase2_" + strconv.Itoa(nContributionsPhase1))
+	phase2, err := mpc.ReadInnerPhase2FromFile("Phase2_" + strconv.Itoa(nContributionsPhase1))
 	if err != nil {
 		return nil, nil, err
 	}

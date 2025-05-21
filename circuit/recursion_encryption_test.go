@@ -1,6 +1,11 @@
 package circuit
 
 import (
+	"encoding/hex"
+	"fmt"
+	plonk_bn254 "github.com/consensys/gnark/backend/plonk/bn254"
+	"github.com/consensys/gnark/frontend/cs/scs"
+	"github.com/stretchr/testify/require"
 	"math"
 	"math/rand"
 	"os"
@@ -19,11 +24,9 @@ import (
 	cs "github.com/consensys/gnark/constraint/bn254"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
-	"github.com/consensys/gnark/frontend/cs/scs"
 	"github.com/consensys/gnark/test"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
-	"github.com/stretchr/testify/require"
 )
 
 func TestRecursionEncryptionCircuit(t *testing.T) {
@@ -47,23 +50,19 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 	// Generate fragements and assigment
 	fisBytes, fisInts, bigFis, nonces, encryptedFis, rs, bigRs := PrepareEncryptedKeyShares(pubKeys, fis)
 
-	cssPath := "test_ccs"
-	pkPath := "test_pk"
-	vkPath := "test_vk"
-	if _, err := os.Stat(cssPath); err != nil {
-		mockCircuit := ComputeSingleKeyShareEncryptionCircuit(fisBytes[0], encryptedFis[0])
-		mockinnerCcs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, mockCircuit)
-		if err != nil {
-			panic(err)
-		}
-		_, _, err = mockInnerCircuitMPC("", mockinnerCcs, 2, 2, uint64(math.Pow(2, 21)))
-		if err != nil {
-			panic(err)
-		}
+	innerCssPath := "inner_ccs"
+	innerPkPath := "inner_pk"
+	innerVkPath := "inner_vk"
+	if _, err := os.Stat(innerCssPath); err != nil {
+		mockinnerCircuit := ComputeSingleKeyShareEncryptionCircuit(fisBytes[0], encryptedFis[0])
+		mockinnerCcs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, mockinnerCircuit)
+		require.NoError(t, err)
+		_, _, err = mockInnerCircuitMPC("inner_", mockinnerCcs, 2, 2, uint64(math.Pow(2, 21)))
+		require.NoError(t, err)
 	}
 
-	innerCcss, innerPKs, innerVKs := ComputeMultipleKeyShareEncryptionCircuitByFile(batch, cssPath, pkPath, vkPath)
-	commentsHash := ComputeCommHash(batch, pubKeys, rs, bigRs, fisBytes, bigFis, encryptedFis, nonces)
+	innerCcss, innerPKs, innerVKs := ComputeMultipleKeyShareEncryptionCircuitByFile(batch, innerCssPath, innerPkPath, innerVkPath)
+	commentsHash, hash := ComputeCommHash(batch, pubKeys, rs, bigRs, fisBytes, bigFis, encryptedFis, nonces)
 	innerAssignments := ComputeMultipleKeyShareEncryptionAssignment(batch, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
 	outerCircuit := ComputeRecursionEncryptionCircuit(batch, innerCcss, innerVKs)
 	outerAssignment := ComputeRecursionEncryptionAssignment(ecc.BN254.ScalarField(), ecc.BN254.ScalarField(), batch, innerCcss, innerPKs, innerVKs, innerAssignments, commentsHash)
@@ -71,43 +70,39 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}*/
-	ccs, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, outerCircuit)
-	require.NoError(t, err)
-	scs := ccs.(*cs.SparseR1CS)
-
-	sizeSystem, lagrange := plonk.SRSSize(scs)
-
-	srs, err := mockSRCMPC("PlonkMPC", 2, sizeSystem)
-	if err != nil {
-		panic(err)
+	outerCssPath := "outer_ccs"
+	outerPkPath := "outer_pk"
+	outerVkPath := "outer_vk"
+	//outerContract := "outer_contract.sol"
+	if _, err := os.Stat(outerCssPath); err != nil {
+		mockouterCcs, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, outerCircuit)
+		require.NoError(t, err)
+		_, _, err = mockSRCMPC("outer_", mockouterCcs, 2)
+		require.NoError(t, err)
 	}
-	srsLagrange := &kzg_bn254.SRS{Vk: srs.Vk}
-	srsLagrange.Pk.G1, err = kzg_bn254.ToLagrangeG1(srs.Pk.G1[:lagrange])
-	if err != nil {
-		panic(err)
-	}
+
+	outerCcss, outerPKs, outerVKs := ComputeRecursionEncryptionCircuitByFile(outerCssPath, outerPkPath, outerVkPath)
+
 	witness, err := frontend.NewWitness(outerAssignment, ecc.BN254.ScalarField())
 	require.NoError(t, err)
 	witnessPub, err := witness.Public()
 	require.NoError(t, err)
-	pk, vk, err := plonk.Setup(ccs, srs, srsLagrange)
+	proof, err := plonk.Prove(outerCcss, outerPKs, witness)
 	require.NoError(t, err)
-	proof, err := plonk.Prove(ccs, pk, witness)
+	err = plonk.Verify(proof, outerVKs, witnessPub)
 	require.NoError(t, err)
-	err = plonk.Verify(proof, vk, witnessPub)
-	require.NoError(t, err)
-	/*	p := proof.(*plonk_bn254.Proof)
-		serializedProof := p.MarshalSolidity()*/
-	/*	f, err := os.Create("contract_plonk.sol")
-			require.NoError(t, err)
-			err = vk.ExportSolidity(f)
-			require.NoError(t, err)
-
-	}*/
+	//helper.ExportContract(outerVKs, outerContract)
+	output := helper.GetContractInput(proof)
+	var temp = ""
+	for k := 0; k < len(commentsHash); k++ {
+		temp = temp + "\"" + strconv.Itoa(int(hash[k])) + "\"" + ","
+	}
+	fmt.Println("public input is", temp)
+	fmt.Println("Plonk proof is", "0x"+hex.EncodeToString(output))
 }
 
 func mockInnerCircuitMPC(folderPath string, ccs constraint.ConstraintSystem, nContributionsPhase1 int, nContributionsPhase2 int, power uint64) (*groth16.ProvingKey, *groth16.VerifyingKey, error) {
-	_, err := mpc.InitPhase1(folderPath+"Phase1_1", power)
+	_, err := mpc.InitInnerPhase1(folderPath+"Phase1_1", power)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -115,14 +110,14 @@ func mockInnerCircuitMPC(folderPath string, ccs constraint.ConstraintSystem, nCo
 	for i := 1; i < nContributionsPhase1; i++ {
 		prepath := folderPath + "Phase1_" + strconv.Itoa(i)
 		nextPath := folderPath + "Phase1_" + strconv.Itoa(i+1)
-		_, err = mpc.ContributePhase1(prepath, nextPath)
+		_, err = mpc.ContributeInnerPhase1(prepath, nextPath)
 		if err != nil {
 			return nil, nil, err
 		}
 	}
-	mpc.Seal(folderPath+"Phase1_"+strconv.Itoa(nContributionsPhase1), folderPath+"Phase1_final")
+	mpc.InnerSeal(folderPath+"Phase1_"+strconv.Itoa(nContributionsPhase1), folderPath+"Phase1_final")
 
-	evals, srs, _, err := mpc.InitPhase2(ccs, folderPath+"Phase1_final", folderPath+"Phase2_1")
+	evals, srs, _, err := mpc.InitInnerPhase2(ccs, folderPath+"Phase1_final", folderPath+"Phase2_1")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -130,12 +125,12 @@ func mockInnerCircuitMPC(folderPath string, ccs constraint.ConstraintSystem, nCo
 	for i := 1; i < nContributionsPhase2; i++ {
 		prepath := folderPath + "Phase2_" + strconv.Itoa(i)
 		nextPath := folderPath + "Phase2_" + strconv.Itoa(i+1)
-		_, err = mpc.ContributePhase2(prepath, nextPath)
+		_, err = mpc.ContributeInnerPhase2(prepath, nextPath)
 		if err != nil {
 			return nil, nil, err
 		}
 	}
-	phase2, err := mpc.ReadPhase2FromFile(folderPath + "Phase2_" + strconv.Itoa(nContributionsPhase1))
+	phase2, err := mpc.ReadInnerPhase2FromFile(folderPath + "Phase2_" + strconv.Itoa(nContributionsPhase1))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -143,43 +138,61 @@ func mockInnerCircuitMPC(folderPath string, ccs constraint.ConstraintSystem, nCo
 	p1, v1 := phase2.Seal(&srs, &evals, []byte("beacon Phase 2"))
 	pk := p1.(*groth16.ProvingKey)
 	vk := v1.(*groth16.VerifyingKey)
-	helper.ExportProvingKey(pk, folderPath+"test_pk")
-	helper.ExportVerifyingKey(vk, folderPath+"test_vk")
-	helper.ExportCSS(ccs, folderPath+"test_ccs")
+	helper.ExportInnerProvingKey(pk, folderPath+"pk")
+	helper.ExportInnerVerifyingKey(vk, folderPath+"vk")
+	helper.ExportCSS(ccs, folderPath+"ccs")
 	return pk, vk, err
 }
 
-func mockSRCMPC(folderPath string, nContributions int, srsSize int) (*kzg_bn254.SRS, error) {
+func mockSRCMPC(folderPath string, ccs constraint.ConstraintSystem, nContributions int) (pk plonk.ProvingKey, vk plonk.VerifyingKey, err error) {
+	scs := ccs.(*cs.SparseR1CS)
+	srsSize, lagrange := plonk.SRSSize(scs)
+
 	p := kzg_bn254.InitializeSetup(srsSize)
-	for i := range nContributions {
+	for i := 0; i < nContributions; i++ {
 		if i > 0 {
 			in, err := os.Open(folderPath + strconv.Itoa(i))
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			_, err = p.ReadFrom(in)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			err = in.Close()
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 		p.Contribute()
 		out, err := os.Create(folderPath + strconv.Itoa(i+1))
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		_, err = p.WriteTo(out)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		err = out.Close()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
-	res := p.Seal([]byte("test"))
-	return &res, nil
+	srs := p.Seal([]byte("test"))
+
+	srsLagrange := &kzg_bn254.SRS{Vk: srs.Vk}
+	srsLagrange.Pk.G1, err = kzg_bn254.ToLagrangeG1(srs.Pk.G1[:lagrange])
+	if err != nil {
+		return nil, nil, err
+	}
+	p1, v1, err := plonk.Setup(ccs, &srs, srsLagrange)
+	if err != nil {
+		return nil, nil, err
+	}
+	pk = p1.(*plonk_bn254.ProvingKey)
+	vk = v1.(*plonk_bn254.VerifyingKey)
+	helper.ExportOuterProvingKey(pk, folderPath+"pk")
+	helper.ExportOuterVerifyingKey(vk, folderPath+"vk")
+	helper.ExportCSS(ccs, folderPath+"ccs")
+	return pk, vk, nil
 }

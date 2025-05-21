@@ -2,6 +2,8 @@ package helper
 
 import (
 	"crypto/sha256"
+	kzg_bn254 "github.com/consensys/gnark-crypto/ecc/bn254/kzg"
+	plonk_bn254 "github.com/consensys/gnark/backend/plonk/bn254"
 	"os"
 
 	"github.com/bane-labs/zk-dkg/mpc"
@@ -10,7 +12,6 @@ import (
 	groth16 "github.com/consensys/gnark/backend/groth16/bn254"
 	"github.com/consensys/gnark/backend/groth16/bn254/mpcsetup"
 	"github.com/consensys/gnark/backend/plonk"
-	"github.com/consensys/gnark/backend/solidity"
 	"github.com/consensys/gnark/backend/witness"
 	"github.com/consensys/gnark/constraint"
 	cs "github.com/consensys/gnark/constraint/bn254"
@@ -43,7 +44,7 @@ func ComputeProof(ccs constraint.ConstraintSystem, pk plonk.ProvingKey, assignme
 }
 
 /**
- * Function: GetInitParamsFromExistedMPCSetUp
+ * Function: GetParamsFromOuterExistedMPCSetUp
  * @Description: get proving key and verification key required for zk proof calculation from the existing MPC file
  * @param ccs: circuit constraints
  * @param srsPath: phase1 SRS file path required for proof calculation
@@ -52,9 +53,9 @@ func ComputeProof(ccs constraint.ConstraintSystem, pk plonk.ProvingKey, assignme
  * @return vk: verification key
  * @return err: error
  */
-func GetInitParamsFromExistedMPCSetUp(ccs constraint.ConstraintSystem, srsPath string, phase2Path string) (*groth16.ProvingKey, *groth16.VerifyingKey, error) {
+func GetParamsFromInnerExistedMPCSetUp(ccs constraint.ConstraintSystem, srsPath string, phase2Path string) (*groth16.ProvingKey, *groth16.VerifyingKey, error) {
 	// Get phase1 data
-	srs, err := mpc.ReadSrsCommonsFromFile(srsPath)
+	srs, err := mpc.ReadInnerSrsCommonsFromFile(srsPath)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -63,7 +64,7 @@ func GetInitParamsFromExistedMPCSetUp(ccs constraint.ConstraintSystem, srsPath s
 	p2 := new(mpcsetup.Phase2)
 	evals := p2.Initialize(r1cs, &srs)
 	// Get phase2 data
-	phase2, err := mpc.ReadPhase2FromFile(phase2Path)
+	phase2, err := mpc.ReadInnerPhase2FromFile(phase2Path)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -72,12 +73,33 @@ func GetInitParamsFromExistedMPCSetUp(ccs constraint.ConstraintSystem, srsPath s
 	return pk.(*groth16.ProvingKey), vk.(*groth16.VerifyingKey), nil
 }
 
+func GetParamsFromOuterExistedMPCSetUp(ccs constraint.ConstraintSystem, srsPath string) (*plonk_bn254.ProvingKey, *plonk_bn254.VerifyingKey, error) {
+	r1CS := ccs.(*cs.SparseR1CS)
+	srsSize, lagrange := plonk.SRSSize(r1CS)
+	srs, err := mpc.OuterSRSSeal(srsPath, srsSize)
+	if err != nil {
+		return nil, nil, err
+	}
+	srsLagrange := &kzg_bn254.SRS{Vk: srs.Vk}
+	srsLagrange.Pk.G1, err = kzg_bn254.ToLagrangeG1(srs.Pk.G1[:lagrange])
+	if err != nil {
+		return nil, nil, err
+	}
+	p1, v1, err := plonk.Setup(r1CS, &srs, srsLagrange)
+	if err != nil {
+		return nil, nil, err
+	}
+	pk := p1.(*plonk_bn254.ProvingKey)
+	vk := v1.(*plonk_bn254.VerifyingKey)
+	return pk, vk, nil
+}
+
 /**
- * Function: ReadProvingKey
+ * Function: ReadInnerProvingKey
  * @Description: import proving key file
  * @param path: proving key file path
  */
-func ReadProvingKey(path string) (*groth16.ProvingKey, error) {
+func ReadInnerProvingKey(path string) (*groth16.ProvingKey, error) {
 	pk := new(groth16.ProvingKey)
 	file, err := os.Open(path)
 	if err != nil {
@@ -90,7 +112,7 @@ func ReadProvingKey(path string) (*groth16.ProvingKey, error) {
 	return pk, nil
 }
 
-func ReadPlonkProvingKey(path string) (plonk.ProvingKey, error) {
+func ReadOuterProvingKey(path string) (plonk.ProvingKey, error) {
 	pk := plonk.NewProvingKey(ecc.BN254)
 	file, err := os.Open(path)
 	if err != nil {
@@ -103,12 +125,24 @@ func ReadPlonkProvingKey(path string) (plonk.ProvingKey, error) {
 	return pk, nil
 }
 
+func ExportOuterProvingKey(pk plonk.ProvingKey, path string) {
+	key := pk.(*plonk_bn254.ProvingKey)
+	file, err := os.Create(path)
+	if err != nil {
+		panic(err)
+	}
+	_, err = key.WriteTo(file)
+	if err != nil {
+		panic(err)
+	}
+}
+
 /**
- * Function: ExportProvingKey
+ * Function: ExportInnerProvingKey
  * @Description: export proving key file
  * @param pk: proving key
  */
-func ExportProvingKey(pk *groth16.ProvingKey, path string) {
+func ExportInnerProvingKey(pk *groth16.ProvingKey, path string) {
 	file, err := os.Create(path)
 	if err != nil {
 		panic(err)
@@ -120,11 +154,11 @@ func ExportProvingKey(pk *groth16.ProvingKey, path string) {
 }
 
 /**
- * Function: ReadVerifyingKey
+ * Function: ReadInnerVerifyingKey
  * @Description: import verifying key file
  * @param path: verifying key file path
  */
-func ReadVerifyingKey(path string) (*groth16.VerifyingKey, error) {
+func ReadInnerVerifyingKey(path string) (*groth16.VerifyingKey, error) {
 	vk := new(groth16.VerifyingKey)
 	file, err := os.Open(path)
 	if err != nil {
@@ -137,7 +171,7 @@ func ReadVerifyingKey(path string) (*groth16.VerifyingKey, error) {
 	return vk, nil
 }
 
-func ReadPlonkVerifyingKey(path string) (plonk.VerifyingKey, error) {
+func ReadOuterVerifyingKey(path string) (plonk.VerifyingKey, error) {
 	vk := plonk.NewVerifyingKey(ecc.BN254)
 	file, err := os.Open(path)
 	if err != nil {
@@ -150,12 +184,24 @@ func ReadPlonkVerifyingKey(path string) (plonk.VerifyingKey, error) {
 	return vk, nil
 }
 
+func ExportOuterVerifyingKey(vk plonk.VerifyingKey, path string) {
+	key := vk.(*plonk_bn254.VerifyingKey)
+	file, err := os.Create(path)
+	if err != nil {
+		panic(err)
+	}
+	_, err = key.WriteTo(file)
+	if err != nil {
+		panic(err)
+	}
+}
+
 /**
- * Function: ExportVerifyingKey
+ * Function: ExportInnerVerifyingKey
  * @Description: export verifying key file
  * @param vk: verifying key
  */
-func ExportVerifyingKey(vk *groth16.VerifyingKey, path string) {
+func ExportInnerVerifyingKey(vk *groth16.VerifyingKey, path string) {
 	file, err := os.Create(path)
 	if err != nil {
 		panic(err)
@@ -205,12 +251,14 @@ func ExportCSS(css constraint.ConstraintSystem, path string) {
  * @Description: export solidity file
  * @param vk: verifying key
  */
-func ExportContract(vk *groth16.VerifyingKey, path string) {
+func ExportContract(vk plonk.VerifyingKey, path string) {
 	contract, err := os.Create(path)
 	if err != nil {
 		panic(err)
 	}
-	err = vk.ExportSolidity(contract, solidity.WithHashToFieldFunction(sha256.New()))
+	VK := vk.(*plonk_bn254.VerifyingKey)
+	//err = VK.ExportSolidity(contract, solidity.WithHashToFieldFunction(sha256.New()))
+	err = VK.ExportSolidity(contract)
 	if err != nil {
 		panic(err)
 	}
@@ -233,35 +281,9 @@ func GetHash(data []byte) []byte {
  * @param proof: zk proof
  * @return []*big.Int: data submitted to the chain
  */
-/*func GetContractInput(proof plonk.Proof) ([8]*big.Int, []*big.Int, [2]*big.Int) {
-	// Solidity contract inputs
-	p := proof.(*plonk_bn254.Proof)
-	serializedProof := p.MarshalSolidity()
-	serializedProof
+func GetContractInput(proof plonk.Proof) []byte {
 
-	f, err := os.Create("contract_plonk.sol")
-	require.NoError(t, err)
-	err = vk.ExportSolidity(f)
-	require.NoError(t, err)
-
-	proofBytes := proof.MarshalSolidity()
-	fpSize := 4 * 8
-	var prf [8]*big.Int
-	// proof.Ar, proof.Bs, proof.Krs
-	for i := 0; i < 8; i++ {
-		prf[i] = new(big.Int).SetBytes(proofBytes[fpSize*i : fpSize*(i+1)])
-	}
-	c := new(big.Int).SetBytes(proofBytes[fpSize*8 : fpSize*8+4])
-	cmtCount := int(c.Int64())
-	var cmts = make([]*big.Int, 2*cmtCount)
-	// commitments
-	for i := 0; i < 2*cmtCount; i++ {
-		cmts[i] = new(big.Int).SetBytes(proofBytes[fpSize*8+4+i*fpSize : fpSize*8+4+(i+1)*fpSize])
-	}
-	var cmtPok [2]*big.Int
-	// commitmentPok
-	cmtPok[0] = new(big.Int).SetBytes(proofBytes[fpSize*8+4+2*cmtCount*fpSize : fpSize*8+4+2*cmtCount*fpSize+fpSize])
-	cmtPok[1] = new(big.Int).SetBytes(proofBytes[fpSize*8+4+2*cmtCount*fpSize+fpSize : fpSize*8+4+2*cmtCount*fpSize+2*fpSize])
-	return prf, cmts, cmtPok
+	plonk_proof := proof.(*plonk_bn254.Proof)
+	input := plonk_proof.MarshalSolidity()
+	return input
 }
-*/

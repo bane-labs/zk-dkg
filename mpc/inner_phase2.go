@@ -9,7 +9,7 @@ import (
 )
 
 /**
- * Function: InitPhase2
+ * Function: InitInnerPhase2
  * @Description: generate an initialization phase2 data and write it to the file
  * @param ccs: circuit constraints
  * @param phase1Path: phase1 data file path
@@ -19,8 +19,8 @@ import (
  * @return phase2: initialization phase2 data
  * @return err: error
  */
-func InitPhase2(ccs constraint.ConstraintSystem, srsCommonsPath string, phase2Path string) (evals mpcsetup.Phase2Evaluations, srs mpcsetup.SrsCommons, phase2 mpcsetup.Phase2, err error) {
-	srs, err = ReadSrsCommonsFromFile(srsCommonsPath)
+func InitInnerPhase2(ccs constraint.ConstraintSystem, srsCommonsPath string, phase2Path string) (evals mpcsetup.Phase2Evaluations, srs mpcsetup.SrsCommons, phase2 mpcsetup.Phase2, err error) {
+	srs, err = ReadInnerSrsCommonsFromFile(srsCommonsPath)
 	if err != nil {
 		return mpcsetup.Phase2Evaluations{}, mpcsetup.SrsCommons{}, mpcsetup.Phase2{}, err
 	}
@@ -42,15 +42,15 @@ func InitPhase2(ccs constraint.ConstraintSystem, srsCommonsPath string, phase2Pa
 }
 
 /**
- * Function: ContributePhase2
+ * Function: ContributeInnerPhase2
  * @Description: participate in the MPC process of phase2
  * @param prevPath: previous round phase2 file path
  * @param nextPath: the writing path of the phase2 file in this round
  * @return next: current phase2 data
  * @return err: error
  */
-func ContributePhase2(prevPath string, nextPath string) (next mpcsetup.Phase2, err error) {
-	prev, err := ReadPhase2FromFile(prevPath)
+func ContributeInnerPhase2(prevPath string, nextPath string) (next mpcsetup.Phase2, err error) {
+	prev, err := ReadInnerPhase2FromFile(prevPath)
 	if err != nil {
 		return mpcsetup.Phase2{}, err
 	}
@@ -68,19 +68,19 @@ func ContributePhase2(prevPath string, nextPath string) (next mpcsetup.Phase2, e
 }
 
 /**
- * Function: VerifyPhase2
+ * Function: VerifyInnerPhase2
  * @Description: verify phase2 file is calculated correctly
  * @param prevPath: previous round phase2 file path
  * @param curPath: current round phase2 file path
  * @return []byte: the hash of previous round phase2
  * @return error: error
  */
-func VerifyPhase2(prevPath string, curPath string) ([]byte, error) {
-	prev, err := ReadPhase2FromFile(prevPath)
+func VerifyInnerPhase2(prevPath string, curPath string) ([]byte, error) {
+	prev, err := ReadInnerPhase2FromFile(prevPath)
 	if err != nil {
 		return nil, err
 	}
-	cur, err := ReadPhase2FromFile(curPath)
+	cur, err := ReadInnerPhase2FromFile(curPath)
 	if err != nil {
 		return nil, err
 	}
@@ -92,13 +92,13 @@ func VerifyPhase2(prevPath string, curPath string) ([]byte, error) {
 }
 
 /**
- * Function: ReadPhase2FromFile
+ * Function: ReadInnerPhase2FromFile
  * @Description: get phase2 data from file
  * @param path: file path
  * @return phase2: phase2 data
  * @return err: error
  */
-func ReadPhase2FromFile(path string) (mpcsetup.Phase2, error) {
+func ReadInnerPhase2FromFile(path string) (mpcsetup.Phase2, error) {
 	var phase2 mpcsetup.Phase2
 	f, err := os.Open(path)
 	if err != nil {

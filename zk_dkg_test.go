@@ -11,7 +11,6 @@ import (
 	"math/big"
 	"math/rand"
 	"os"
-	"strconv"
 	"testing"
 	"time"
 
@@ -39,7 +38,7 @@ import (
 func TestBatchEncryptionWithMPC(t *testing.T) {
 	assert := test.NewAssert(t)
 	// To demo send N fragements to N nodes, N=batch
-	var batch = 7
+	var batch = 1
 	// Generate node private key
 	source := rand.NewSource(time.Now().UnixNano())
 	rand := rand.New(source)
@@ -64,19 +63,14 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 		t.Logf("Share message: %s", hex.EncodeToString(messages[i]))
 	}
 	// Read files
-	outerPKPath := "ProvingKey_" + strconv.Itoa(3)
-	outerPK, err := helper.ReadPlonkProvingKey(outerPKPath)
-	assert.NoError(err)
-	outerVKPath := "VerifyingKey_" + strconv.Itoa(3)
-	outerVK, err := helper.ReadPlonkVerifyingKey(outerVKPath)
-	assert.NoError(err)
-	outerCcsPath := "R1CS_" + strconv.Itoa(3)
-	outerCcs, err := helper.ReadCSS(outerCcsPath)
-	assert.NoError(err)
+	outerPKPath := "outer_pk"
+	outerVKPath := "outer_vk"
+	outerCcsPath := "outer_ccs"
+	outerCcs, outerPK, outerVK := circuit.ComputeRecursionEncryptionCircuitByFile(outerCcsPath, outerPKPath, outerVKPath)
 
-	innerCcsPath := "test_ccs"
-	innerPKPath := "test_pk"
-	innerVKPath := "test_vk"
+	innerCcsPath := "inner_ccs"
+	innerPKPath := "inner_pk"
+	innerVKPath := "inner_vk"
 
 	// Compute proof
 	innerCcss, innerPKs, innerVKs := circuit.ComputeMultipleKeyShareEncryptionCircuitByFile(batch, innerCcsPath, innerPKPath, innerVKPath)
@@ -88,23 +82,6 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 	assert.NoError(err)
 	err = plonk.Verify(proof, outerVK, publicWitness, backend.WithVerifierHashToFieldFunction(sha256.New()))
 	assert.NoError(err)
-	// Output proof data
-	/*	proofData, cmts, cmtPok := helper.GetContractInput(&proof)
-		// proof.Ar, proof.Bs, proof.Krs
-		t.Log("Proof:")
-		for i := 0; i < 8; i++ {
-			t.Log(proofData[i].String())
-		}
-		// commitments
-		t.Log("Commitments:")
-		for i := 0; i < len(cmts); i++ {
-			t.Log(cmts[i].String())
-		}
-		// commitmentPok
-		t.Log("CommitmentPok:")
-		for i := 0; i < len(cmtPok); i++ {
-			t.Log(cmtPok[i].String())
-		}*/
 }
 
 func TestTwoRecoverMessageGeneration(t *testing.T) {
@@ -140,19 +117,15 @@ func TestTwoRecoverMessageGeneration(t *testing.T) {
 		t.Logf("Share message: %s", hex.EncodeToString(messages[i]))
 	}
 	// Read files
-	outerPKPath := "ProvingKey_" + strconv.Itoa(3)
-	outerPK, err := helper.ReadPlonkProvingKey(outerPKPath)
-	assert.NoError(err)
-	outerVKPath := "VerifyingKey_" + strconv.Itoa(3)
-	outerVK, err := helper.ReadPlonkVerifyingKey(outerVKPath)
-	assert.NoError(err)
-	outerCcsPath := "R1CS_" + strconv.Itoa(3)
-	outerCcs, err := helper.ReadCSS(outerCcsPath)
-	assert.NoError(err)
 
-	innerCcsPath := "test_ccs"
-	innerPKPath := "test_pk"
-	innerVKPath := "test_vk"
+	outerPKPath := "outer_pk"
+	outerVKPath := "outer_vk"
+	outerCcsPath := "outer_ccs"
+	outerCcs, outerPK, outerVK := circuit.ComputeRecursionEncryptionCircuitByFile(outerCcsPath, outerPKPath, outerVKPath)
+
+	innerCcsPath := "inner_ccs"
+	innerPKPath := "inner_pk"
+	innerVKPath := "inner_vk"
 
 	innerCcss, innerPKs, innerVKs := circuit.ComputeMultipleKeyShareEncryptionCircuitByFile(2, innerCcsPath, innerPKPath, innerVKPath)
 
@@ -189,10 +162,10 @@ func TestMPC(t *testing.T) {
 	curPhase1 := t.TempDir() + "Phase1_2"
 	finalPhase1 := t.TempDir() + "Phase1_final"
 
-	_, err := mpc.InitPhase1(prevPhase1, 262144)
+	_, err := mpc.InitInnerPhase1(prevPhase1, 262144)
 	assert.NoError(err)
-	mpc.ContributePhase1(prevPhase1, curPhase1)
-	mpc.Seal(curPhase1, finalPhase1)
+	mpc.ContributeInnerPhase1(prevPhase1, curPhase1)
+	mpc.InnerSeal(curPhase1, finalPhase1)
 
 	var myCircuit = TempCircuit{
 		Data:         make([]frontend.Variable, 10),
@@ -201,22 +174,22 @@ func TestMPC(t *testing.T) {
 	css, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &myCircuit)
 	assert.NoError(err)
 
-	srs, err := mpc.ReadSrsCommonsFromFile(finalPhase1)
+	srs, err := mpc.ReadInnerSrsCommonsFromFile(finalPhase1)
 	assert.NoError(err)
 
 	prevPhase2 := t.TempDir() + "Phase2_1"
 	curPhase2 := t.TempDir() + "Phase2_2"
 
-	_, _, _, err = mpc.InitPhase2(css, finalPhase1, prevPhase2)
+	_, _, _, err = mpc.InitInnerPhase2(css, finalPhase1, prevPhase2)
 	assert.NoError(err)
-	_, err = mpc.ContributePhase2(prevPhase2, curPhase2)
+	_, err = mpc.ContributeInnerPhase2(prevPhase2, curPhase2)
 	assert.NoError(err)
 
 	var p2 mpcsetup.Phase2
 	r1cs := css.(*cs.R1CS)
 	evals := p2.Initialize(r1cs, &srs)
 
-	phase2, err := mpc.ReadPhase2FromFile(curPhase2)
+	phase2, err := mpc.ReadInnerPhase2FromFile(curPhase2)
 	assert.NoError(err)
 	p1, v1 := phase2.Seal(&srs, &evals, []byte("beacon Phase 2"))
 	pk := p1.(*groth16.ProvingKey)
