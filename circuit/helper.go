@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/bane-labs/zk-dkg/encryption"
+	"github.com/bane-labs/zk-dkg/helper"
 	bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381"
 	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1"
@@ -42,31 +43,30 @@ func encryptKeyShare(pub *ecies.PublicKey, fiBytes []byte) (nonce []byte, encryp
 	return
 }
 
-/**
- * Function: PrepareEncryptedKeyShares
- * @Description: encrypt a batch of key shares and return related data
- * @param pubs: a set of public keys required for ecies encryption
- * @param fis: a set of key shares to be encrypted
- * @return fisBytes: a set of key shares, each in a byte array
- * @return fisInts: the key shares in integers
- * @return bigFis: the bls12381 commitments of the key shares
- * @return nonces: a set of salts
- * @return encryptedFis: a set of a encrypted key shares
- * @return rs: a set of the integer format of random number
- * @return bigRs: a set of the corresponding bls12381 commitment of random number
- */
-func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []fr_bls12381.Element) (fisBytes [][]byte, fisInts []big.Int, bigFis []bls12381.G1Affine, nonces [][]byte, encryptedFis [][]byte, rs []big.Int, bigRs []secp256k1.G1Affine) {
-	amount := len(pubs)
-	fisBytes = make([][]byte, amount)
-	fisInts = make([]big.Int, amount)
-	bigFis = make([]bls12381.G1Affine, amount)
-	nonces = make([][]byte, amount)
-	encryptedFis = make([][]byte, amount)
-	rs = make([]big.Int, amount)
-	bigRs = make([]secp256k1.G1Affine, amount)
-	for i := 0; i < amount; i++ {
-		fisBytes[i], fisInts[i], bigFis[i] = transformKeyShare(fis[i])
-		nonces[i], encryptedFis[i], rs[i], bigRs[i] = encryptKeyShare(pubs[i], fisBytes[i])
+func computeSumHash(pub secp256k1.G1Affine, bigR secp256k1.G1Affine, bigFi bls12381.G1Affine, encryptedFi []byte, nonce []byte) []byte {
+	secp256k1G1ByteLength := secp256k1.SizeOfG1AffineUncompressed
+	bls12381G1ByteLength := bls12381.SizeOfG1AffineUncompressed
+	bigRBytes := bigR.RawBytes()
+	rawBigR := make([]byte, secp256k1G1ByteLength*8)
+	for i := 0; i < secp256k1G1ByteLength; i++ {
+		for j := 0; j < 8; j++ {
+			rawBigR[i*8+j] = (bigRBytes[i] >> (7 - j)) & 1
+		}
 	}
-	return
+	pubBytes := pub.RawBytes()
+	rawPub := make([]byte, secp256k1G1ByteLength*8)
+	for i := 0; i < secp256k1G1ByteLength; i++ {
+		for j := 0; j < 8; j++ {
+			rawPub[i*8+j] = (pubBytes[i] >> (7 - j)) & 1
+		}
+	}
+	bigFiBytes := bigFi.RawBytes()
+	rawBigFi := make([]byte, bls12381G1ByteLength*8)
+	for i := 0; i < bls12381G1ByteLength; i++ {
+		for j := 0; j < 8; j++ {
+			rawBigFi[i*8+j] = (bigFiBytes[i] >> (7 - j)) & 1
+		}
+	}
+	data := append(append(append(append(append(rawBigR, rawPub...), rawBigFi...), nonce...), 2), encryptedFi...)
+	return helper.GetHash(data)
 }

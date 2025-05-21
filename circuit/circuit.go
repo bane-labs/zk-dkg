@@ -1,8 +1,11 @@
 package circuit
 
 import (
+	"math/big"
+
 	"github.com/bane-labs/zk-dkg/helper"
 	bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381"
+	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	fr_bn254 "github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
@@ -17,8 +20,36 @@ import (
 	"github.com/consensys/gnark/std/math/emulated"
 	stdgroth16 "github.com/consensys/gnark/std/recursion/groth16"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
-	"math/big"
 )
+
+/**
+ * Function: PrepareEncryptedKeyShares
+ * @Description: encrypt a batch of key shares and return related data
+ * @param pubs: a set of public keys required for ecies encryption
+ * @param fis: a set of key shares to be encrypted
+ * @return fisBytes: a set of key shares, each in a byte array
+ * @return fisInts: the key shares in integers
+ * @return bigFis: the bls12381 commitments of the key shares
+ * @return nonces: a set of salts
+ * @return encryptedFis: a set of a encrypted key shares
+ * @return rs: a set of the integer format of random number
+ * @return bigRs: a set of the corresponding bls12381 commitment of random number
+ */
+func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []fr_bls12381.Element) (fisBytes [][]byte, fisInts []big.Int, bigFis []bls12381.G1Affine, nonces [][]byte, encryptedFis [][]byte, rs []big.Int, bigRs []secp256k1.G1Affine) {
+	amount := len(pubs)
+	fisBytes = make([][]byte, amount)
+	fisInts = make([]big.Int, amount)
+	bigFis = make([]bls12381.G1Affine, amount)
+	nonces = make([][]byte, amount)
+	encryptedFis = make([][]byte, amount)
+	rs = make([]big.Int, amount)
+	bigRs = make([]secp256k1.G1Affine, amount)
+	for i := 0; i < amount; i++ {
+		fisBytes[i], fisInts[i], bigFis[i] = transformKeyShare(fis[i])
+		nonces[i], encryptedFis[i], rs[i], bigRs[i] = encryptKeyShare(pubs[i], fisBytes[i])
+	}
+	return
+}
 
 /**
  * Function: ComputeSingleKeyShareEncryptionAssignment
@@ -36,7 +67,7 @@ import (
  * @return assignment: input data collection
  * @return err: error
  */
-func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r big.Int, bigR secp256k1.G1Affine, fiBytes []byte, fiInt big.Int, bigFi bls12381.G1Affine, encryptedFi []byte, nonce []byte) *ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr] {
+func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r big.Int, bigR secp256k1.G1Affine, fiBytes []byte, fiInt big.Int, bigFi bls12381.G1Affine, encryptedFi []byte, nonce []byte) (*ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte) {
 	// Format data
 	plainChunksBytes := make([]frontend.Variable, len(fiBytes))
 	for i := 0; i < len(fiBytes); i++ {
@@ -61,37 +92,14 @@ func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r big.In
 	// Compute RPub
 	var rPub secp256k1.G1Affine
 	rPub.ScalarMultiplication(&pub, &r)
-	// Compute allHash
-	secp256k1G1ByteLength := secp256k1.SizeOfG1AffineUncompressed
-	bls12381G1ByteLength := bls12381.SizeOfG1AffineUncompressed
-	bigRBytes := bigR.RawBytes()
-	rawBigR := make([]byte, secp256k1G1ByteLength*8)
-	for i := 0; i < secp256k1G1ByteLength; i++ {
-		for j := 0; j < 8; j++ {
-			rawBigR[i*8+j] = (bigRBytes[i] >> (7 - j)) & 1
-		}
-	}
-	pubBytes := pub.RawBytes()
-	rawPub := make([]byte, secp256k1G1ByteLength*8)
-	for i := 0; i < secp256k1G1ByteLength; i++ {
-		for j := 0; j < 8; j++ {
-			rawPub[i*8+j] = (pubBytes[i] >> (7 - j)) & 1
-		}
-	}
-	bigFiBytes := bigFi.RawBytes()
-	rawBigFi := make([]byte, bls12381G1ByteLength*8)
-	for i := 0; i < bls12381G1ByteLength; i++ {
-		for j := 0; j < 8; j++ {
-			rawBigFi[i*8+j] = (bigFiBytes[i] >> (7 - j)) & 1
-		}
-	}
-	temp := append(append(append(append(append(rawBigR, rawPub...), rawBigFi...), nonce...), 2), encryptedFi...)
-	sumHash := helper.GetHash(temp)
+	// Compute hash
+	sumHash := computeSumHash(pub, bigR, bigFi, encryptedFi, nonce)
 	rawSumHash := make([]frontend.Variable, len(sumHash))
-	for i := 0; i < len(rawSumHash); i++ {
+	for i := 0; i < len(sumHash); i++ {
 		rawSumHash[i] = sumHash[i]
 	}
-	return &ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
+	// Compute assignment
+	assignment := &ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
 		SmallR: emulated.ValueOf[emulated.Secp256k1Fr](r),
 		BigR: sw_emulated.AffinePoint[emulated.Secp256k1Fp]{
 			X: emulated.ValueOf[emulated.Secp256k1Fp](bigR.X),
@@ -117,10 +125,24 @@ func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r big.In
 		},
 		PubInputHash: rawSumHash,
 	}
+	return assignment, sumHash
+}
+
+func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.PublicKey, rs []big.Int, bigRs []secp256k1.G1Affine, fisBytes [][]byte, fisInts []big.Int, bigFis []bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) ([]*ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte) {
+	assignments := make([]*ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], batch)
+	hashes := make([][]byte, batch)
+	for i := 0; i < batch; i++ {
+		assignments[i], hashes[i] = ComputeSingleKeyShareEncryptionAssignment(pubKey[i], rs[i], bigRs[i], fisBytes[i], fisInts[i], bigFis[i], encryptedFis[i], nonces[i])
+	}
+	// Compute sum hash
+	data := make([]byte, 0)
+	for i := 0; i < batch; i++ {
+		data = append(data, hashes[i]...)
+	}
+	return assignments, helper.GetHash(data)
 }
 
 func ComputeSingleKeyShareEncryptionCircuit(fiBytes []byte, encryptedFi []byte) *ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr] {
-
 	circuit := &ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
 		PlainChunks:  make([]frontend.Variable, len(fiBytes)),
 		CipherChunks: make([]frontend.Variable, len(encryptedFi)),
@@ -143,15 +165,6 @@ func ComputeSingleKeyShareEncryptionCircuitByFile(ccsPath, pkPath, vkPath string
 		panic(err)
 	}
 	return ccs, pK, vK
-}
-
-func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.PublicKey, rs []big.Int, bigRs []secp256k1.G1Affine, fisBytes [][]byte, fisInts []big.Int, bigFis []bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) []*ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr] {
-	assignments := make([]*ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], batch)
-	for i := 0; i < batch; i++ {
-		assignments[i] = ComputeSingleKeyShareEncryptionAssignment(pubKey[i], rs[i], bigRs[i], fisBytes[i], fisInts[i], bigFis[i], encryptedFis[i], nonces[i])
-
-	}
-	return assignments
 }
 
 func ComputeMultipleKeyShareEncryptionCircuitByFile(batch int, ccsPath, pkPath, vkPath string) ([]constraint.ConstraintSystem, []*groth16.ProvingKey, []*groth16.VerifyingKey) {
@@ -272,69 +285,4 @@ func ComputeInnerProofs(field, outer *big.Int, batch int, innerccss []constraint
 		innerProofs[i] = innerProof
 	}
 	return innerProofs, innerPubWitnesss
-}
-
-func ComputeCommHash(batch int, pubKey []*ecies.PublicKey, rs []big.Int, bigRs []secp256k1.G1Affine, fisBytes [][]byte, bigFis []bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) ([]frontend.Variable, []byte) {
-	allHash := make([]byte, 0)
-	for index := 0; index < batch; index++ {
-		// Format data
-		plainChunksBytes := make([]frontend.Variable, len(fisBytes[index]))
-		for i := 0; i < len(fisBytes[index]); i++ {
-			plainChunksBytes[i] = fisBytes[index][i]
-		}
-		ciphertextBytes := make([]frontend.Variable, len(encryptedFis[index]))
-		for i := 0; i < len(encryptedFis[index]); i++ {
-			ciphertextBytes[i] = encryptedFis[index][i]
-		}
-		noncesBytes := [12]frontend.Variable{}
-		for i := 0; i < len(nonces[index]); i++ {
-			noncesBytes[i] = nonces[index][i]
-		}
-		var px fp.Element
-		px.SetBigInt(pubKey[index].X)
-		var py fp.Element
-		py.SetBigInt(pubKey[index].Y)
-		pub := secp256k1.G1Affine{
-			X: px,
-			Y: py,
-		}
-		// Compute RPub
-		var rPub secp256k1.G1Affine
-		rPub.ScalarMultiplication(&pub, &rs[index])
-		// Compute allHash
-		secp256k1G1ByteLength := secp256k1.SizeOfG1AffineUncompressed
-		bls12381G1ByteLength := bls12381.SizeOfG1AffineUncompressed
-		bigRBytes := bigRs[index].RawBytes()
-		rawBigR := make([]byte, secp256k1G1ByteLength*8)
-		for i := 0; i < secp256k1G1ByteLength; i++ {
-			for j := 0; j < 8; j++ {
-				rawBigR[i*8+j] = (bigRBytes[i] >> (7 - j)) & 1
-			}
-		}
-		pubBytes := pub.RawBytes()
-		rawPub := make([]byte, secp256k1G1ByteLength*8)
-		for i := 0; i < secp256k1G1ByteLength; i++ {
-			for j := 0; j < 8; j++ {
-				rawPub[i*8+j] = (pubBytes[i] >> (7 - j)) & 1
-			}
-		}
-		bigFisBytes := bigFis[index].RawBytes()
-		rawBigFis := make([]byte, bls12381G1ByteLength*8)
-		for i := 0; i < bls12381G1ByteLength; i++ {
-			for j := 0; j < 8; j++ {
-				rawBigFis[i*8+j] = (bigFisBytes[i] >> (7 - j)) & 1
-			}
-		}
-		rawPubInputs := make([]byte, 0)
-		rawPubInputs = append(rawPubInputs, append(append(append(append(append(rawBigR, rawPub...), rawBigFis...), nonces[index]...), 2), encryptedFis[index]...)...)
-
-		allHash = append(allHash, helper.GetHash(rawPubInputs)...)
-	}
-
-	commonHash := helper.GetHash(allHash)
-	rawSumHash := make([]frontend.Variable, len(commonHash))
-	for i := 0; i < len(commonHash); i++ {
-		rawSumHash[i] = commonHash[i]
-	}
-	return rawSumHash, commonHash
 }

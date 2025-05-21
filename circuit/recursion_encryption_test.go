@@ -3,15 +3,16 @@ package circuit
 import (
 	"encoding/hex"
 	"fmt"
-	plonk_bn254 "github.com/consensys/gnark/backend/plonk/bn254"
-	"github.com/consensys/gnark/frontend/cs/scs"
-	"github.com/stretchr/testify/require"
 	"math"
 	"math/rand"
 	"os"
 	"strconv"
 	"testing"
 	"time"
+
+	plonk_bn254 "github.com/consensys/gnark/backend/plonk/bn254"
+	"github.com/consensys/gnark/frontend/cs/scs"
+	"github.com/stretchr/testify/require"
 
 	"github.com/bane-labs/zk-dkg/helper"
 	"github.com/bane-labs/zk-dkg/mpc"
@@ -62,10 +63,13 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 	}
 
 	innerCcss, innerPKs, innerVKs := ComputeMultipleKeyShareEncryptionCircuitByFile(batch, innerCssPath, innerPkPath, innerVkPath)
-	commentsHash, hash := ComputeCommHash(batch, pubKeys, rs, bigRs, fisBytes, bigFis, encryptedFis, nonces)
-	innerAssignments := ComputeMultipleKeyShareEncryptionAssignment(batch, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
+	innerAssignments, sumHash := ComputeMultipleKeyShareEncryptionAssignment(batch, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
+	rawSumHash := make([]frontend.Variable, len(sumHash))
+	for i := 0; i < len(sumHash); i++ {
+		rawSumHash[i] = sumHash[i]
+	}
 	outerCircuit := ComputeRecursionEncryptionCircuit(batch, innerCcss, innerVKs)
-	outerAssignment := ComputeRecursionEncryptionAssignment(ecc.BN254.ScalarField(), ecc.BN254.ScalarField(), batch, innerCcss, innerPKs, innerVKs, innerAssignments, commentsHash)
+	outerAssignment := ComputeRecursionEncryptionAssignment(ecc.BN254.ScalarField(), ecc.BN254.ScalarField(), batch, innerCcss, innerPKs, innerVKs, innerAssignments, rawSumHash)
 	/*	err := test.IsSolved(outerCircuit, outerAssignment, ecc.BN254.ScalarField())
 		if err != nil {
 			panic(err)
@@ -94,8 +98,8 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 	//helper.ExportContract(outerVKs, outerContract)
 	output := helper.GetContractInput(proof)
 	var temp = ""
-	for k := 0; k < len(commentsHash); k++ {
-		temp = temp + "\"" + strconv.Itoa(int(hash[k])) + "\"" + ","
+	for k := 0; k < len(sumHash); k++ {
+		temp = temp + "\"" + strconv.Itoa(int(sumHash[k])) + "\"" + ","
 	}
 	fmt.Println("public input is", temp)
 	fmt.Println("Plonk proof is", "0x"+hex.EncodeToString(output))

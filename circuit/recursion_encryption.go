@@ -2,6 +2,7 @@ package circuit
 
 import (
 	"fmt"
+
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/algebra"
 	"github.com/consensys/gnark/std/hash/sha2"

@@ -5,13 +5,14 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/consensys/gnark/backend/plonk"
-	cs "github.com/consensys/gnark/constraint/bn254"
-	"github.com/consensys/gnark/frontend/cs/scs"
 	"math"
 	"math/rand"
 	"os"
 	"time"
+
+	"github.com/consensys/gnark/backend/plonk"
+	cs "github.com/consensys/gnark/constraint/bn254"
+	"github.com/consensys/gnark/frontend/cs/scs"
 
 	"github.com/bane-labs/zk-dkg/circuit"
 	"github.com/bane-labs/zk-dkg/helper"

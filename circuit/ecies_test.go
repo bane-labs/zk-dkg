@@ -44,7 +44,7 @@ func TestECIESCircuit(t *testing.T) {
 		CipherChunks: make([]frontend.Variable, len(encryptedFi)),
 		PubInputHash: make([]frontend.Variable, 32),
 	}
-	assignment := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, bigR, fiBytes, fiInt, bigFi, encryptedFi, nonce)
+	assignment, _ := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, bigR, fiBytes, fiInt, bigFi, encryptedFi, nonce)
 	err = test.IsSolved(&circuit, assignment, ecc.BN254.ScalarField())
 	assert.NoError(err)
 }
@@ -69,7 +69,7 @@ func TestECIESWithMPC(t *testing.T) {
 	}
 	css, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
 	assert.NoError(err)
-	assignment := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, bigR, fiBytes, fiInt, bigFi, encryptedFi, nonce)
+	assignment, _ := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, bigR, fiBytes, fiInt, bigFi, encryptedFi, nonce)
 	_, vk, proof, witness, err := computingProof2(css, assignment)
 	assert.NoError(err)
 	publicWitness, err := witness.Public()

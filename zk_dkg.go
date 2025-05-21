@@ -1,9 +1,11 @@
 package zkdkg
 
 import (
+	"math/big"
+
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend/plonk"
-	"math/big"
+	"github.com/consensys/gnark/frontend"
 
 	"github.com/bane-labs/zk-dkg/circuit"
 	"github.com/bane-labs/zk-dkg/helper"
@@ -33,7 +35,7 @@ import (
  * @return err:
  */
 func ProveSingleKeyShareEncryption(css constraint.ConstraintSystem, provingKey plonk.ProvingKey, pubKey *ecies.PublicKey, r big.Int, bigR secp256k1.G1Affine, fiBytes []byte, fiInt big.Int, bigFi bls12381.G1Affine, encryptedFi []byte, nonce []byte) (plonk.Proof, witness.Witness, error) {
-	assignment := circuit.ComputeSingleKeyShareEncryptionAssignment(pubKey, r, bigR, fiBytes, fiInt, bigFi, encryptedFi, nonce)
+	assignment, _ := circuit.ComputeSingleKeyShareEncryptionAssignment(pubKey, r, bigR, fiBytes, fiInt, bigFi, encryptedFi, nonce)
 	proof, witness, err := helper.ComputeProof(css, provingKey, assignment)
 	if err != nil {
 		return nil, nil, err
@@ -60,9 +62,12 @@ func ProveSingleKeyShareEncryption(css constraint.ConstraintSystem, provingKey p
  */
 func ProveMultipleKeyShareEncryption(outerCss constraint.ConstraintSystem, outerProvingKey plonk.ProvingKey, innerCcss []constraint.ConstraintSystem, innerPKs []*groth16.ProvingKey, innerVKs []*groth16.VerifyingKey, pubKey []*ecies.PublicKey, rs []big.Int, bigRs []secp256k1.G1Affine, fisBytes [][]byte, fisInts []big.Int, bigFis []bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) (plonk.Proof, witness.Witness, error) {
 	batch := len(innerCcss)
-	innerAssignments := circuit.ComputeMultipleKeyShareEncryptionAssignment(batch, pubKey, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
-	commentsHash := circuit.ComputeCommHash(batch, pubKey, rs, bigRs, fisBytes, bigFis, encryptedFis, nonces)
-	outerAssignment := circuit.ComputeRecursionEncryptionAssignment(ecc.BN254.ScalarField(), ecc.BN254.ScalarField(), batch, innerCcss, innerPKs, innerVKs, innerAssignments, commentsHash)
+	innerAssignments, sumHash := circuit.ComputeMultipleKeyShareEncryptionAssignment(batch, pubKey, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
+	rawSumHash := make([]frontend.Variable, len(sumHash))
+	for i := 0; i < len(sumHash); i++ {
+		rawSumHash[i] = sumHash[i]
+	}
+	outerAssignment := circuit.ComputeRecursionEncryptionAssignment(ecc.BN254.ScalarField(), ecc.BN254.ScalarField(), batch, innerCcss, innerPKs, innerVKs, innerAssignments, rawSumHash)
 	proof, witness, err := helper.ComputeProof(outerCss, outerProvingKey, outerAssignment)
 	if err != nil {
 		return nil, nil, err
