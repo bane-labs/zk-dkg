@@ -10,8 +10,11 @@ import (
 	"os"
 	"time"
 
+	groth16 "github.com/consensys/gnark/backend/groth16/bn254"
 	"github.com/consensys/gnark/backend/plonk"
+	"github.com/consensys/gnark/constraint"
 	cs "github.com/consensys/gnark/constraint/bn254"
+	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"github.com/consensys/gnark/frontend/cs/scs"
 
 	"github.com/bane-labs/zk-dkg/circuit"
@@ -20,7 +23,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc"
 	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"github.com/consensys/gnark/frontend"
-	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 
@@ -44,8 +46,8 @@ var (
 		Name:  "innerPhase2file",
 		Usage: "The input file path of a inner phase2 contribution file",
 	}
-	innerSrsFileFlag = &cli.PathFlag{
-		Name:  "innerSrsfile",
+	innerSRSFileFlag = &cli.PathFlag{
+		Name:  "innerSRSfile",
 		Usage: "The input file path of a phase1 SRS file",
 	}
 	inputFileFlag = &cli.PathFlag{
@@ -60,25 +62,25 @@ var (
 	innerPKFileFlag = &cli.PathFlag{
 		Name:  "innerProvingkey",
 		Usage: "The output file path of inner proving key",
-		Value: "inner_Pk",
+		Value: "inner_pk",
 	}
 	innerVKFileFlag = &cli.PathFlag{
 		Name:  "innerVerifyingkey",
 		Usage: "The output file path of inner verifying key",
 		Value: "inner_vk",
 	}
-	innerCcsFileFlag = &cli.PathFlag{
-		Name:  "innerCcs",
-		Usage: "The output file path of inner ccs",
-		Value: "inner_ccs",
+	innerCSSFileFlag = &cli.PathFlag{
+		Name:  "innerCSS",
+		Usage: "The output file path of inner css",
+		Value: "inner_css",
 	}
-	outerSrsFileFlag = &cli.PathFlag{
-		Name:  "outerSrsfile",
+	outerSRSFileFlag = &cli.PathFlag{
+		Name:  "outerSRSfile",
 		Usage: "The file path of a outer SRS file",
 	}
-	outerCcssFolderFlag = &cli.PathFlag{
+	outerCSSFolderFlag = &cli.PathFlag{
 		Name:  "outerCssFolder",
-		Usage: "The output folder path of outer ccs",
+		Usage: "The output folder path of outer css",
 		Value: "outer",
 	}
 	outerPKsFolderFlag = &cli.PathFlag{
@@ -181,9 +183,9 @@ phase1, and later can be used by this application repeatedly.`,
 						Usage:  "Generate the first inner phase2 file",
 						Action: initInnerPhase2,
 						Flags: []cli.Flag{
-							innerSrsFileFlag,
+							innerSRSFileFlag,
 							outputFileFlag,
-							innerCcsFileFlag,
+							innerCSSFileFlag,
 						},
 						Description: `
 	phase2 init --srsfile <filepath> --output <filepath>
@@ -231,11 +233,11 @@ chain of this contribute operations realize a MPC.`,
 				Usage:  "Export the proving key, verifying key and the verifier contract",
 				Action: exportInnerSeal,
 				Flags: []cli.Flag{
-					innerSrsFileFlag,
+					innerSRSFileFlag,
 					innerPhase2FileFlag,
 					innerPKFileFlag,
 					innerVKFileFlag,
-					innerCcsFileFlag,
+					innerCSSFileFlag,
 				},
 				Description: `
 	seal --srsfile <filepath> --phase2file <filepath> --provingkey <filepath> --verifyingkey <filepath> --r1cs <filepath>
@@ -260,11 +262,11 @@ this MPC.`,
 						Usage:  "Generate init outer srs file",
 						Action: initOuterSRS,
 						Flags: []cli.Flag{
-							innerCcsFileFlag,
+							innerCSSFileFlag,
 							innerPKFileFlag,
 							innerVKFileFlag,
-							outerSrsFileFlag,
-							outerCcssFolderFlag,
+							outerSRSFileFlag,
+							outerCSSFolderFlag,
 						},
 						Description: `
 	phase1 init --output <filepath>
@@ -277,8 +279,8 @@ the first participant to generate the first file.`,
 						Usage:  "Verify init outer srs file step forward",
 						Action: verifyInitOuterSRS,
 						Flags: []cli.Flag{
-							outerSrsFileFlag,
-							outerCcssFolderFlag,
+							outerSRSFileFlag,
+							outerCSSFolderFlag,
 						},
 						Description: `
 	phase1 verify --phase1file <filepath> --output <filepath>
@@ -294,7 +296,7 @@ to the unverified output file.`,
 						Flags: []cli.Flag{
 							inputFileFlag,
 							outputFileFlag,
-							outerCcssFolderFlag,
+							outerCSSFolderFlag,
 						},
 						Description: `
 	phase1 verify --phase1file <filepath> --output <filepath>
@@ -310,7 +312,7 @@ to the unverified output file.`,
 						Flags: []cli.Flag{
 							inputFileFlag,
 							outputFileFlag,
-							outerCcssFolderFlag,
+							outerCSSFolderFlag,
 						},
 						Description: `
 	phase1 contribute --phase1file <filepath> --output <filepath>
@@ -324,11 +326,11 @@ chain of this contribute operations realize a MPC.`,
 						Usage:  "Convert outer srs data to common SRS",
 						Action: exportOuterSeal,
 						Flags: []cli.Flag{
-							outerCcssFolderFlag,
+							outerCSSFolderFlag,
 							outerPKsFolderFlag,
 							outerVKsFolderFlag,
 							outerContractsFolderFlag,
-							outerSrsFileFlag,
+							outerSRSFileFlag,
 						},
 						Description: `
 	phase1 seal --phase1file <filepath> --output <filepath>
@@ -347,8 +349,8 @@ will convert Phase1 data to common srs,each participant can execute this operati
 }
 
 func initOuterSRS(ctx *cli.Context) error {
-	innerCcsFilePath := ctx.Path(innerCcsFileFlag.Name)
-	if innerCcsFilePath == "" {
+	innerCSSFilePath := ctx.Path(innerCSSFileFlag.Name)
+	if innerCSSFilePath == "" {
 		return errors.New("invalid inner css file path")
 	}
 	innerPKFilePath := ctx.Path(innerPKFileFlag.Name)
@@ -360,27 +362,46 @@ func initOuterSRS(ctx *cli.Context) error {
 		return errors.New("invalid inner verifyingKey file path")
 	}
 
-	outerSRSFilePath := ctx.Path(outerSrsFileFlag.Name)
+	outerSRSFilePath := ctx.Path(outerSRSFileFlag.Name)
 	if outerSRSFilePath == "" {
 		return errors.New("invalid outer SRS file path")
 	}
-	outerCcssFolderPath := ctx.Path(outerCcssFolderFlag.Name)
-	if outerCcssFolderPath == "" {
+	outerCSSFolderPath := ctx.Path(outerCSSFolderFlag.Name)
+	if outerCSSFolderPath == "" {
 		return errors.New("invalid outer css folder path")
 	}
 	for i := 0; i < len(batchArray); i++ {
 		batch := batchArray[i]
-		innerCcss, _, innerVKs := circuit.ComputeMultipleKeyShareEncryptionCircuitByFile(batch, innerCcsFilePath, innerPKFilePath, innerVKFilePath)
-		outerCircuit := circuit.ComputeRecursionEncryptionCircuit(batch, innerCcss, innerVKs)
-		outerCcs, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, outerCircuit)
+		innerCSS, err := helper.ReadCSS(innerCSSFilePath)
 		if err != nil {
 			return err
 		}
-		r1CS := outerCcs.(*cs.SparseR1CS)
-		helper.ExportCSS(outerCcs, fmt.Sprintf("%s_%d_outer_css", outerCcssFolderPath, batchArray[i]))
+		innerPK, err := helper.ReadInnerProvingKey(innerPKFilePath)
+		if err != nil {
+			return err
+		}
+		innerVK, err := helper.ReadInnerVerifyingKey(innerVKFilePath)
+		if err != nil {
+			return err
+		}
+		innerCSSs := make([]constraint.ConstraintSystem, batch)
+		innerPKs := make([]*groth16.ProvingKey, batch)
+		innerVKs := make([]*groth16.VerifyingKey, batch)
+		for i := 0; i < batch; i++ {
+			innerCSSs[i] = innerCSS
+			innerPKs[i] = innerPK
+			innerVKs[i] = innerVK
+		}
+		outerCircuit := circuit.GetRecursionEncryptionCircuit(batch, innerCSSs, innerVKs)
+		outerCSS, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, outerCircuit)
+		if err != nil {
+			return err
+		}
+		r1cs := outerCSS.(*cs.SparseR1CS)
+		helper.ExportCSS(outerCSS, fmt.Sprintf("%s_%d_outer_css", outerCSSFolderPath, batchArray[i]))
 
 		if i == MaxBatch {
-			srsSize, _ := plonk.SRSSize(r1CS)
+			srsSize, _ := plonk.SRSSize(r1cs)
 			p, err := mpc.InitOuterSRS(outerSRSFilePath, srsSize)
 			if err != nil {
 				return err
@@ -397,21 +418,21 @@ func initOuterSRS(ctx *cli.Context) error {
 }
 
 func verifyInitOuterSRS(ctx *cli.Context) error {
-	prePath := ctx.Path(outerSrsFileFlag.Name)
+	prePath := ctx.Path(outerSRSFileFlag.Name)
 	if prePath == "" {
 		return errors.New("invalid previous outer srs file path")
 	}
 
-	outerCcssFolderPath := ctx.Path(outerCcssFolderFlag.Name)
-	if outerCcssFolderPath == "" {
-		return errors.New("invalid outer ccs folder path")
+	outerCSSFolderPath := ctx.Path(outerCSSFolderFlag.Name)
+	if outerCSSFolderPath == "" {
+		return errors.New("invalid outer css folder path")
 	}
-	ccs, err := helper.ReadCSS(fmt.Sprintf("%s_%d_outer_css", outerCcssFolderPath, MaxBatch))
+	css, err := helper.ReadCSS(fmt.Sprintf("%s_%d_outer_css", outerCSSFolderPath, MaxBatch))
 	if err != nil {
 		return err
 	}
-	r1CS := ccs.(*cs.SparseR1CS)
-	srsSize, _ := plonk.SRSSize(r1CS)
+	r1cs := css.(*cs.SparseR1CS)
+	srsSize, _ := plonk.SRSSize(r1cs)
 	err = mpc.VerifyinitOuterSRS(prePath, srsSize)
 	if err != nil {
 		return err
@@ -429,16 +450,16 @@ func verifyOuterSRS(ctx *cli.Context) error {
 	if curPath == "" {
 		return errors.New("invalid current output file path")
 	}
-	outerCcssFolderPath := ctx.Path(outerCcssFolderFlag.Name)
-	if outerCcssFolderPath == "" {
-		return errors.New("invalid outer ccs folder path")
+	outerCSSFolderPath := ctx.Path(outerCSSFolderFlag.Name)
+	if outerCSSFolderPath == "" {
+		return errors.New("invalid outer css folder path")
 	}
-	ccs, err := helper.ReadCSS(fmt.Sprintf("%s_%d_outer_css", outerCcssFolderPath, MaxBatch))
+	css, err := helper.ReadCSS(fmt.Sprintf("%s_%d_outer_css", outerCSSFolderPath, MaxBatch))
 	if err != nil {
 		return err
 	}
-	r1CS := ccs.(*cs.SparseR1CS)
-	srsSize, _ := plonk.SRSSize(r1CS)
+	r1cs := css.(*cs.SparseR1CS)
+	srsSize, _ := plonk.SRSSize(r1cs)
 	err = mpc.VerifyOuterSRS(prePath, curPath, srsSize)
 	if err != nil {
 		return err
@@ -456,16 +477,16 @@ func contributeOuterSRS(ctx *cli.Context) error {
 	if outputPath == "" {
 		return errors.New("invalid outer srs output file path")
 	}
-	outerCcssFolderPath := ctx.Path(outerCcssFolderFlag.Name)
-	if outerCcssFolderPath == "" {
-		return errors.New("invalid outer ccs folder path")
+	outerCSSFolderPath := ctx.Path(outerCSSFolderFlag.Name)
+	if outerCSSFolderPath == "" {
+		return errors.New("invalid outer css folder path")
 	}
-	ccs, err := helper.ReadCSS(fmt.Sprintf("%s_%d_outer_css", outerCcssFolderPath, MaxBatch))
+	css, err := helper.ReadCSS(fmt.Sprintf("%s_%d_outer_css", outerCSSFolderPath, MaxBatch))
 	if err != nil {
 		return err
 	}
-	r1CS := ccs.(*cs.SparseR1CS)
-	srsSize, _ := plonk.SRSSize(r1CS)
+	r1cs := css.(*cs.SparseR1CS)
+	srsSize, _ := plonk.SRSSize(r1cs)
 
 	p, err := mpc.ContributeOuterSRS(inputPath, outputPath, srsSize)
 	if err != nil {
@@ -481,8 +502,8 @@ func contributeOuterSRS(ctx *cli.Context) error {
 }
 
 func exportOuterSeal(ctx *cli.Context) error {
-	outerCcsFolderPath := ctx.Path(outerCcssFolderFlag.Name)
-	if outerCcsFolderPath == "" {
+	outerCSSFolderPath := ctx.Path(outerCSSFolderFlag.Name)
+	if outerCSSFolderPath == "" {
 		return errors.New("invalid outer css folder path")
 	}
 	outerPKFolderPath := ctx.Path(outerPKsFolderFlag.Name)
@@ -497,16 +518,16 @@ func exportOuterSeal(ctx *cli.Context) error {
 	if outerContractFolderPath == "" {
 		return errors.New("invalid outer contract folder path")
 	}
-	inputSRSFilePath := ctx.Path(outerSrsFileFlag.Name)
+	inputSRSFilePath := ctx.Path(outerSRSFileFlag.Name)
 	if inputSRSFilePath == "" {
 		return errors.New("invalid outer srs file path")
 	}
 	for i := 0; i < len(batchArray); i++ {
-		outerCcs, err := helper.ReadCSS(fmt.Sprintf("%s_%d_outer_css", outerCcsFolderPath, batchArray[i]))
+		outerCSS, err := helper.ReadCSS(fmt.Sprintf("%s_%d_outer_css", outerCSSFolderPath, batchArray[i]))
 		if err != nil {
 			return err
 		}
-		pk, vk, err := helper.GetParamsFromOuterExistedMPCSetUp(outerCcs, inputSRSFilePath)
+		pk, vk, err := helper.GetParamsFromOuterExistedMPCSetUp(outerCSS, inputSRSFilePath)
 		if err != nil {
 			return err
 		}
@@ -518,7 +539,7 @@ func exportOuterSeal(ctx *cli.Context) error {
 }
 
 func exportInnerSeal(ctx *cli.Context) error {
-	srsFilePath := ctx.Path(innerSrsFileFlag.Name)
+	srsFilePath := ctx.Path(innerSRSFileFlag.Name)
 	if srsFilePath == "" {
 		return errors.New("invalid inner phase1 SRS file path")
 	}
@@ -534,7 +555,7 @@ func exportInnerSeal(ctx *cli.Context) error {
 	if innerVKFilePath == "" {
 		return errors.New("invalid verifyingkey file path")
 	}
-	r1csFilePath := ctx.Path(innerCcsFileFlag.Name)
+	r1csFilePath := ctx.Path(innerCSSFileFlag.Name)
 	if r1csFilePath == "" {
 		return errors.New("invalid r1cs file path")
 	}
@@ -625,7 +646,7 @@ func sealInnerPhase1(ctx *cli.Context) error {
 }
 
 func initInnerPhase2(ctx *cli.Context) error {
-	inputPath := ctx.Path(innerSrsFileFlag.Name)
+	inputPath := ctx.Path(innerSRSFileFlag.Name)
 	if inputPath == "" {
 		return errors.New("invalid phase1 SRS file path")
 	}
@@ -633,7 +654,7 @@ func initInnerPhase2(ctx *cli.Context) error {
 	if outputpath == "" {
 		outputpath = DefaultPhase2FilePrefix + "1"
 	}
-	r1csFilePath := ctx.Path(innerCcsFileFlag.Name)
+	r1csFilePath := ctx.Path(innerCSSFileFlag.Name)
 	if r1csFilePath == "" {
 		return errors.New("invalid inner r1cs file path")
 	}
@@ -651,7 +672,7 @@ func initInnerPhase2(ctx *cli.Context) error {
 		fis[i] = fi
 	}
 	fisBytes, _, _, _, encryptedFis, _, _ := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
-	innerCircuit := circuit.ComputeSingleKeyShareEncryptionCircuit(fisBytes[0], encryptedFis[0])
+	innerCircuit := circuit.GetSingleKeyShareEncryptionCircuit(fisBytes[0], encryptedFis[0])
 	css, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, innerCircuit)
 	if err != nil {
 		return err

@@ -6,13 +6,15 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"github.com/consensys/gnark/backend/plonk"
 	"io"
 	"math/big"
 	"math/rand"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/consensys/gnark/backend/plonk"
+	"github.com/consensys/gnark/constraint"
 
 	"github.com/bane-labs/zk-dkg/mpc"
 	"github.com/consensys/gnark/backend/groth16/bn254/mpcsetup"
@@ -63,18 +65,35 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 		t.Logf("Share message: %s", hex.EncodeToString(messages[i]))
 	}
 	// Read files
-	outerPKPath := "outer_pk"
-	outerVKPath := "outer_vk"
-	outerCcsPath := "outer_ccs"
-	outerCcs, outerPK, outerVK := circuit.ComputeRecursionEncryptionCircuitByFile(outerCcsPath, outerPKPath, outerVKPath)
-
-	innerCcsPath := "inner_ccs"
+	innerCSSPath := "inner_ccs"
 	innerPKPath := "inner_pk"
 	innerVKPath := "inner_vk"
+	innerCSS, err := helper.ReadCSS(innerCSSPath)
+	assert.NoError(err)
+	innerPK, err := helper.ReadInnerProvingKey(innerPKPath)
+	assert.NoError(err)
+	innerVK, err := helper.ReadInnerVerifyingKey(innerVKPath)
+	assert.NoError(err)
+	innerCSSs := make([]constraint.ConstraintSystem, batch)
+	innerPKs := make([]*groth16.ProvingKey, batch)
+	innerVKs := make([]*groth16.VerifyingKey, batch)
+	for i := 0; i < batch; i++ {
+		innerCSSs[i] = innerCSS
+		innerPKs[i] = innerPK
+		innerVKs[i] = innerVK
+	}
+	outerCSSPath := "outer_ccs"
+	outerPKPath := "outer_pk"
+	outerVKPath := "outer_vk"
+	outerCSS, err := helper.ReadCSS(outerCSSPath)
+	assert.NoError(err)
+	outerPK, err := helper.ReadOuterProvingKey(outerPKPath)
+	assert.NoError(err)
+	outerVK, err := helper.ReadOuterVerifyingKey(outerVKPath)
+	assert.NoError(err)
 
 	// Compute proof
-	innerCcss, innerPKs, innerVKs := circuit.ComputeMultipleKeyShareEncryptionCircuitByFile(batch, innerCcsPath, innerPKPath, innerVKPath)
-	proof, witness, err := ProveMultipleKeyShareEncryption(outerCcs, outerPK, innerCcss, innerPKs, innerVKs, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
+	proof, witness, err := ProveMultipleKeyShareEncryption(outerCSS, outerPK, innerCSSs, innerPKs, innerVKs, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
 	assert.NoError(err)
 
 	// Verify proof
@@ -117,20 +136,35 @@ func TestTwoRecoverMessageGeneration(t *testing.T) {
 		t.Logf("Share message: %s", hex.EncodeToString(messages[i]))
 	}
 	// Read files
-
-	outerPKPath := "outer_pk"
-	outerVKPath := "outer_vk"
-	outerCcsPath := "outer_ccs"
-	outerCcs, outerPK, outerVK := circuit.ComputeRecursionEncryptionCircuitByFile(outerCcsPath, outerPKPath, outerVKPath)
-
-	innerCcsPath := "inner_ccs"
+	innerCSSPath := "inner_ccs"
 	innerPKPath := "inner_pk"
 	innerVKPath := "inner_vk"
-
-	innerCcss, innerPKs, innerVKs := circuit.ComputeMultipleKeyShareEncryptionCircuitByFile(2, innerCcsPath, innerPKPath, innerVKPath)
+	innerCSS, err := helper.ReadCSS(innerCSSPath)
+	assert.NoError(err)
+	innerPK, err := helper.ReadInnerProvingKey(innerPKPath)
+	assert.NoError(err)
+	innerVK, err := helper.ReadInnerVerifyingKey(innerVKPath)
+	assert.NoError(err)
+	innerCSSs := make([]constraint.ConstraintSystem, 2)
+	innerPKs := make([]*groth16.ProvingKey, 2)
+	innerVKs := make([]*groth16.VerifyingKey, 2)
+	for i := 0; i < 2; i++ {
+		innerCSSs[i] = innerCSS
+		innerPKs[i] = innerPK
+		innerVKs[i] = innerVK
+	}
+	outerCSSPath := "outer_ccs"
+	outerPKPath := "outer_pk"
+	outerVKPath := "outer_vk"
+	outerCSS, err := helper.ReadCSS(outerCSSPath)
+	assert.NoError(err)
+	outerPK, err := helper.ReadOuterProvingKey(outerPKPath)
+	assert.NoError(err)
+	outerVK, err := helper.ReadOuterVerifyingKey(outerVKPath)
+	assert.NoError(err)
 
 	// Compute proof
-	proof, witness, err := ProveMultipleKeyShareEncryption(outerCcs, outerPK, innerCcss, innerPKs, innerVKs, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
+	proof, witness, err := ProveMultipleKeyShareEncryption(outerCSS, outerPK, innerCSSs, innerPKs, innerVKs, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
 	assert.NoError(err)
 	// Verify proof
 	publicWitness, err := witness.Public()

@@ -10,7 +10,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/secp256k1"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	groth16 "github.com/consensys/gnark/backend/groth16/bn254"
-	"github.com/consensys/gnark/backend/plonk"
 	"github.com/consensys/gnark/backend/witness"
 	"github.com/consensys/gnark/constraint"
 	cs "github.com/consensys/gnark/constraint/bn254"
@@ -142,86 +141,6 @@ func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.Publ
 	return assignments, helper.GetHash(data)
 }
 
-func ComputeSingleKeyShareEncryptionCircuit(fiBytes []byte, encryptedFi []byte) *ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr] {
-	circuit := &ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
-		PlainChunks:  make([]frontend.Variable, len(fiBytes)),
-		CipherChunks: make([]frontend.Variable, len(encryptedFi)),
-		PubInputHash: make([]frontend.Variable, 32),
-	}
-	return circuit
-}
-
-func ComputeSingleKeyShareEncryptionCircuitByFile(ccsPath, pkPath, vkPath string) (constraint.ConstraintSystem, *groth16.ProvingKey, *groth16.VerifyingKey) {
-	ccs, err := helper.ReadCSS(ccsPath)
-	if err != nil {
-		panic(err)
-	}
-	pK, err := helper.ReadInnerProvingKey(pkPath)
-	if err != nil {
-		panic(err)
-	}
-	vK, err := helper.ReadInnerVerifyingKey(vkPath)
-	if err != nil {
-		panic(err)
-	}
-	return ccs, pK, vK
-}
-
-func ComputeMultipleKeyShareEncryptionCircuitByFile(batch int, ccsPath, pkPath, vkPath string) ([]constraint.ConstraintSystem, []*groth16.ProvingKey, []*groth16.VerifyingKey) {
-	ccss := make([]constraint.ConstraintSystem, batch)
-	pks := make([]*groth16.ProvingKey, batch)
-	vks := make([]*groth16.VerifyingKey, batch)
-
-	innerCcs, innerPK, innerVK := ComputeSingleKeyShareEncryptionCircuitByFile(ccsPath, pkPath, vkPath)
-
-	for i := 0; i < batch; i++ {
-		ccss[i] = innerCcs
-		pks[i] = innerPK
-		vks[i] = innerVK
-	}
-	return ccss, pks, vks
-}
-
-func ComputeRecursionEncryptionCircuit(batch int, innerCcss []constraint.ConstraintSystem, innerVKs []*groth16.VerifyingKey) *RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl] {
-	circuitVk := make([]stdgroth16.VerifyingKey[sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl], batch)
-	for i := 0; i < batch; i++ {
-		// initialize the witness elements
-		var err error
-		circuitVk[i], err = stdgroth16.ValueOfVerifyingKey[sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl](innerVKs[i])
-		if err != nil {
-			panic(err)
-		}
-	}
-	outerCircuit := &RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl]{
-		InnerWitness: make([]stdgroth16.Witness[sw_bn254.ScalarField], batch),
-		VerifyingKey: circuitVk,
-		Proof:        make([]stdgroth16.Proof[sw_bn254.G1Affine, sw_bn254.G2Affine], batch),
-		CommentsHash: make([]frontend.Variable, 32),
-	}
-
-	for i := 0; i < batch; i++ {
-		outerCircuit.InnerWitness[i] = stdgroth16.PlaceholderWitness[sw_bn254.ScalarField](innerCcss[i])
-		outerCircuit.Proof[i] = stdgroth16.PlaceholderProof[sw_bn254.G1Affine, sw_bn254.G2Affine](innerCcss[i])
-	}
-	return outerCircuit
-}
-
-func ComputeRecursionEncryptionCircuitByFile(ccsPath, pkPath, vkPath string) (constraint.ConstraintSystem, plonk.ProvingKey, plonk.VerifyingKey) {
-	ccs, err := helper.ReadCSS(ccsPath)
-	if err != nil {
-		panic(err)
-	}
-	pK, err := helper.ReadOuterProvingKey(pkPath)
-	if err != nil {
-		panic(err)
-	}
-	vK, err := helper.ReadOuterVerifyingKey(vkPath)
-	if err != nil {
-		panic(err)
-	}
-	return ccs, pK, vK
-}
-
 func ComputeRecursionEncryptionAssignment(field, outer *big.Int, batch int, innerCcss []constraint.ConstraintSystem, innerPKs []*groth16.ProvingKey, innerVKs []*groth16.VerifyingKey, innerAssignments []*ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], commentsHash []frontend.Variable) *RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl] {
 	//innerCcss, innerPKs, innerVKs := ComputeMultipleKeyShareEncryptionCircuitByFile(batch, ccsPath, pkPath, vkPath)
 	innerProofs, innerWitness := ComputeInnerProofs(field, outer, batch, innerCcss, innerPKs, innerVKs, innerAssignments)
@@ -285,4 +204,37 @@ func ComputeInnerProofs(field, outer *big.Int, batch int, innerccss []constraint
 		innerProofs[i] = innerProof
 	}
 	return innerProofs, innerPubWitnesss
+}
+
+func GetSingleKeyShareEncryptionCircuit(fiBytes []byte, encryptedFi []byte) *ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr] {
+	circuit := &ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
+		PlainChunks:  make([]frontend.Variable, len(fiBytes)),
+		CipherChunks: make([]frontend.Variable, len(encryptedFi)),
+		PubInputHash: make([]frontend.Variable, 32),
+	}
+	return circuit
+}
+
+func GetRecursionEncryptionCircuit(batch int, innerCcss []constraint.ConstraintSystem, innerVKs []*groth16.VerifyingKey) *RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl] {
+	circuitVk := make([]stdgroth16.VerifyingKey[sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl], batch)
+	for i := 0; i < batch; i++ {
+		// initialize the witness elements
+		var err error
+		circuitVk[i], err = stdgroth16.ValueOfVerifyingKey[sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl](innerVKs[i])
+		if err != nil {
+			panic(err)
+		}
+	}
+	outerCircuit := &RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl]{
+		InnerWitness: make([]stdgroth16.Witness[sw_bn254.ScalarField], batch),
+		VerifyingKey: circuitVk,
+		Proof:        make([]stdgroth16.Proof[sw_bn254.G1Affine, sw_bn254.G2Affine], batch),
+		CommentsHash: make([]frontend.Variable, 32),
+	}
+
+	for i := 0; i < batch; i++ {
+		outerCircuit.InnerWitness[i] = stdgroth16.PlaceholderWitness[sw_bn254.ScalarField](innerCcss[i])
+		outerCircuit.Proof[i] = stdgroth16.PlaceholderProof[sw_bn254.G1Affine, sw_bn254.G2Affine](innerCcss[i])
+	}
+	return outerCircuit
 }
