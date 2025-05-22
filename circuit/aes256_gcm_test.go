@@ -48,7 +48,8 @@ func TestAESGCM256Circuit(t *testing.T) {
 		keyBytes[i] = uints.U8{Val: expected[i]}
 	}
 	// Prepare circuit and witness
-	ciphertext, nonce := encryption.AESGCMEncrypt(expected[:], m)
+	ciphertext, nonce, err := encryption.AESGCMEncrypt(expected[:], m)
+	assert.NoError(err)
 	cBytes := make([]uints.U8, len(ciphertext))
 	for i := 0; i < len(ciphertext); i++ {
 		cBytes[i] = uints.U8{Val: ciphertext[i]}

@@ -19,8 +19,9 @@ import (
  * @return ciphertext: cipher text string
  * @return r: integer form of random number
  * @return bigR: the point on the elliptic curve corresponding to the random number
+ * @return err: error
  */
-func ECIESEncrypt(pub *ecies.PublicKey, plaintext []byte) (nonce []byte, ciphertext []byte, r big.Int, bigR secp256k1.G1Affine) {
+func ECIESEncrypt(pub *ecies.PublicKey, plaintext []byte) ([]byte, []byte, *big.Int, *secp256k1.G1Affine, error) {
 	// Format public key
 	var px fp.Element
 	px.SetBigInt(pub.X)
@@ -32,13 +33,15 @@ func ECIESEncrypt(pub *ecies.PublicKey, plaintext []byte) (nonce []byte, ciphert
 	}
 	// Generate random r, bigR=rG
 	_, g := secp256k1.Generators()
-	var rs fr_secp.Element
-	rs.SetRandom()
-	rs.BigInt(&r)
-	bigR.ScalarMultiplication(&g, &r)
+	rs, err := new(fr_secp.Element).SetRandom()
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	r := rs.BigInt(new(big.Int))
+	bigR := new(secp256k1.G1Affine).ScalarMultiplication(&g, r)
 	// Compute rPub=r*PublicKey
 	var rPub secp256k1.G1Affine
-	rPub.ScalarMultiplication(&pg1, &r)
+	rPub.ScalarMultiplication(&pg1, r)
 	// Compute rPubBytes=hash(rPub)
 	nbBytes := 2 * fr_secp.Bytes
 	rPubBytes := make([]byte, nbBytes*8)
@@ -50,8 +53,11 @@ func ECIESEncrypt(pub *ecies.PublicKey, plaintext []byte) (nonce []byte, ciphert
 	hashBuilder := sha3.New256()
 	hashBuilder.Write(rPubBytes)
 	key := hashBuilder.Sum(nil)
-	ciphertext, nonce = AESGCMEncrypt(key, plaintext)
-	return
+	ciphertext, nonce, err := AESGCMEncrypt(key, plaintext)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	return nonce, ciphertext, r, bigR, nil
 }
 
 /**
@@ -64,10 +70,9 @@ func ECIESEncrypt(pub *ecies.PublicKey, plaintext []byte) (nonce []byte, ciphert
  * @return plaintext: plain text string
  * @return err: error
  */
-func ECIESDecrypt(prv *ecies.PrivateKey, ciphertext []byte, nonce []byte, bigR secp256k1.G1Affine) (plaintext []byte, err error) {
+func ECIESDecrypt(prv *ecies.PrivateKey, ciphertext []byte, nonce []byte, bigR *secp256k1.G1Affine) ([]byte, error) {
 	// Compute rPub=r*PublicKey
-	var rPub secp256k1.G1Affine
-	rPub.ScalarMultiplication(&bigR, prv.D)
+	rPub := new(secp256k1.G1Affine).ScalarMultiplication(bigR, prv.D)
 	// Compute rPubBytes=hash(rPub)
 	nbBytes := 2 * fr_secp.Bytes
 	rPubBytes := make([]byte, nbBytes*8)
@@ -79,6 +84,5 @@ func ECIESDecrypt(prv *ecies.PrivateKey, ciphertext []byte, nonce []byte, bigR s
 	hashBuilder := sha3.New256()
 	hashBuilder.Write(rPubBytes)
 	key := hashBuilder.Sum(nil)
-	plaintext = AESGCMDecrypt(key, ciphertext, nonce)
-	return
+	return AESGCMDecrypt(key, ciphertext, nonce)
 }

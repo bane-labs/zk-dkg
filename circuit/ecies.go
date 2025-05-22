@@ -70,7 +70,7 @@ type ECIES[T1, S1, T2, S2 emulated.FieldParams] struct {
 }
 
 // Encrypt encrypts the plaintext using ECIES
-func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(api frontend.API, plainChunks, cipherChunks []frontend.Variable, iv [12]frontend.Variable, r emulated.Element[S1], bigR, pub, rPub sw_emulated.AffinePoint[T1], chunkIndex frontend.Variable, fi emulated.Element[S2], bigFi sw_emulated.AffinePoint[T2]) (pubInputs []uints.U8, err error) {
+func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(api frontend.API, plainChunks, cipherChunks []frontend.Variable, iv [12]frontend.Variable, r emulated.Element[S1], bigR, pub, rPub sw_emulated.AffinePoint[T1], chunkIndex frontend.Variable, fi emulated.Element[S2], bigFi sw_emulated.AffinePoint[T2]) ([]uints.U8, error) {
 	pBytes := make([]uints.U8, len(plainChunks))
 	for i := 0; i < len(plainChunks); i++ {
 		pBytes[i] = uints.U8{Val: plainChunks[i]}
@@ -152,7 +152,7 @@ func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(api frontend.API, plainChunks, ciphe
 	bigFiU8s := variableToU8s(rawBigFi, nbBits2)
 	length := len(bigRU8s) + len(pubU8s) + len(bigFiU8s) + len(iv) + 1 + len(cipherChunks)
 
-	pubInputs = make([]uints.U8, length)
+	pubInputs := make([]uints.U8, length)
 	for i := range bigRU8s {
 		pubInputs[i] = bigRU8s[i]
 	}
@@ -169,5 +169,5 @@ func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(api frontend.API, plainChunks, ciphe
 	for i := range cipherChunks {
 		pubInputs[len(bigRU8s)+len(pubU8s)+len(bigFiU8s)+len(iv)+1+i] = uints.U8{Val: cipherChunks[i]}
 	}
-	return
+	return pubInputs, nil
 }

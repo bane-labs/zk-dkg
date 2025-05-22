@@ -47,19 +47,20 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 	// Compute public key
 	f := randomPoly(5)
 	t.Logf("Secret: [%s, %s, %s, %s, %s]", hex.EncodeToString(f.coeff[0].Bytes()), hex.EncodeToString(f.coeff[1].Bytes()), hex.EncodeToString(f.coeff[2].Bytes()), hex.EncodeToString(f.coeff[3].Bytes()), hex.EncodeToString(f.coeff[4].Bytes()))
-	fis := make([]fr_bls12381.Element, batch)
+	fis := make([]*fr_bls12381.Element, batch)
 	pubKeys := make([]*ecies.PublicKey, batch)
 	for i := 0; i < batch; i++ {
 		key, err := ecies.GenerateKey(rand, crypto.S256(), nil)
 		assert.NoError(err)
 		pubKeys[i] = &key.PublicKey
 		t.Logf("Encryption key: %s", hex.EncodeToString(crypto.FromECDSAPub(&key.ExportECDSA().PublicKey)))
-		var fi fr_bls12381.Element
-		fi.SetBigInt(f.evaluate(big.NewInt(int64(i + 1))))
+		fi := new(fr_bls12381.Element).SetBigInt(f.evaluate(big.NewInt(int64(i + 1))))
+		assert.NoError(err)
 		fis[i] = fi
 	}
 	// Generate fragements and assigment and proof
-	fisBytes, fisInts, bigFis, nonces, encryptedFis, rs, bigRs := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
+	fisBytes, fisInts, bigFis, nonces, encryptedFis, rs, bigRs, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
+	assert.NoError(err)
 	messages := encodeMessages(encryptedFis, bigRs, nonces)
 	for i := 0; i < batch; i++ {
 		t.Logf("Share message: %s", hex.EncodeToString(messages[i]))
@@ -109,7 +110,7 @@ func TestTwoRecoverMessageGeneration(t *testing.T) {
 	source := rand.NewSource(time.Now().UnixNano())
 	rand := rand.New(source)
 	// Compute public key
-	fis := make([]fr_bls12381.Element, 2)
+	fis := make([]*fr_bls12381.Element, 2)
 	pubKeys := make([]*ecies.PublicKey, 2)
 	for i := 0; i < 2; i++ {
 		key, err := ecies.GenerateKey(rand, crypto.S256(), nil)
@@ -123,14 +124,12 @@ func TestTwoRecoverMessageGeneration(t *testing.T) {
 	t.Logf("Secret 1: [%s, %s, %s, %s, %s]", hex.EncodeToString(f1.coeff[0].Bytes()), hex.EncodeToString(f1.coeff[1].Bytes()), hex.EncodeToString(f1.coeff[2].Bytes()), hex.EncodeToString(f1.coeff[3].Bytes()), hex.EncodeToString(f1.coeff[4].Bytes()))
 	t.Logf("Secret 2: [%s, %s, %s, %s, %s]", hex.EncodeToString(f2.coeff[0].Bytes()), hex.EncodeToString(f2.coeff[1].Bytes()), hex.EncodeToString(f2.coeff[2].Bytes()), hex.EncodeToString(f2.coeff[3].Bytes()), hex.EncodeToString(f2.coeff[4].Bytes()))
 	// Generate two shares with the same index
-	var s1 fr_bls12381.Element
-	s1.SetBigInt(f1.evaluate(big.NewInt(int64(1))))
-	fis[0] = s1
-	var s2 fr_bls12381.Element
-	s2.SetBigInt(f2.evaluate(big.NewInt(int64(1))))
-	fis[1] = s2
+	fis[0] = new(fr_bls12381.Element).SetBigInt(f1.evaluate(big.NewInt(int64(1))))
+	fis[1] = new(fr_bls12381.Element).SetBigInt(f2.evaluate(big.NewInt(int64(1))))
+
 	// Generate fragements and assigment and proof
-	fisBytes, fisInts, bigFis, nonces, encryptedFis, rs, bigRs := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
+	fisBytes, fisInts, bigFis, nonces, encryptedFis, rs, bigRs, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
+	assert.NoError(err)
 	messages := encodeMessages(encryptedFis, bigRs, nonces)
 	for i := 0; i < 2; i++ {
 		t.Logf("Share message: %s", hex.EncodeToString(messages[i]))
@@ -316,7 +315,7 @@ func (p *Poly) evaluate(x *big.Int) *big.Int {
 	return result
 }
 
-func encodeMessages(encryptedFis [][]byte, bigRs []secp256k1.G1Affine, nonces [][]byte) [][]byte {
+func encodeMessages(encryptedFis [][]byte, bigRs []*secp256k1.G1Affine, nonces [][]byte) [][]byte {
 	result := make([][]byte, 0)
 	for i := range encryptedFis {
 		bigRBytes := bigRs[i].RawBytes()

@@ -37,18 +37,20 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 	source := rand.NewSource(time.Now().UnixNano())
 	rand := rand.New(source)
 	// Computing public key
-	fis := make([]fr_bls12381.Element, batch)
+	fis := make([]*fr_bls12381.Element, batch)
 	pubKeys := make([]*ecies.PublicKey, batch)
 	for i := 0; i < batch; i++ {
 		key, err := ecies.GenerateKey(rand, crypto.S256(), nil)
 		assert.NoError(err)
 		pubKeys[i] = &key.PublicKey
-		var fi fr_bls12381.Element
-		fi.SetRandom()
+		fi := new(fr_bls12381.Element)
+		_, err = fi.SetRandom()
+		assert.NoError(err)
 		fis[i] = fi
 	}
 	// Generate fragements and assigment
-	fisBytes, fisInts, bigFis, nonces, encryptedFis, rs, bigRs := PrepareEncryptedKeyShares(pubKeys, fis)
+	fisBytes, fisInts, bigFis, nonces, encryptedFis, rs, bigRs, err := PrepareEncryptedKeyShares(pubKeys, fis)
+	assert.NoError(err)
 
 	innerCSSPath := "inner_ccs"
 	innerPKPath := "inner_pk"
@@ -80,8 +82,10 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 	for i := 0; i < len(sumHash); i++ {
 		rawSumHash[i] = sumHash[i]
 	}
-	outerCircuit := GetRecursionEncryptionCircuit(batch, innerCSSs, innerVKs)
-	outerAssignment := ComputeRecursionEncryptionAssignment(ecc.BN254.ScalarField(), ecc.BN254.ScalarField(), batch, innerCSSs, innerPKs, innerVKs, innerAssignments, rawSumHash)
+	outerCircuit, err := GetRecursionEncryptionCircuit(batch, innerCSSs, innerVKs)
+	require.NoError(t, err)
+	outerAssignment, err := ComputeRecursionEncryptionAssignment(ecc.BN254.ScalarField(), ecc.BN254.ScalarField(), batch, innerCSSs, innerPKs, innerVKs, innerAssignments, rawSumHash)
+	require.NoError(t, err)
 	/*	err := test.IsSolved(outerCircuit, outerAssignment, ecc.BN254.ScalarField())
 		if err != nil {
 			panic(err)

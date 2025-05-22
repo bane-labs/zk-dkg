@@ -127,15 +127,16 @@ func ReadGroth16ProvingKey(path string) (*groth16.ProvingKey, error) {
  * @param pk: proving key
  * @param path: proving key file path
  */
-func ExportGroth16ProvingKey(pk *groth16.ProvingKey, path string) {
+func ExportGroth16ProvingKey(pk *groth16.ProvingKey, path string) error {
 	file, err := os.Create(path)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	_, err = pk.WriteTo(file)
 	if err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }
 
 /**
@@ -164,15 +165,16 @@ func ReadGroth16VerifyingKey(path string) (*groth16.VerifyingKey, error) {
  * @param vk: verifying key
  * @param path: verifying key file path
  */
-func ExportGroth16VerifyingKey(vk *groth16.VerifyingKey, path string) {
+func ExportGroth16VerifyingKey(vk *groth16.VerifyingKey, path string) error {
 	file, err := os.Create(path)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	_, err = vk.WriteTo(file)
 	if err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }
 
 /**
@@ -199,16 +201,17 @@ func ReadPlonkProvingKey(path string) (plonk.ProvingKey, error) {
  * @param pk: proving key
  * @param path: proving key file path
  */
-func ExportPlonkProvingKey(pk plonk.ProvingKey, path string) {
+func ExportPlonkProvingKey(pk plonk.ProvingKey, path string) error {
 	key := pk.(*plonk_bn254.ProvingKey)
 	file, err := os.Create(path)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	_, err = key.WriteTo(file)
 	if err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }
 
 /**
@@ -237,16 +240,17 @@ func ReadPlonkVerifyingKey(path string) (plonk.VerifyingKey, error) {
  * @param vk: verifying key
  * @param path: verifying key file path
  */
-func ExportPlonkVerifyingKey(vk plonk.VerifyingKey, path string) {
+func ExportPlonkVerifyingKey(vk plonk.VerifyingKey, path string) error {
 	key := vk.(*plonk_bn254.VerifyingKey)
 	file, err := os.Create(path)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	_, err = key.WriteTo(file)
 	if err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }
 
 /**
@@ -272,15 +276,16 @@ func ReadCSS(path string) (constraint.ConstraintSystem, error) {
  * @Description: export r1cs file
  * @param css: r1cs
  */
-func ExportCSS(css constraint.ConstraintSystem, path string) {
+func ExportCSS(css constraint.ConstraintSystem, path string) error {
 	file, err := os.Create(path)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	_, err = css.WriteTo(file)
 	if err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }
 
 /**
@@ -288,17 +293,19 @@ func ExportCSS(css constraint.ConstraintSystem, path string) {
  * @Description: export solidity file
  * @param vk: verifying key
  */
-func ExportContract(vk plonk.VerifyingKey, path string) {
+func ExportContract(vk plonk.VerifyingKey, path string) error {
 	contract, err := os.Create(path)
 	if err != nil {
-		panic(err)
+		return err
 	}
+	defer contract.Close()
 	VK := vk.(*plonk_bn254.VerifyingKey)
 	//err = VK.ExportSolidity(contract, solidity.WithHashToFieldFunction(sha256.New()))
 	err = VK.ExportSolidity(contract)
 	if err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }
 
 /**

@@ -359,7 +359,7 @@ func initInnerPhase1(ctx *cli.Context) error {
 	}
 	sha := sha256.New()
 	if _, err := p.WriteTo(sha); err != nil {
-		panic(err)
+		return err
 	}
 	fmt.Println("File challenge:", hex.EncodeToString(sha.Sum(nil)))
 	return nil
@@ -400,7 +400,7 @@ func contributeInnerPhase1(ctx *cli.Context) error {
 	fmt.Println("Contributed to:", hex.EncodeToString(p.Challenge))
 	sha := sha256.New()
 	if _, err := p.WriteTo(sha); err != nil {
-		panic(err)
+		return err
 	}
 	fmt.Println("File challenge:", hex.EncodeToString(sha.Sum(nil)))
 	return nil
@@ -441,16 +441,22 @@ func initInnerPhase2(ctx *cli.Context) error {
 	source := rand.NewSource(time.Now().UnixNano())
 	rand := rand.New(source)
 	// Computing public key
-	fis := make([]fr_bls12381.Element, 1)
+	fis := make([]*fr_bls12381.Element, 1)
 	pubKeys := make([]*ecies.PublicKey, 1)
 	for i := 0; i < 1; i++ {
 		key, _ := ecies.GenerateKey(rand, crypto.S256(), nil)
 		pubKeys[i] = &key.PublicKey
-		var fi fr_bls12381.Element
-		fi.SetRandom()
+		fi := new(fr_bls12381.Element)
+		_, err := fi.SetRandom()
+		if err != nil {
+			return err
+		}
 		fis[i] = fi
 	}
-	fisBytes, _, _, _, encryptedFis, _, _ := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
+	fisBytes, _, _, _, encryptedFis, _, _, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
+	if err != nil {
+		return err
+	}
 	innerCircuit := circuit.GetSingleKeyShareEncryptionCircuit(fisBytes[0], encryptedFis[0])
 	css, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, innerCircuit)
 	if err != nil {
@@ -462,7 +468,7 @@ func initInnerPhase2(ctx *cli.Context) error {
 	}
 	sha := sha256.New()
 	if _, err := p.WriteTo(sha); err != nil {
-		panic(err)
+		return err
 	}
 	fmt.Println("File challenge:", hex.EncodeToString(sha.Sum(nil)))
 	helper.ExportCSS(css, r1csPath)
@@ -504,7 +510,7 @@ func contributeInnerPhase2(ctx *cli.Context) error {
 	fmt.Println("Contributed to:", hex.EncodeToString(p.Challenge))
 	sha := sha256.New()
 	if _, err := p.WriteTo(sha); err != nil {
-		panic(err)
+		return err
 	}
 	fmt.Println("File challenge:", hex.EncodeToString(sha.Sum(nil)))
 	return nil
@@ -593,7 +599,10 @@ func initOuterSRS(ctx *cli.Context) error {
 			innerPKs[i] = innerPK
 			innerVKs[i] = innerVK
 		}
-		outerCircuit := circuit.GetRecursionEncryptionCircuit(batch, innerCSSs, innerVKs)
+		outerCircuit, err := circuit.GetRecursionEncryptionCircuit(batch, innerCSSs, innerVKs)
+		if err != nil {
+			return err
+		}
 		outerCSS, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, outerCircuit)
 		if err != nil {
 			return err
@@ -609,7 +618,7 @@ func initOuterSRS(ctx *cli.Context) error {
 			}
 			sha := sha256.New()
 			if _, err := p.WriteTo(sha); err != nil {
-				panic(err)
+				return err
 			}
 			fmt.Println("Outer SRS file challenge:", hex.EncodeToString(sha.Sum(nil)))
 		}
@@ -704,7 +713,7 @@ func contributeOuterSRS(ctx *cli.Context) error {
 	fmt.Println("SRS contributed")
 	sha := sha256.New()
 	if _, err := p.WriteTo(sha); err != nil {
-		panic(err)
+		return err
 	}
 	fmt.Println("File challenge:", hex.EncodeToString(sha.Sum(nil)))
 	return nil

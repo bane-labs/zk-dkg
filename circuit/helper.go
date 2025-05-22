@@ -19,13 +19,13 @@ import (
  * @return fiInt: the key share in integer
  * @return bigFi: the bls12381 commitment of the key share
  */
-func transformKeyShare(fi fr_bls12381.Element) (fiBytes []byte, fiInt big.Int, bigFi bls12381.G1Affine) {
-	fi.BigInt(&fiInt)
-	fiBytes = make([]byte, 32)
+func transformKeyShare(fi *fr_bls12381.Element) ([]byte, *big.Int, *bls12381.G1Affine) {
+	fiInt := fi.BigInt(new(big.Int))
+	fiBytes := make([]byte, 32)
 	fiInt.FillBytes(fiBytes)
 	_, _, g12381, _ := bls12381.Generators()
-	bigFi.ScalarMultiplication(&g12381, &fiInt)
-	return
+	bigFi := new(bls12381.G1Affine).ScalarMultiplication(&g12381, fiInt)
+	return fiBytes, fiInt, bigFi
 }
 
 /**
@@ -37,10 +37,10 @@ func transformKeyShare(fi fr_bls12381.Element) (fiBytes []byte, fiInt big.Int, b
  * @return encryptedFi: the encrypted key share
  * @return r: the random number generated and used ecies
  * @return bigR: the bls12381 commitment of the random number
+ * @return err: error
  */
-func encryptKeyShare(pub *ecies.PublicKey, fiBytes []byte) (nonce []byte, encryptedFi []byte, r big.Int, bigR secp256k1.G1Affine) {
-	nonce, encryptedFi, r, bigR = encryption.ECIESEncrypt(pub, fiBytes)
-	return
+func encryptKeyShare(pub *ecies.PublicKey, fiBytes []byte) ([]byte, []byte, *big.Int, *secp256k1.G1Affine, error) {
+	return encryption.ECIESEncrypt(pub, fiBytes)
 }
 
 /**
@@ -53,7 +53,7 @@ func encryptKeyShare(pub *ecies.PublicKey, fiBytes []byte) (nonce []byte, encryp
  * @param nonce: the salt
  * @return []byte: the hash of the public inputs
  */
-func computeSumHash(pub secp256k1.G1Affine, bigR secp256k1.G1Affine, bigFi bls12381.G1Affine, encryptedFi []byte, nonce []byte) []byte {
+func computeSumHash(pub *secp256k1.G1Affine, bigR *secp256k1.G1Affine, bigFi *bls12381.G1Affine, encryptedFi []byte, nonce []byte) []byte {
 	secp256k1G1ByteLength := secp256k1.SizeOfG1AffineUncompressed
 	bls12381G1ByteLength := bls12381.SizeOfG1AffineUncompressed
 	bigRBytes := bigR.RawBytes()

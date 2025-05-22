@@ -33,21 +33,26 @@ import (
  * @return encryptedFis: a set of a encrypted key shares
  * @return rs: a set of the integer format of random number
  * @return bigRs: a set of the corresponding bls12381 commitment of random number
+ * @return err: error
  */
-func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []fr_bls12381.Element) (fisBytes [][]byte, fisInts []big.Int, bigFis []bls12381.G1Affine, nonces [][]byte, encryptedFis [][]byte, rs []big.Int, bigRs []secp256k1.G1Affine) {
+func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []*fr_bls12381.Element) ([][]byte, []*big.Int, []*bls12381.G1Affine, [][]byte, [][]byte, []*big.Int, []*secp256k1.G1Affine, error) {
 	amount := len(pubs)
-	fisBytes = make([][]byte, amount)
-	fisInts = make([]big.Int, amount)
-	bigFis = make([]bls12381.G1Affine, amount)
-	nonces = make([][]byte, amount)
-	encryptedFis = make([][]byte, amount)
-	rs = make([]big.Int, amount)
-	bigRs = make([]secp256k1.G1Affine, amount)
+	fisBytes := make([][]byte, amount)
+	fisInts := make([]*big.Int, amount)
+	bigFis := make([]*bls12381.G1Affine, amount)
+	nonces := make([][]byte, amount)
+	encryptedFis := make([][]byte, amount)
+	rs := make([]*big.Int, amount)
+	bigRs := make([]*secp256k1.G1Affine, amount)
+	var err error
 	for i := 0; i < amount; i++ {
 		fisBytes[i], fisInts[i], bigFis[i] = transformKeyShare(fis[i])
-		nonces[i], encryptedFis[i], rs[i], bigRs[i] = encryptKeyShare(pubs[i], fisBytes[i])
+		nonces[i], encryptedFis[i], rs[i], bigRs[i], err = encryptKeyShare(pubs[i], fisBytes[i])
+		if err != nil {
+			return nil, nil, nil, nil, nil, nil, nil, err
+		}
 	}
-	return
+	return fisBytes, fisInts, bigFis, nonces, encryptedFis, rs, bigRs, nil
 }
 
 /**
@@ -66,7 +71,7 @@ func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []fr_bls12381.Elemen
  * @return assignment: input data collection
  * @return err: error
  */
-func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r big.Int, bigR secp256k1.G1Affine, fiBytes []byte, fiInt big.Int, bigFi bls12381.G1Affine, encryptedFi []byte, nonce []byte) (*ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte) {
+func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r *big.Int, bigR *secp256k1.G1Affine, fiBytes []byte, fiInt *big.Int, bigFi *bls12381.G1Affine, encryptedFi []byte, nonce []byte) (*ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte) {
 	// Format data
 	plainChunksBytes := make([]frontend.Variable, len(fiBytes))
 	for i := 0; i < len(fiBytes); i++ {
@@ -89,10 +94,9 @@ func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r big.In
 		Y: py,
 	}
 	// Compute RPub
-	var rPub secp256k1.G1Affine
-	rPub.ScalarMultiplication(&pub, &r)
+	rPub := new(secp256k1.G1Affine).ScalarMultiplication(&pub, r)
 	// Compute hash
-	sumHash := computeSumHash(pub, bigR, bigFi, encryptedFi, nonce)
+	sumHash := computeSumHash(&pub, bigR, bigFi, encryptedFi, nonce)
 	rawSumHash := make([]frontend.Variable, len(sumHash))
 	for i := 0; i < len(sumHash); i++ {
 		rawSumHash[i] = sumHash[i]
@@ -129,7 +133,7 @@ func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r big.In
 
 // ComputeMultipleKeyShareEncryptionAssignment loops and computes an assignment array for several key share
 // encryption jobs. And it also returns the sum hash of all assignments.
-func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.PublicKey, rs []big.Int, bigRs []secp256k1.G1Affine, fisBytes [][]byte, fisInts []big.Int, bigFis []bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) ([]*ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte) {
+func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.PublicKey, rs []*big.Int, bigRs []*secp256k1.G1Affine, fisBytes [][]byte, fisInts []*big.Int, bigFis []*bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) ([]*ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte) {
 	assignments := make([]*ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], batch)
 	hashes := make([][]byte, batch)
 	for i := 0; i < batch; i++ {
@@ -144,9 +148,11 @@ func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.Publ
 }
 
 // ComputeRecursionEncryptionAssignment computes the assignment for verification recursion.
-func ComputeRecursionEncryptionAssignment(field, outer *big.Int, batch int, innerCcss []constraint.ConstraintSystem, innerPKs []*groth16.ProvingKey, innerVKs []*groth16.VerifyingKey, innerAssignments []*ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], sumHash []frontend.Variable) *RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl] {
-	//innerCcss, innerPKs, innerVKs := ComputeMultipleKeyShareEncryptionCircuitByFile(batch, ccsPath, pkPath, vkPath)
-	innerProofs, innerWitness := ComputeInnerProofs(field, outer, batch, innerCcss, innerPKs, innerVKs, innerAssignments)
+func ComputeRecursionEncryptionAssignment(field, outer *big.Int, batch int, innerCcss []constraint.ConstraintSystem, innerPKs []*groth16.ProvingKey, innerVKs []*groth16.VerifyingKey, innerAssignments []*ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], sumHash []frontend.Variable) (*RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl], error) {
+	innerProofs, innerWitness, err := ComputeInnerProofs(field, outer, batch, innerCcss, innerPKs, innerVKs, innerAssignments)
+	if err != nil {
+		return nil, err
+	}
 	circuitVk := make([]stdgroth16.VerifyingKey[sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl], batch)
 	circuitWitness := make([]stdgroth16.Witness[sw_bn254.ScalarField], batch)
 	circuitProof := make([]stdgroth16.Proof[sw_bn254.G1Affine, sw_bn254.G2Affine], batch)
@@ -155,15 +161,15 @@ func ComputeRecursionEncryptionAssignment(field, outer *big.Int, batch int, inne
 		var err error
 		circuitVk[i], err = stdgroth16.ValueOfVerifyingKey[sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl](innerVKs[i])
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 		circuitWitness[i], err = stdgroth16.ValueOfWitness[sw_bn254.ScalarField](innerWitness[i])
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 		circuitProof[i], err = stdgroth16.ValueOfProof[sw_bn254.G1Affine, sw_bn254.G2Affine](innerProofs[i])
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 	}
 
@@ -172,43 +178,46 @@ func ComputeRecursionEncryptionAssignment(field, outer *big.Int, batch int, inne
 		Proof:        circuitProof,
 		SumHash:      sumHash,
 	}
-	return outerAssignment
+	return outerAssignment, nil
 }
 
 // ComputeInnerProof computes the inner proof for a single key share encryption.
-func ComputeInnerProof(field, outer *big.Int, innerccs constraint.ConstraintSystem, innerPK *groth16.ProvingKey, innerVK *groth16.VerifyingKey, innerAssignment *ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]) (*groth16.Proof, witness.Witness) {
+func ComputeInnerProof(field, outer *big.Int, innerccs constraint.ConstraintSystem, innerPK *groth16.ProvingKey, innerVK *groth16.VerifyingKey, innerAssignment *ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]) (*groth16.Proof, witness.Witness, error) {
 	r1cs := innerccs.(*cs.R1CS)
 	innerWitness, err := frontend.NewWitness(innerAssignment, field)
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
 	innerPubWitness, err := innerWitness.Public()
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
 	innerProof, err := groth16.Prove(r1cs, innerPK, innerWitness, stdgroth16.GetNativeProverOptions(outer, field))
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
 	err = groth16.Verify(innerProof, innerVK, innerPubWitness.Vector().(fr_bn254.Vector), stdgroth16.GetNativeVerifierOptions(outer, field))
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
 
-	return innerProof, innerPubWitness
+	return innerProof, innerPubWitness, nil
 }
 
 // ComputeInnerProofs computes the inner proofs for a batch of key share encryptions.
-func ComputeInnerProofs(field, outer *big.Int, batch int, innerccss []constraint.ConstraintSystem, innerPKs []*groth16.ProvingKey, innerVKs []*groth16.VerifyingKey, innerAssignments []*ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]) ([]*groth16.Proof, []witness.Witness) {
+func ComputeInnerProofs(field, outer *big.Int, batch int, innerccss []constraint.ConstraintSystem, innerPKs []*groth16.ProvingKey, innerVKs []*groth16.VerifyingKey, innerAssignments []*ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]) ([]*groth16.Proof, []witness.Witness, error) {
 	innerPubWitnesss := make([]witness.Witness, batch)
 	innerProofs := make([]*groth16.Proof, batch)
 
 	for i := 0; i < batch; i++ {
-		innerProof, innerPubWitness := ComputeInnerProof(field, outer, innerccss[i], innerPKs[i], innerVKs[i], innerAssignments[i])
+		innerProof, innerPubWitness, err := ComputeInnerProof(field, outer, innerccss[i], innerPKs[i], innerVKs[i], innerAssignments[i])
+		if err != nil {
+			return nil, nil, err
+		}
 		innerPubWitnesss[i] = innerPubWitness
 		innerProofs[i] = innerProof
 	}
-	return innerProofs, innerPubWitnesss
+	return innerProofs, innerPubWitnesss, nil
 }
 
 // GetSingleKeyShareEncryptionCircuit returns a circuit for a single key share encryption.
@@ -222,14 +231,14 @@ func GetSingleKeyShareEncryptionCircuit(fiBytes []byte, encryptedFi []byte) *ECI
 }
 
 // GetRecursionEncryptionCircuit returns a circuit for proving the verification of a batch of key share encryptions.
-func GetRecursionEncryptionCircuit(batch int, innerCcss []constraint.ConstraintSystem, innerVKs []*groth16.VerifyingKey) *RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl] {
+func GetRecursionEncryptionCircuit(batch int, innerCcss []constraint.ConstraintSystem, innerVKs []*groth16.VerifyingKey) (*RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl], error) {
 	circuitVk := make([]stdgroth16.VerifyingKey[sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl], batch)
 	for i := 0; i < batch; i++ {
 		// initialize the witness elements
 		var err error
 		circuitVk[i], err = stdgroth16.ValueOfVerifyingKey[sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl](innerVKs[i])
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 	}
 	outerCircuit := &RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl]{
@@ -243,5 +252,5 @@ func GetRecursionEncryptionCircuit(batch int, innerCcss []constraint.ConstraintS
 		outerCircuit.InnerWitness[i] = stdgroth16.PlaceholderWitness[sw_bn254.ScalarField](innerCcss[i])
 		outerCircuit.Proof[i] = stdgroth16.PlaceholderProof[sw_bn254.G1Affine, sw_bn254.G2Affine](innerCcss[i])
 	}
-	return outerCircuit
+	return outerCircuit, nil
 }

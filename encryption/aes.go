@@ -15,22 +15,22 @@ import (
  * @return ciphertext: ciphertext string
  * @return nonce: salt
  */
-func AESGCMEncrypt(key []byte, plaintext []byte) (ciphertext, nonce []byte) {
+func AESGCMEncrypt(key []byte, plaintext []byte) ([]byte, []byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		panic(err.Error())
+		return nil, nil, err
 	}
 	// Never use more than 2^32 random nonces with a given key because of the risk of a repeat.
-	nonce = make([]byte, 12)
+	nonce := make([]byte, 12)
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		panic(err.Error())
+		return nil, nil, err
 	}
 	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
-		panic(err.Error())
+		return nil, nil, err
 	}
-	ciphertext = aesgcm.Seal(nil, nonce, plaintext, nil)
-	return
+	ciphertext := aesgcm.Seal(nil, nonce, plaintext, nil)
+	return ciphertext, nonce, nil
 }
 
 /**
@@ -41,18 +41,18 @@ func AESGCMEncrypt(key []byte, plaintext []byte) (ciphertext, nonce []byte) {
  * @param nonce: salt
  * @return plaintext: plaintext string
  */
-func AESGCMDecrypt(key, ciphertext, nonce []byte) (plaintext []byte) {
+func AESGCMDecrypt(key, ciphertext, nonce []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		panic(err.Error())
+		return nil, err
 	}
 	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
-		panic(err.Error())
+		return nil, err
 	}
-	plaintext, err = aesgcm.Open(nil, nonce, ciphertext, nil)
+	plaintext, err := aesgcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-		panic(err.Error())
+		return nil, err
 	}
-	return
+	return plaintext, nil
 }
