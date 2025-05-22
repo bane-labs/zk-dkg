@@ -12,6 +12,7 @@ import (
 	stdgroth16 "github.com/consensys/gnark/std/recursion/groth16"
 )
 
+// RecursionEncryptionWrapper is the circuit for proving the verification of a batch of ECIES encryptions.
 type RecursionEncryptionWrapper[FR emulated.FieldParams, G1El algebra.G1ElementT, G2El algebra.G2ElementT, GtEl algebra.GtElementT] struct {
 	Proof        []stdgroth16.Proof[G1El, G2El]              `gnark:",secret"`
 	VerifyingKey []stdgroth16.VerifyingKey[G1El, G2El, GtEl] `gnark:"-"`
@@ -19,6 +20,7 @@ type RecursionEncryptionWrapper[FR emulated.FieldParams, G1El algebra.G1ElementT
 	CommentsHash []frontend.Variable                         `gnark:",public"`
 }
 
+// Define declares the circuit's constraints
 func (c *RecursionEncryptionWrapper[FR, G1El, G2El, GtEl]) Define(api frontend.API) error {
 	hasher, err := sha2.New(api)
 	if err != nil {

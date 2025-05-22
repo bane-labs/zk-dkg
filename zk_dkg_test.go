@@ -70,9 +70,9 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 	innerVKPath := "inner_vk"
 	innerCSS, err := helper.ReadCSS(innerCSSPath)
 	assert.NoError(err)
-	innerPK, err := helper.ReadInnerProvingKey(innerPKPath)
+	innerPK, err := helper.ReadGroth16ProvingKey(innerPKPath)
 	assert.NoError(err)
-	innerVK, err := helper.ReadInnerVerifyingKey(innerVKPath)
+	innerVK, err := helper.ReadGroth16VerifyingKey(innerVKPath)
 	assert.NoError(err)
 	innerCSSs := make([]constraint.ConstraintSystem, batch)
 	innerPKs := make([]*groth16.ProvingKey, batch)
@@ -87,9 +87,9 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 	outerVKPath := "outer_vk"
 	outerCSS, err := helper.ReadCSS(outerCSSPath)
 	assert.NoError(err)
-	outerPK, err := helper.ReadOuterProvingKey(outerPKPath)
+	outerPK, err := helper.ReadPlonkProvingKey(outerPKPath)
 	assert.NoError(err)
-	outerVK, err := helper.ReadOuterVerifyingKey(outerVKPath)
+	outerVK, err := helper.ReadPlonkVerifyingKey(outerVKPath)
 	assert.NoError(err)
 
 	// Compute proof
@@ -141,9 +141,9 @@ func TestTwoRecoverMessageGeneration(t *testing.T) {
 	innerVKPath := "inner_vk"
 	innerCSS, err := helper.ReadCSS(innerCSSPath)
 	assert.NoError(err)
-	innerPK, err := helper.ReadInnerProvingKey(innerPKPath)
+	innerPK, err := helper.ReadGroth16ProvingKey(innerPKPath)
 	assert.NoError(err)
-	innerVK, err := helper.ReadInnerVerifyingKey(innerVKPath)
+	innerVK, err := helper.ReadGroth16VerifyingKey(innerVKPath)
 	assert.NoError(err)
 	innerCSSs := make([]constraint.ConstraintSystem, 2)
 	innerPKs := make([]*groth16.ProvingKey, 2)
@@ -158,9 +158,9 @@ func TestTwoRecoverMessageGeneration(t *testing.T) {
 	outerVKPath := "outer_vk"
 	outerCSS, err := helper.ReadCSS(outerCSSPath)
 	assert.NoError(err)
-	outerPK, err := helper.ReadOuterProvingKey(outerPKPath)
+	outerPK, err := helper.ReadPlonkProvingKey(outerPKPath)
 	assert.NoError(err)
-	outerVK, err := helper.ReadOuterVerifyingKey(outerVKPath)
+	outerVK, err := helper.ReadPlonkVerifyingKey(outerVKPath)
 	assert.NoError(err)
 
 	// Compute proof

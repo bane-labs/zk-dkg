@@ -62,9 +62,9 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 	}
 	innerCSS, err := helper.ReadCSS(innerCSSPath)
 	require.NoError(t, err)
-	innerPK, err := helper.ReadInnerProvingKey(innerPKPath)
+	innerPK, err := helper.ReadGroth16ProvingKey(innerPKPath)
 	require.NoError(t, err)
-	innerVK, err := helper.ReadInnerVerifyingKey(innerVKPath)
+	innerVK, err := helper.ReadGroth16VerifyingKey(innerVKPath)
 	require.NoError(t, err)
 
 	innerCSSs := make([]constraint.ConstraintSystem, batch)
@@ -98,9 +98,9 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 	}
 	outerCSS, err := helper.ReadCSS(outerCSSPath)
 	require.NoError(t, err)
-	outerPK, err := helper.ReadOuterProvingKey(outerPKPath)
+	outerPK, err := helper.ReadPlonkProvingKey(outerPKPath)
 	require.NoError(t, err)
-	outerVK, err := helper.ReadOuterVerifyingKey(outerVKPath)
+	outerVK, err := helper.ReadPlonkVerifyingKey(outerVKPath)
 	require.NoError(t, err)
 
 	witness, err := frontend.NewWitness(outerAssignment, ecc.BN254.ScalarField())
@@ -158,8 +158,8 @@ func mockInnerCircuitMPC(prefix string, ccs constraint.ConstraintSystem, nContri
 	p1, v1 := phase2.Seal(&srs, &evals, []byte("beacon Phase 2"))
 	pk := p1.(*groth16.ProvingKey)
 	vk := v1.(*groth16.VerifyingKey)
-	helper.ExportInnerProvingKey(pk, prefix+"pk")
-	helper.ExportInnerVerifyingKey(vk, prefix+"vk")
+	helper.ExportGroth16ProvingKey(pk, prefix+"pk")
+	helper.ExportGroth16VerifyingKey(vk, prefix+"vk")
 	helper.ExportCSS(ccs, prefix+"ccs")
 	return pk, vk, err
 }
@@ -211,8 +211,8 @@ func mockSRCMPC(prefix string, ccs constraint.ConstraintSystem, nContributions i
 	}
 	pk = p1.(*plonk_bn254.ProvingKey)
 	vk = v1.(*plonk_bn254.VerifyingKey)
-	helper.ExportOuterProvingKey(pk, prefix+"pk")
-	helper.ExportOuterVerifyingKey(vk, prefix+"vk")
+	helper.ExportPlonkProvingKey(pk, prefix+"pk")
+	helper.ExportPlonkVerifyingKey(vk, prefix+"vk")
 	helper.ExportCSS(ccs, prefix+"ccs")
 	return pk, vk, nil
 }

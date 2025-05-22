@@ -1,15 +1,16 @@
 package mpc
 
 import (
-	kzg_bn254 "github.com/consensys/gnark-crypto/ecc/bn254/kzg"
 	"os"
+
+	kzg_bn254 "github.com/consensys/gnark-crypto/ecc/bn254/kzg"
 )
 
 /**
- * Function: InitInnerPhase1
+ * Function: InitOuterSRS
  * @Description: generate an initialization phase1 data and write it to the file
  * @param path: file path
- * @param power: data limit, range:1-27
+ * @param srsSize: data limit, range:1-27
  * @return phase1: initialization phase1 data
  * @return err: error
  */
@@ -63,7 +64,6 @@ func ContributeOuterSRS(prevPath string, nextPath string, srsSize int) (next kzg
  * @return []byte: the hash of previous round phase1
  * @return error: error
  */
-
 func VerifyinitOuterSRS(path string, srsSize int) error {
 	p, err := ReadOuterSRSFromFile(path, srsSize)
 	if err != nil {
@@ -94,7 +94,7 @@ func VerifyOuterSRS(prevPath string, curPath string, srsSize int) error {
 }
 
 /**
- * Function: InnerSeal
+ * Function: OuterSRSSeal
  * @Description: Convert phase1 to srs public string
  * @param phase1Path: phase1 file path
  * @param outputPath: current round phase1 file path
@@ -112,7 +112,7 @@ func OuterSRSSeal(inputPath string, srsSize int) (srs kzg_bn254.SRS, err error) 
 }
 
 /**
- * Function: ReadInnerPhase1FromFile
+ * Function: ReadOuterSRSFromFile
  * @Description: get phase1 data from file
  * @param path: file path
  * @return phase1: phase1 data

@@ -127,6 +127,8 @@ func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r big.In
 	return assignment, sumHash
 }
 
+// ComputeMultipleKeyShareEncryptionAssignment loops and computes an assignment array for several key share
+// encryption jobs. And it also returns the sum hash of all assignments.
 func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.PublicKey, rs []big.Int, bigRs []secp256k1.G1Affine, fisBytes [][]byte, fisInts []big.Int, bigFis []bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) ([]*ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte) {
 	assignments := make([]*ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], batch)
 	hashes := make([][]byte, batch)
@@ -141,6 +143,7 @@ func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.Publ
 	return assignments, helper.GetHash(data)
 }
 
+// ComputeRecursionEncryptionAssignment computes the assignment for verification recursion.
 func ComputeRecursionEncryptionAssignment(field, outer *big.Int, batch int, innerCcss []constraint.ConstraintSystem, innerPKs []*groth16.ProvingKey, innerVKs []*groth16.VerifyingKey, innerAssignments []*ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], commentsHash []frontend.Variable) *RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl] {
 	//innerCcss, innerPKs, innerVKs := ComputeMultipleKeyShareEncryptionCircuitByFile(batch, ccsPath, pkPath, vkPath)
 	innerProofs, innerWitness := ComputeInnerProofs(field, outer, batch, innerCcss, innerPKs, innerVKs, innerAssignments)
@@ -172,6 +175,7 @@ func ComputeRecursionEncryptionAssignment(field, outer *big.Int, batch int, inne
 	return outerAssignment
 }
 
+// ComputeInnerProof computes the inner proof for a single key share encryption.
 func ComputeInnerProof(field, outer *big.Int, innerccs constraint.ConstraintSystem, innerPK *groth16.ProvingKey, innerVK *groth16.VerifyingKey, innerAssignment *ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]) (*groth16.Proof, witness.Witness) {
 	r1cs := innerccs.(*cs.R1CS)
 	innerWitness, err := frontend.NewWitness(innerAssignment, field)
@@ -194,6 +198,7 @@ func ComputeInnerProof(field, outer *big.Int, innerccs constraint.ConstraintSyst
 	return innerProof, innerPubWitness
 }
 
+// ComputeInnerProofs computes the inner proofs for a batch of key share encryptions.
 func ComputeInnerProofs(field, outer *big.Int, batch int, innerccss []constraint.ConstraintSystem, innerPKs []*groth16.ProvingKey, innerVKs []*groth16.VerifyingKey, innerAssignments []*ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]) ([]*groth16.Proof, []witness.Witness) {
 	innerPubWitnesss := make([]witness.Witness, batch)
 	innerProofs := make([]*groth16.Proof, batch)
@@ -206,6 +211,7 @@ func ComputeInnerProofs(field, outer *big.Int, batch int, innerccss []constraint
 	return innerProofs, innerPubWitnesss
 }
 
+// GetSingleKeyShareEncryptionCircuit returns a circuit for a single key share encryption.
 func GetSingleKeyShareEncryptionCircuit(fiBytes []byte, encryptedFi []byte) *ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr] {
 	circuit := &ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
 		PlainChunks:  make([]frontend.Variable, len(fiBytes)),
@@ -215,6 +221,7 @@ func GetSingleKeyShareEncryptionCircuit(fiBytes []byte, encryptedFi []byte) *ECI
 	return circuit
 }
 
+// GetRecursionEncryptionCircuit returns a circuit for proving the verification of a batch of key share encryptions.
 func GetRecursionEncryptionCircuit(batch int, innerCcss []constraint.ConstraintSystem, innerVKs []*groth16.VerifyingKey) *RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl] {
 	circuitVk := make([]stdgroth16.VerifyingKey[sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl], batch)
 	for i := 0; i < batch; i++ {

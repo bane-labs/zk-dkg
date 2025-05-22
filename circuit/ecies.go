@@ -14,6 +14,7 @@ import (
 	"github.com/consensys/gnark/std/math/uints"
 )
 
+// ECIESWrapper is the circuit for ECIES encryption
 type ECIESWrapper[T1, S1, T2, S2 emulated.FieldParams] struct {
 	SmallR emulated.Element[S1]        `gnark:",secret"`
 	BigR   sw_emulated.AffinePoint[T1] `gnark:",secret"`
@@ -31,6 +32,7 @@ type ECIESWrapper[T1, S1, T2, S2 emulated.FieldParams] struct {
 	PubInputHash []frontend.Variable `gnark:",public"`
 }
 
+// Define declares the circuit's constraints
 func (c *ECIESWrapper[T1, S1, T2, S2]) Define(api frontend.API) error {
 	// Encrypt
 	encryption := NewECIES[T1, S1, T2, S2](api)
@@ -67,6 +69,7 @@ type ECIES[T1, S1, T2, S2 emulated.FieldParams] struct {
 	api frontend.API
 }
 
+// Encrypt encrypts the plaintext using ECIES
 func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(api frontend.API, plainChunks, cipherChunks []frontend.Variable, iv [12]frontend.Variable, r emulated.Element[S1], bigR, pub, rPub sw_emulated.AffinePoint[T1], chunkIndex frontend.Variable, fi emulated.Element[S2], bigFi sw_emulated.AffinePoint[T2]) (pubInputs []uints.U8, err error) {
 	pBytes := make([]uints.U8, len(plainChunks))
 	for i := 0; i < len(plainChunks); i++ {

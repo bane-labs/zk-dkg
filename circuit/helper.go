@@ -43,6 +43,16 @@ func encryptKeyShare(pub *ecies.PublicKey, fiBytes []byte) (nonce []byte, encryp
 	return
 }
 
+/**
+ * Function: computeSumHash
+ * @Description: computes a sum hash for the public inputs of an ECIES circuit
+ * @param pub: a public key required for ecies encryption
+ * @param bigR: the corresponding elliptic curve point of random number
+ * @param bigFi: the corresponding elliptic curve point of key share
+ * @param encryptedFi: the encrypted key share
+ * @param nonce: the salt
+ * @return []byte: the hash of the public inputs
+ */
 func computeSumHash(pub secp256k1.G1Affine, bigR secp256k1.G1Affine, bigFi bls12381.G1Affine, encryptedFi []byte, nonce []byte) []byte {
 	secp256k1G1ByteLength := secp256k1.SizeOfG1AffineUncompressed
 	bls12381G1ByteLength := bls12381.SizeOfG1AffineUncompressed
