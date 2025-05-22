@@ -17,7 +17,7 @@ type RecursionEncryptionWrapper[FR emulated.FieldParams, G1El algebra.G1ElementT
 	Proof        []stdgroth16.Proof[G1El, G2El]              `gnark:",secret"`
 	VerifyingKey []stdgroth16.VerifyingKey[G1El, G2El, GtEl] `gnark:"-"`
 	InnerWitness []stdgroth16.Witness[FR]                    `gnark:",secret"`
-	CommentsHash []frontend.Variable                         `gnark:",public"`
+	SumHash      []frontend.Variable                         `gnark:",public"`
 }
 
 // Define declares the circuit's constraints
@@ -54,7 +54,7 @@ func (c *RecursionEncryptionWrapper[FR, G1El, G2El, GtEl]) Define(api frontend.A
 	hasher.Write(allHash)
 	result := hasher.Sum()
 	for i := 0; i < len(result); i++ {
-		api.AssertIsEqual(result[i].Val, c.CommentsHash[i])
+		api.AssertIsEqual(result[i].Val, c.SumHash[i])
 	}
 	return nil
 }

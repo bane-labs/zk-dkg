@@ -202,8 +202,8 @@ func TestMPC(t *testing.T) {
 	mpc.SealGroth16Phase1(curPhase1, finalPhase1)
 
 	var myCircuit = TempCircuit{
-		Data:         make([]frontend.Variable, 10),
-		CommentsHash: make([]frontend.Variable, 32),
+		Data:    make([]frontend.Variable, 10),
+		SumHash: make([]frontend.Variable, 32),
 	}
 	css, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &myCircuit)
 	assert.NoError(err)
@@ -246,8 +246,8 @@ func TestMPC(t *testing.T) {
 
 	// Compute witness
 	assignment := &TempCircuit{
-		Data:         rawData,
-		CommentsHash: rawSumHash,
+		Data:    rawData,
+		SumHash: rawSumHash,
 	}
 
 	witness, err := frontend.NewWitness(assignment, ecc.BN254.ScalarField())
@@ -261,8 +261,8 @@ func TestMPC(t *testing.T) {
 }
 
 type TempCircuit struct {
-	Data         []frontend.Variable `gnark:",secret"`
-	CommentsHash []frontend.Variable `gnark:",public"`
+	Data    []frontend.Variable `gnark:",secret"`
+	SumHash []frontend.Variable `gnark:",public"`
 }
 
 // Define declares the circuit's constraints
@@ -276,9 +276,9 @@ func (c *TempCircuit) Define(api frontend.API) error {
 	mc, _ := sha2.New(api)
 	mc.Write(DataBytes)
 	result := mc.Sum()
-	// Check comments hash
+	// Check sum hash
 	for i := 0; i < len(result); i++ {
-		api.AssertIsEqual(result[i].Val, c.CommentsHash[i])
+		api.AssertIsEqual(result[i].Val, c.SumHash[i])
 	}
 	return nil
 }
