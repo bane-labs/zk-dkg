@@ -266,7 +266,6 @@ type TempCircuit struct {
 }
 
 // Define declares the circuit's constraints
-// Hash = mimc(PreImage)
 func (c *TempCircuit) Define(api frontend.API) error {
 	DataBytes := make([]uints.U8, len(c.Data))
 	for i := 0; i < len(DataBytes); i++ {
