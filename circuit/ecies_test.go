@@ -110,7 +110,7 @@ func computingProof2(css constraint.ConstraintSystem, assignment frontend.Circui
 // nContributionsPhase2 = 3
 // power                = 22 //element count range 2^0-2^27
 func demoMPCSetUp(ccs constraint.ConstraintSystem, nContributionsPhase1 int, nContributionsPhase2 int, power int) (*groth16.ProvingKey, *groth16.VerifyingKey, error) {
-	_, err := mpc.InitInnerPhase1("Phase1_1", uint64(power))
+	_, err := mpc.InitGroth16Phase1("Phase1_1", uint64(power))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -118,14 +118,14 @@ func demoMPCSetUp(ccs constraint.ConstraintSystem, nContributionsPhase1 int, nCo
 	for i := 1; i < nContributionsPhase1; i++ {
 		prepath := "Phase1_" + strconv.Itoa(i)
 		nextPath := "Phase1_" + strconv.Itoa(i+1)
-		_, err = mpc.ContributeInnerPhase1(prepath, nextPath)
+		_, err = mpc.ContributeGroth16Phase1(prepath, nextPath)
 		if err != nil {
 			return nil, nil, err
 		}
 	}
-	mpc.InnerSeal("Phase1_"+strconv.Itoa(nContributionsPhase1), "Phase1_final")
+	mpc.SealGroth16Phase1("Phase1_"+strconv.Itoa(nContributionsPhase1), "Phase1_final")
 
-	evals, srs, _, err := mpc.InitInnerPhase2(ccs, "Phase1_Phase1_final", "Phase2_1")
+	evals, srs, _, err := mpc.InitGroth16Phase2(ccs, "Phase1_Phase1_final", "Phase2_1")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -133,17 +133,17 @@ func demoMPCSetUp(ccs constraint.ConstraintSystem, nContributionsPhase1 int, nCo
 	for i := 1; i < nContributionsPhase2; i++ {
 		prepath := "Phase2_" + strconv.Itoa(i)
 		nextPath := "Phase2_" + strconv.Itoa(i+1)
-		_, err = mpc.ContributeInnerPhase2(prepath, nextPath)
+		_, err = mpc.ContributeGroth16Phase2(prepath, nextPath)
 		if err != nil {
 			return nil, nil, err
 		}
 	}
-	phase2, err := mpc.ReadInnerPhase2FromFile("Phase2_" + strconv.Itoa(nContributionsPhase1))
+	phase2, err := mpc.ReadGroth16Phase2FromFile("Phase2_" + strconv.Itoa(nContributionsPhase1))
 	if err != nil {
 		return nil, nil, err
 	}
 	// Extract the proving and verifying keys
-	p1, v1 := phase2.Seal(&srs, &evals, []byte("beacon Phase 2"))
+	p1, v1 := phase2.Seal(srs, evals, []byte("beacon Phase 2"))
 	pk := p1.(*groth16.ProvingKey)
 	vk := v1.(*groth16.VerifyingKey)
 	return pk, vk, err

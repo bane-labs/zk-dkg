@@ -55,21 +55,21 @@ func ComputeProof(ccs constraint.ConstraintSystem, pk plonk.ProvingKey, assignme
  */
 func GetKeysFromExistedGroth16SetUp(ccs constraint.ConstraintSystem, srsPath string, phase2Path string) (*groth16.ProvingKey, *groth16.VerifyingKey, error) {
 	// Get phase1 data
-	srs, err := mpc.ReadInnerSrsCommonsFromFile(srsPath)
+	srs, err := mpc.ReadGroth16SRSFromFile(srsPath)
 	if err != nil {
 		return nil, nil, err
 	}
 	// Get phase1.5 data
 	r1cs := ccs.(*cs.R1CS)
 	p2 := new(mpcsetup.Phase2)
-	evals := p2.Initialize(r1cs, &srs)
+	evals := p2.Initialize(r1cs, srs)
 	// Get phase2 data
-	phase2, err := mpc.ReadInnerPhase2FromFile(phase2Path)
+	phase2, err := mpc.ReadGroth16Phase2FromFile(phase2Path)
 	if err != nil {
 		return nil, nil, err
 	}
 	// Generate proving and verifying keys
-	pk, vk := phase2.Seal(&srs, &evals, []byte("beacon Phase 2"))
+	pk, vk := phase2.Seal(srs, &evals, []byte("beacon Phase 2"))
 	return pk.(*groth16.ProvingKey), vk.(*groth16.VerifyingKey), nil
 }
 
@@ -85,7 +85,7 @@ func GetKeysFromExistedGroth16SetUp(ccs constraint.ConstraintSystem, srsPath str
 func GetKeysFromExistedPlonkSetUp(ccs constraint.ConstraintSystem, srsPath string) (*plonk_bn254.ProvingKey, *plonk_bn254.VerifyingKey, error) {
 	r1CS := ccs.(*cs.SparseR1CS)
 	srsSize, lagrange := plonk.SRSSize(r1CS)
-	srs, err := mpc.OuterSRSSeal(srsPath, srsSize)
+	srs, err := mpc.SealPlonkSRS(srsPath, srsSize)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -94,7 +94,7 @@ func GetKeysFromExistedPlonkSetUp(ccs constraint.ConstraintSystem, srsPath strin
 	if err != nil {
 		return nil, nil, err
 	}
-	p1, v1, err := plonk.Setup(r1CS, &srs, srsLagrange)
+	p1, v1, err := plonk.Setup(r1CS, srs, srsLagrange)
 	if err != nil {
 		return nil, nil, err
 	}

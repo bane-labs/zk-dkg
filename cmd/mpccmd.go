@@ -353,7 +353,7 @@ func initInnerPhase1(ctx *cli.Context) error {
 	if path == "" {
 		path = DefaultInnerFilePrefix + DefaultPhase1FilePrefix + "1"
 	}
-	p, err := mpc.InitInnerPhase1(path, uint64(math.Pow(2, 21)))
+	p, err := mpc.InitGroth16Phase1(path, uint64(math.Pow(2, 21)))
 	if err != nil {
 		return err
 	}
@@ -375,7 +375,7 @@ func verifyInnerPhase1(ctx *cli.Context) error {
 	if path2 == "" {
 		return errors.New("invalid inner phase1 path")
 	}
-	challenge, err := mpc.VerifyInnerPhase1(path1, path2)
+	challenge, err := mpc.VerifyGroth16Phase1(path1, path2)
 	if err != nil {
 		return err
 	}
@@ -393,7 +393,7 @@ func contributeInnerPhase1(ctx *cli.Context) error {
 	if outputPath == "" {
 		outputPath = DefaultInnerFilePrefix + DefaultPhase1FilePrefix + "new"
 	}
-	p, err := mpc.ContributeInnerPhase1(inputPath, outputPath)
+	p, err := mpc.ContributeGroth16Phase1(inputPath, outputPath)
 	if err != nil {
 		return err
 	}
@@ -416,7 +416,7 @@ func sealInnerPhase1(ctx *cli.Context) error {
 	if outputPath == "" {
 		outputPath = DefaultInnerFilePrefix + DefaultPhase1FilePrefix + DefaultSRSFileName
 	}
-	_, err := mpc.InnerSeal(inputPath, outputPath)
+	_, err := mpc.SealGroth16Phase1(inputPath, outputPath)
 	if err != nil {
 		return err
 	}
@@ -456,7 +456,7 @@ func initInnerPhase2(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	_, _, p, err := mpc.InitInnerPhase2(css, inputPath, outputpath)
+	_, _, p, err := mpc.InitGroth16Phase2(css, inputPath, outputpath)
 	if err != nil {
 		return err
 	}
@@ -479,7 +479,7 @@ func verifyInnerPhase2(ctx *cli.Context) error {
 	if path2 == "" {
 		return errors.New("invalid inner phase2 path")
 	}
-	challenge, err := mpc.VerifyInnerPhase2(path1, path2)
+	challenge, err := mpc.VerifyGroth16Phase2(path1, path2)
 	if err != nil {
 		return err
 	}
@@ -497,7 +497,7 @@ func contributeInnerPhase2(ctx *cli.Context) error {
 	if outputPath == "" {
 		outputPath = DefaultInnerFilePrefix + DefaultPhase2FilePrefix + "new"
 	}
-	p, err := mpc.ContributeInnerPhase2(inputPath, outputPath)
+	p, err := mpc.ContributeGroth16Phase2(inputPath, outputPath)
 	if err != nil {
 		return err
 	}
@@ -603,7 +603,7 @@ func initOuterSRS(ctx *cli.Context) error {
 
 		if i == MaxBatch {
 			srsSize, _ := plonk.SRSSize(r1cs)
-			p, err := mpc.InitOuterSRS(outerSRSPath, srsSize)
+			p, err := mpc.InitPlonkSRS(outerSRSPath, srsSize)
 			if err != nil {
 				return err
 			}
@@ -636,7 +636,7 @@ func verifyInitOuterSRS(ctx *cli.Context) error {
 	}
 	r1cs := css.(*cs.SparseR1CS)
 	srsSize, _ := plonk.SRSSize(r1cs)
-	err = mpc.VerifyinitOuterSRS(srsPath, srsSize)
+	err = mpc.VerifyPlonkSRSInitialization(srsPath, srsSize)
 	if err != nil {
 		return err
 	}
@@ -667,7 +667,7 @@ func verifyOuterSRS(ctx *cli.Context) error {
 	}
 	r1cs := css.(*cs.SparseR1CS)
 	srsSize, _ := plonk.SRSSize(r1cs)
-	err = mpc.VerifyOuterSRS(prePath, curPath, srsSize)
+	err = mpc.VerifyPlonkSRS(prePath, curPath, srsSize)
 	if err != nil {
 		return err
 	}
@@ -697,7 +697,7 @@ func contributeOuterSRS(ctx *cli.Context) error {
 	r1cs := css.(*cs.SparseR1CS)
 	srsSize, _ := plonk.SRSSize(r1cs)
 
-	p, err := mpc.ContributeOuterSRS(inputPath, outputPath, srsSize)
+	p, err := mpc.ContributePlonkSRS(inputPath, outputPath, srsSize)
 	if err != nil {
 		return err
 	}

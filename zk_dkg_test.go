@@ -196,10 +196,10 @@ func TestMPC(t *testing.T) {
 	curPhase1 := t.TempDir() + "Phase1_2"
 	finalPhase1 := t.TempDir() + "Phase1_final"
 
-	_, err := mpc.InitInnerPhase1(prevPhase1, 262144)
+	_, err := mpc.InitGroth16Phase1(prevPhase1, 262144)
 	assert.NoError(err)
-	mpc.ContributeInnerPhase1(prevPhase1, curPhase1)
-	mpc.InnerSeal(curPhase1, finalPhase1)
+	mpc.ContributeGroth16Phase1(prevPhase1, curPhase1)
+	mpc.SealGroth16Phase1(curPhase1, finalPhase1)
 
 	var myCircuit = TempCircuit{
 		Data:         make([]frontend.Variable, 10),
@@ -208,24 +208,24 @@ func TestMPC(t *testing.T) {
 	css, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &myCircuit)
 	assert.NoError(err)
 
-	srs, err := mpc.ReadInnerSrsCommonsFromFile(finalPhase1)
+	srs, err := mpc.ReadGroth16SRSFromFile(finalPhase1)
 	assert.NoError(err)
 
 	prevPhase2 := t.TempDir() + "Phase2_1"
 	curPhase2 := t.TempDir() + "Phase2_2"
 
-	_, _, _, err = mpc.InitInnerPhase2(css, finalPhase1, prevPhase2)
+	_, _, _, err = mpc.InitGroth16Phase2(css, finalPhase1, prevPhase2)
 	assert.NoError(err)
-	_, err = mpc.ContributeInnerPhase2(prevPhase2, curPhase2)
+	_, err = mpc.ContributeGroth16Phase2(prevPhase2, curPhase2)
 	assert.NoError(err)
 
 	var p2 mpcsetup.Phase2
 	r1cs := css.(*cs.R1CS)
-	evals := p2.Initialize(r1cs, &srs)
+	evals := p2.Initialize(r1cs, srs)
 
-	phase2, err := mpc.ReadInnerPhase2FromFile(curPhase2)
+	phase2, err := mpc.ReadGroth16Phase2FromFile(curPhase2)
 	assert.NoError(err)
-	p1, v1 := phase2.Seal(&srs, &evals, []byte("beacon Phase 2"))
+	p1, v1 := phase2.Seal(srs, &evals, []byte("beacon Phase 2"))
 	pk := p1.(*groth16.ProvingKey)
 	vk := v1.(*groth16.VerifyingKey)
 
