@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/consensys/gnark/backend/plonk"
@@ -228,7 +229,10 @@ string is used.`,
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		_, err := fmt.Fprintln(os.Stderr, err)
+		if err != nil {
+			return
+		}
 		os.Exit(1)
 	}
 }
@@ -241,14 +245,14 @@ func initPlonkSRS(ctx *cli.Context) error {
 
 	srsPath := ctx.Path(srsFileFlag.Name)
 	if srsPath == "" {
-		srsPath = DefaultSRSFilePrefix + string(1)
+		srsPath = DefaultSRSFilePrefix + strconv.Itoa(1)
 	}
 	MaxSizeCSS, err := helper.ReadCSS(MaxSizeCSSPath)
 	if err != nil {
 		return err
 	}
-	r1cs := MaxSizeCSS.(*cs.SparseR1CS)
-	srsSize, _ := plonk.SRSSize(r1cs)
+	r1CS := MaxSizeCSS.(*cs.SparseR1CS)
+	srsSize, _ := plonk.SRSSize(r1CS)
 	p, err := mpc.InitPlonkSRS(srsPath, srsSize)
 	if err != nil {
 		return err
@@ -277,8 +281,8 @@ func verifyInitPlonkSRS(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	r1cs := css.(*cs.SparseR1CS)
-	srsSize, _ := plonk.SRSSize(r1cs)
+	r1CS := css.(*cs.SparseR1CS)
+	srsSize, _ := plonk.SRSSize(r1CS)
 	err = mpc.VerifyPlonkSRSInitialization(srsPath, srsSize)
 	if err != nil {
 		return err
@@ -308,8 +312,8 @@ func verifyPlonkSRS(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	r1cs := css.(*cs.SparseR1CS)
-	srsSize, _ := plonk.SRSSize(r1cs)
+	r1CS := css.(*cs.SparseR1CS)
+	srsSize, _ := plonk.SRSSize(r1CS)
 	err = mpc.VerifyPlonkSRS(prePath, curPath, srsSize)
 	if err != nil {
 		return err
@@ -337,8 +341,8 @@ func contributePlonkSRS(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	r1cs := css.(*cs.SparseR1CS)
-	srsSize, _ := plonk.SRSSize(r1cs)
+	r1CS := css.(*cs.SparseR1CS)
+	srsSize, _ := plonk.SRSSize(r1CS)
 
 	p, err := mpc.ContributePlonkSRS(inputPath, outputPath, srsSize)
 	if err != nil {
@@ -362,12 +366,12 @@ func exportInnerCircuit(ctx *cli.Context) error {
 		batch := InnerVKIDs[index]
 		// Generate node private key
 		source := rand.NewSource(time.Now().UnixNano())
-		rand := rand.New(source)
+		r := rand.New(source)
 		// Computing public key
 		fis := make([]*fr_bls12381.Element, batch)
 		pubKeys := make([]*ecies.PublicKey, batch)
 		for i := 0; i < batch; i++ {
-			key, _ := ecies.GenerateKey(rand, crypto.S256(), nil)
+			key, _ := ecies.GenerateKey(r, crypto.S256(), nil)
 			pubKeys[i] = &key.PublicKey
 			fi := new(fr_bls12381.Element)
 			_, err := fi.SetRandom()
@@ -385,7 +389,7 @@ func exportInnerCircuit(ctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		err = helper.ExportCSS(innerCss, innerCSSPath+string(batch))
+		err = helper.ExportCSS(innerCss, innerCSSPath+strconv.Itoa(batch))
 		if err != nil {
 			return err
 		}
@@ -413,7 +417,7 @@ func exportInnerSeal(ctx *cli.Context) error {
 	}
 
 	for i := 0; i < len(InnerVKIDs); i++ {
-		innerCss, err := helper.ReadCSS(innerCSSPath + string(InnerVKIDs[i]))
+		innerCss, err := helper.ReadCSS(innerCSSPath + strconv.Itoa(InnerVKIDs[i]))
 		if err != nil {
 			return err
 		}
@@ -421,8 +425,14 @@ func exportInnerSeal(ctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		helper.ExportPlonkProvingKey(pk, innerPKPath+string(InnerVKIDs[i]))
-		helper.ExportPlonkVerifyingKey(vk, innerVKPath+string(InnerVKIDs[i]))
+		err = helper.ExportPlonkProvingKey(pk, innerPKPath+strconv.Itoa(InnerVKIDs[i]))
+		if err != nil {
+			return err
+		}
+		err = helper.ExportPlonkVerifyingKey(vk, innerVKPath+strconv.Itoa(InnerVKIDs[i]))
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -469,15 +479,15 @@ func exportOuterSeal(ctx *cli.Context) error {
 	innerPKs := make([]plonk.ProvingKey, len(InnerVKIDs))
 	innerVKs := make([]plonk.VerifyingKey, len(InnerVKIDs))
 	for i := 0; i < len(InnerVKIDs); i++ {
-		innerCSS, err := helper.ReadCSS(innerCSSPath + string(InnerVKIDs[i]))
+		innerCSS, err := helper.ReadCSS(innerCSSPath + strconv.Itoa(InnerVKIDs[i]))
 		if err != nil {
 			return err
 		}
-		innerPK, err := helper.ReadPlonkProvingKey(innerPKPath+string(InnerVKIDs[i]), ecc.BN254)
+		innerPK, err := helper.ReadPlonkProvingKey(innerPKPath+strconv.Itoa(InnerVKIDs[i]), ecc.BN254)
 		if err != nil {
 			return err
 		}
-		innerVK, err := helper.ReadPlonkVerifyingKey(innerVKPath+string(InnerVKIDs[i]), ecc.BN254)
+		innerVK, err := helper.ReadPlonkVerifyingKey(innerVKPath+strconv.Itoa(InnerVKIDs[i]), ecc.BN254)
 		if err != nil {
 			return err
 		}
@@ -497,9 +507,21 @@ func exportOuterSeal(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	helper.ExportCSS(outerCSS, outerCSSPath)
-	helper.ExportPlonkProvingKey(pk, outerPKPath)
-	helper.ExportPlonkVerifyingKey(vk, outerVKPath)
-	helper.ExportContract(vk, contractPath)
+	err = helper.ExportCSS(outerCSS, outerCSSPath)
+	if err != nil {
+		return err
+	}
+	err = helper.ExportPlonkProvingKey(pk, outerPKPath)
+	if err != nil {
+		return err
+	}
+	err = helper.ExportPlonkVerifyingKey(vk, outerVKPath)
+	if err != nil {
+		return err
+	}
+	err = helper.ExportContract(vk, contractPath)
+	if err != nil {
+		return err
+	}
 	return nil
 }

@@ -30,7 +30,7 @@ import (
 func TestRecursionEncryptionCircuit(t *testing.T) {
 	assert := test.NewAssert(t)
 	innerVKIDs := []int{1, 2}
-	MaxxBatchIDIndex := 1
+	MaxBatchIDIndex := 1
 	td := make([]Tempdata, len(innerVKIDs))
 	for j := 0; j < len(innerVKIDs); j++ {
 		batch := innerVKIDs[j]
@@ -59,7 +59,7 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 	innerVKs := make([]plonk.VerifyingKey, len(innerVKIDs))
 	srsPath := "inner_srs_2"
 	if _, err := os.Stat(srsPath); err != nil {
-		circuit := GetBatchEncryptionCircuit(td[MaxxBatchIDIndex].data1, td[MaxxBatchIDIndex].data5)
+		circuit := GetBatchEncryptionCircuit(td[MaxBatchIDIndex].data1, td[MaxBatchIDIndex].data5)
 		css, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, circuit)
 		require.NoError(t, err)
 		err = mockSRCMPC("inner_srs_", css, 2)
@@ -94,12 +94,12 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 	}
 	outerCircuit, err := GetRecursionEncryptionCircuit(innerCSSs[0], innerVKs, innerVKIDs)
 	require.NoError(t, err)
-	innerAssignments, sumHash := ComputeMultipleKeyShareEncryptionAssignment(innerVKIDs[MaxxBatchIDIndex], td[MaxxBatchIDIndex].data8, td[MaxxBatchIDIndex].data6, td[MaxxBatchIDIndex].data7, td[MaxxBatchIDIndex].data1, td[MaxxBatchIDIndex].data2, td[MaxxBatchIDIndex].data3, td[MaxxBatchIDIndex].data5, td[MaxxBatchIDIndex].data4)
+	innerAssignments, sumHash := ComputeMultipleKeyShareEncryptionAssignment(innerVKIDs[MaxBatchIDIndex], td[MaxBatchIDIndex].data8, td[MaxBatchIDIndex].data6, td[MaxBatchIDIndex].data7, td[MaxBatchIDIndex].data1, td[MaxBatchIDIndex].data2, td[MaxBatchIDIndex].data3, td[MaxBatchIDIndex].data5, td[MaxBatchIDIndex].data4)
 	rawSumHash := make([]frontend.Variable, len(sumHash))
 	for i := 0; i < len(sumHash); i++ {
 		rawSumHash[i] = sumHash[i]
 	}
-	outerAssignment, err := ComputeRecursionEncryptionAssignment(ecc.BN254.ScalarField(), ecc.BN254.ScalarField(), innerVKIDs[MaxxBatchIDIndex], innerCSSs[MaxxBatchIDIndex], innerPKs[MaxxBatchIDIndex], innerVKs[MaxxBatchIDIndex], innerAssignments, rawSumHash)
+	outerAssignment, err := ComputeRecursionEncryptionAssignment(ecc.BN254.ScalarField(), ecc.BN254.ScalarField(), innerVKIDs[MaxBatchIDIndex], innerCSSs[MaxBatchIDIndex], innerPKs[MaxBatchIDIndex], innerVKs[MaxBatchIDIndex], innerAssignments, rawSumHash)
 	require.NoError(t, err)
 	err = test.IsSolved(outerCircuit, outerAssignment, ecc.BN254.ScalarField())
 	if err != nil {
@@ -210,8 +210,17 @@ func mockSeal(prefix string, ccs constraint.ConstraintSystem, srsPath string) (p
 	}
 	pk = p1.(*plonk_bn254.ProvingKey)
 	vk = v1.(*plonk_bn254.VerifyingKey)
-	helper.ExportPlonkProvingKey(pk, prefix+"pk")
-	helper.ExportPlonkVerifyingKey(vk, prefix+"vk")
-	helper.ExportCSS(ccs, prefix+"ccs")
+	err = helper.ExportPlonkProvingKey(pk, prefix+"pk")
+	if err != nil {
+		return nil, nil, err
+	}
+	err = helper.ExportPlonkVerifyingKey(vk, prefix+"vk")
+	if err != nil {
+		return nil, nil, err
+	}
+	err = helper.ExportCSS(ccs, prefix+"ccs")
+	if err != nil {
+		return nil, nil, err
+	}
 	return pk, vk, nil
 }
