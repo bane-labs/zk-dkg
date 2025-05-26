@@ -5,12 +5,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math"
 	"math/rand"
 	"os"
 	"time"
 
-	groth16 "github.com/consensys/gnark/backend/groth16/bn254"
 	"github.com/consensys/gnark/backend/plonk"
 	"github.com/consensys/gnark/constraint"
 	cs "github.com/consensys/gnark/constraint/bn254"
@@ -30,21 +28,21 @@ import (
 )
 
 const (
+	DefaultSRSFilePrefix    = "srs_"
 	DefaultInnerFilePrefix  = "inner_"
-	DefaultPhase1FilePrefix = "phase1_"
-	DefaultPhase2FilePrefix = "phase2_"
 	DefaultOuterFilePrefix  = "outer_"
 	DefaultCSSFilesPrefix   = "css_"
+	DefaultPKFilePrefix     = "pk_"
+	DefaultVKFilePrefix     = "vk_"
 	DefaultCSSFileName      = "css"
 	DefaultSRSFileName      = "srs"
 	DefaultPKFileName       = "pk"
 	DefaultVKFileName       = "vk"
-	DefaultContractFileName = "verifier"
+	DefaultContractFileName = "verifier.sol"
 )
 
 var (
-	batchArray = [3]int{1, 2, 7}
-	MaxBatch   = 7
+	InnerVKIDs = []int{1, 2, 7}
 )
 
 var (
@@ -71,12 +69,20 @@ var (
 		Usage: "The file path of a css of outer circuit",
 	}
 	// Flags for parameter export
-	pkFileFlag = &cli.PathFlag{
-		Name:  "provingkey",
+	innerPkFileFlag = &cli.PathFlag{
+		Name:  "inner-pk",
 		Usage: "The file path of a proving key",
 	}
-	vkFileFlag = &cli.PathFlag{
-		Name:  "verifyingkey",
+	innerVkFileFlag = &cli.PathFlag{
+		Name:  "inner-vk",
+		Usage: "The file path of a verifying key",
+	}
+	outerPkFileFlag = &cli.PathFlag{
+		Name:  "outer-pk",
+		Usage: "The file path of a proving key",
+	}
+	outerVkFileFlag = &cli.PathFlag{
+		Name:  "outer-vk",
 		Usage: "The file path of a verifying key",
 	}
 	// Flags for contract export
@@ -90,246 +96,126 @@ func main() {
 	app := &cli.App{
 		Commands: []*cli.Command{
 			{
-				Name:  "inner",
-				Usage: "Deal with MPC for the inner circuit",
+				Name:  "CommonSRS",
+				Usage: "Deal with MPC for the common SRS",
 				Description: `
-This batch of commands deal with the Groth16 MPC setup for the
-inner circuit.`,
+This batch of commands deal with the Plonk MPC setup for the common SRS.`,
 				Subcommands: []*cli.Command{
 					{
-						Name:  "phase1",
-						Usage: "Deal with MPC phase1",
+						Name:   "init",
+						Usage:  "Init common SRS file for MPC",
+						Action: initPlonkSRS,
+						Flags: []cli.Flag{
+							innerCSSFileFlag,
+							srsFileFlag,
+						},
 						Description: `
-Phase1 commands deal the generation of Groth16 setup parameters,
-should be performed before any ZK application deployed based on
-this algorithm. The result can be used by any phase2.`,
-						Subcommands: []*cli.Command{
-							{
-								Name:   "init",
-								Usage:  "Generate init inner phase1 file",
-								Action: initInnerPhase1,
-								Flags: []cli.Flag{
-									outputFileFlag,
-								},
-								Description: `
-	inner phase1 init --output <filepath>
+	CommonSRS init --inner-css <filepath> --srs <filepath>
 
-will generate a phase1 file without any input, should be used by
-the first participant to generate the first file.`,
-							},
-							{
-								Name:   "verify",
-								Usage:  "Verify inner phase1 file step forward",
-								Action: verifyInnerPhase1,
-								Flags: []cli.Flag{
-									inputFileFlag,
-									outputFileFlag,
-								},
-								Description: `
-	inner phase1 verify --input <filepath> --output <filepath>
+will generate a srs file without any input, should be used by
+the first participant to generate the first file. The SRS file is
+generated based on the maximum size of the inner circuit we may use.`,
+					},
+					{
+						Name:   "checkInit",
+						Usage:  "Verify the initialization of an common SRS file",
+						Action: verifyInitPlonkSRS,
+						Flags: []cli.Flag{
+							innerCSSFileFlag,
+							srsFileFlag,
+						},
+						Description: `
+	CommonSRS checkInit --inner-css <filepath> --srs <filepath>
+
+will verify the initialization that takes place on the inner
+css file to the srs file, should be used before any further
+contribution to the unverified output file.`,
+					},
+					{
+						Name:   "verify",
+						Usage:  "Verify the common SRS file step forward",
+						Action: verifyPlonkSRS,
+						Flags: []cli.Flag{
+							innerCSSFileFlag,
+							inputFileFlag,
+							outputFileFlag,
+						},
+						Description: `
+	CommonSRS verify --inner-css <filepath> --input <filepath> --output <filepath>
 
 will verify the contribute operation that takes place on the
 input file to the output file, should be used before any further
 contribution to the unverified output file.`,
-							},
-							{
-								Name:   "contribute",
-								Usage:  "Contribute to the inner phase1 MPC",
-								Action: contributeInnerPhase1,
-								Flags: []cli.Flag{
-									inputFileFlag,
-									outputFileFlag,
-								},
-								Description: `
-	inner phase1 contribute --input <filepath> --output <filepath>
-
-will generate a new phase1 file based on the input one, every
-participant should do this only once and one by one, so that a
-chain of this contribute operations realize a MPC.`,
-							},
-							{
-								Name:   "seal",
-								Usage:  "Convert inner Phase1 data to common SRS",
-								Action: sealInnerPhase1,
-								Flags: []cli.Flag{
-									inputFileFlag,
-									srsFileFlag,
-								},
-								Description: `
-	inner phase1 seal --input <phase1file> --srs <outputpath>
-
-will seal a phase1 file to a common SRS, each participant can
-execute this operation locally to verify that the correct public
-SRS string is used in sealing.`,
-							},
-						},
 					},
 					{
-						Name:  "phase2",
-						Usage: "Deal with MPC phase2",
-						Description: `
-Phase2 commands deal the generation of circuit setup parameters,
-should be performed before every ZK application deployed based on
-phase1. The result can be used by this application repeatedly.`,
-						Subcommands: []*cli.Command{
-							{
-								Name:   "init",
-								Usage:  "Generate the first inner phase2 file",
-								Action: initInnerPhase2,
-								Flags: []cli.Flag{
-									srsFileFlag,
-									outputFileFlag,
-									innerCSSFileFlag,
-								},
-								Description: `
-	inner phase2 init --srs <inputpath> --output <filepath> --inner-css <outputpath>
-
-will generate a phase2 file with a SRS file from phase1 as input,
-should be used by the first participant to generate the first file.
-An R1CS file will also be generated, which will be used in the
-final phase2 sealing.`,
-							},
-							{
-								Name:   "verify",
-								Usage:  "Verify the inner phase2 file step forward",
-								Action: verifyInnerPhase2,
-								Flags: []cli.Flag{
-									inputFileFlag,
-									outputFileFlag,
-								},
-								Description: `
-	inner phase2 verify --input <filepath> --output <filepath>
-
-will verify the contribute operation that takes place on the input
-file to the output file, should be used before any further
-contribution to the unverified output file.`,
-							},
-							{
-								Name:   "contribute",
-								Usage:  "Contribute to the inner phase2 MPC",
-								Action: contributeInnerPhase2,
-								Flags: []cli.Flag{
-									inputFileFlag,
-									outputFileFlag,
-								},
-								Description: `
-	inner phase2 contribute --input <filepath> --output <filepath>
-
-will generate a new phase2 file based on the input one, every
-participant should do this only once and one by one, so that a
-chain of this contribute operations realize a MPC.`,
-							},
-						},
-					},
-					{
-						Name:   "seal",
-						Usage:  "Export the proving key and verifying key",
-						Action: exportInnerSeal,
+						Name:   "contribute",
+						Usage:  "Contribute to the common SRS MPC",
+						Action: contributePlonkSRS,
 						Flags: []cli.Flag{
-							srsFileFlag,
 							innerCSSFileFlag,
 							inputFileFlag,
-							pkFileFlag,
-							vkFileFlag,
+							outputFileFlag,
 						},
 						Description: `
-	inner seal --srs <inputpath> --inner-css <inputpath> --input <phase2file> --provingkey <outputpath> --verifyingkey <outputpath>
+	CommonSRS contribute --inner-css <filepath> --input <filepath> --output <filepath>
 
-will generate a proving key file and a verifying key file based
-on a MPC phase2, the SRS file and the R1CS file generated in the
-previous steps.`,
+will generate a new srs file based on the input one, every
+participant should do this only once and one by one, so that a
+chain of this contribute operations realize a MPC. `,
 					},
 				},
 			},
 			{
-				Name:  "outer",
-				Usage: "Deal with MPC for the outer circuit",
+				Name:  "export",
+				Usage: "Export related files with MPC for the common SRS",
 				Description: `
-This batch of commands deal with the Plonk MPC setup for the
-outer circuit.`,
+This batch of commands deal with the Plonk MPC setup for the common SRS.`,
 				Subcommands: []*cli.Command{
 					{
-						Name:   "init",
-						Usage:  "Init outer SRS file for MPC",
-						Action: initOuterSRS,
+						Name:   "innerCircuit",
+						Usage:  "Export inner circuit ccs files",
+						Action: exportInnerCircuit,
 						Flags: []cli.Flag{
 							innerCSSFileFlag,
-							pkFileFlag,
-							vkFileFlag,
-							outputFileFlag,
-							outerCSSFileFlag,
 						},
 						Description: `
-	outer init --inner-css <inputpath> --provingkey <inputpath> --verifyingkey <inputpath> --output <filepath> --outer-css <filesprefix>
+	export innerCircuit --inner-css <filesprefix>
 
-will generate a phase1 file without any input, should be used by
-the first participant to generate the first file. The SRS file is
-generated based on the maximum size of the outer circuit we may use.
-A batch of css files will also be generated under the same prefix.`,
+will export inner circuit data to a batch of ccs files, each participant can execute
+this operation locally to verify that the correct circuit is used.`,
 					},
 					{
-						Name:   "checkInit",
-						Usage:  "Verify the initialization of an outer SRS file",
-						Action: verifyInitOuterSRS,
+						Name:   "innerSeal",
+						Usage:  "Export inner circuit proving keys and verifying keys",
+						Action: exportInnerSeal,
 						Flags: []cli.Flag{
-							outerCSSFileFlag,
-							outputFileFlag,
+							srsFileFlag,
+							innerCSSFileFlag,
+							innerPkFileFlag,
+							innerVkFileFlag,
 						},
 						Description: `
-	outer checkInit --outer-css <filesprefix> --output <filepath>
+	export innerSeal --srs <filepath> --inner-css <filesprefix> --inner-pk <outputpath> --inner-vk <outputpath>
 
-will verify the initialization that takes place on the inner
-R1CS file to the output file, should be used before any further
-contribution to the unverified output file. The R1CS file under
-this prefix and ends with "7" will be used for verification.`,
+will export inner circuit data to a batch of proving keys, verifying keys, each participant can execute
+this operation locally to verify that the correct circuit pk and vk is used.`,
 					},
 					{
-						Name:   "verify",
-						Usage:  "Verify the outer SRS file step forward",
-						Action: verifyOuterSRS,
-						Flags: []cli.Flag{
-							outerCSSFileFlag,
-							inputFileFlag,
-							outputFileFlag,
-						},
-						Description: `
-	outer verify --outer-css <filesprefix> --input <filepath> --output <filepath>
-
-will verify the contribute operation that takes place on the
-input file to the output file, should be used before any further
-contribution to the unverified output file. The R1CS file under
-this prefix and ends with "7" will be used for verification.`,
-					},
-					{
-						Name:   "contribute",
-						Usage:  "Contribute to the outer SRS MPC",
-						Action: contributeOuterSRS,
-						Flags: []cli.Flag{
-							inputFileFlag,
-							outputFileFlag,
-							outerCSSFileFlag,
-						},
-						Description: `
-	outer contribute --outer-css <filesprefix> --input <filepath> --output <filepath>
-
-will generate a new phase1 file based on the input one, every
-participant should do this only once and one by one, so that a
-chain of this contribute operations realize a MPC. The R1CS
-file under this prefix and ends with "7" will be used.`,
-					},
-					{
-						Name:   "seal",
-						Usage:  "Export the proving key and verifying key",
+						Name:   "outerSeal",
+						Usage:  "Export outer circuit ccs,proving key and verifying key",
 						Action: exportOuterSeal,
 						Flags: []cli.Flag{
+							srsFileFlag,
+							innerCSSFileFlag,
+							innerPkFileFlag,
+							innerVkFileFlag,
 							outerCSSFileFlag,
-							inputFileFlag,
-							pkFileFlag,
-							vkFileFlag,
+							outerPkFileFlag,
+							outerVkFileFlag,
 							contractFileFlag,
 						},
 						Description: `
-	outer seal --outer-css <filesprefix> --input <filepath> --provingkey <outputpath> --verifyingkey <outputpath> --contract <outputpath>
+	export outerSeal --srs <filepath> --inner-css <filesprefix> --inner-pk <filesprefix> --inner-vk <filesprefix> --outer-css <outputpath> --outer-pk <outputpath> --outer-vk <outputpath> --contract <outputpath>
 
 will export MPC data to a batch of proving keys, verifying keys
 and Solidity verifier contracts, each participant can execute
@@ -347,299 +233,47 @@ string is used.`,
 	}
 }
 
-// initInnerPhase1 initializes the initial inner phase1 file.
-func initInnerPhase1(ctx *cli.Context) error {
-	path := ctx.Path(outputFileFlag.Name)
-	if path == "" {
-		path = DefaultInnerFilePrefix + DefaultPhase1FilePrefix + "1"
+func initPlonkSRS(ctx *cli.Context) error {
+	MaxSizeCSSPath := ctx.Path(innerCSSFileFlag.Name)
+	if MaxSizeCSSPath == "" {
+		return errors.New("invalid css path")
 	}
-	p, err := mpc.InitGroth16Phase1(path, uint64(math.Pow(2, 21)))
-	if err != nil {
-		return err
-	}
-	sha := sha256.New()
-	if _, err := p.WriteTo(sha); err != nil {
-		return err
-	}
-	fmt.Println("File challenge:", hex.EncodeToString(sha.Sum(nil)))
-	return nil
-}
 
-// verifyInnerPhase1 verifies the inner phase1 contribution.
-func verifyInnerPhase1(ctx *cli.Context) error {
-	path1 := ctx.Path(inputFileFlag.Name)
-	if path1 == "" {
-		return errors.New("invalid inner phase1 path")
-	}
-	path2 := ctx.Path(outputFileFlag.Name)
-	if path2 == "" {
-		return errors.New("invalid inner phase1 path")
-	}
-	challenge, err := mpc.VerifyGroth16Phase1(path1, path2)
-	if err != nil {
-		return err
-	}
-	fmt.Println("InnerPhase1 verified, and the previous challenge is", hex.EncodeToString(challenge))
-	return nil
-}
-
-// contributeInnerPhase1 contributes to the inner phase1 MPC.
-func contributeInnerPhase1(ctx *cli.Context) error {
-	inputPath := ctx.Path(inputFileFlag.Name)
-	if inputPath == "" {
-		return errors.New("invalid inner phase1 path")
-	}
-	outputPath := ctx.Path(outputFileFlag.Name)
-	if outputPath == "" {
-		outputPath = DefaultInnerFilePrefix + DefaultPhase1FilePrefix + "new"
-	}
-	p, err := mpc.ContributeGroth16Phase1(inputPath, outputPath)
-	if err != nil {
-		return err
-	}
-	fmt.Println("Contributed to:", hex.EncodeToString(p.Challenge))
-	sha := sha256.New()
-	if _, err := p.WriteTo(sha); err != nil {
-		return err
-	}
-	fmt.Println("File challenge:", hex.EncodeToString(sha.Sum(nil)))
-	return nil
-}
-
-// sealInnerPhase1 seals the inner phase1 contribution to SRS.
-func sealInnerPhase1(ctx *cli.Context) error {
-	inputPath := ctx.Path(inputFileFlag.Name)
-	if inputPath == "" {
-		return errors.New("invalid inner phase1 path")
-	}
-	outputPath := ctx.Path(srsFileFlag.Name)
-	if outputPath == "" {
-		outputPath = DefaultInnerFilePrefix + DefaultPhase1FilePrefix + DefaultSRSFileName
-	}
-	_, err := mpc.SealGroth16Phase1(inputPath, outputPath)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// initInnerPhase2 initializes the initial inner phase2 file.
-func initInnerPhase2(ctx *cli.Context) error {
-	inputPath := ctx.Path(srsFileFlag.Name)
-	if inputPath == "" {
-		return errors.New("invalid phase1 SRS path")
-	}
-	outputpath := ctx.Path(outputFileFlag.Name)
-	if outputpath == "" {
-		outputpath = DefaultInnerFilePrefix + DefaultPhase2FilePrefix + "1"
-	}
-	r1csPath := ctx.Path(innerCSSFileFlag.Name)
-	if r1csPath == "" {
-		r1csPath = DefaultInnerFilePrefix + DefaultCSSFileName
-	}
-	// Generate node private key
-	source := rand.NewSource(time.Now().UnixNano())
-	rand := rand.New(source)
-	// Computing public key
-	fis := make([]*fr_bls12381.Element, 1)
-	pubKeys := make([]*ecies.PublicKey, 1)
-	for i := 0; i < 1; i++ {
-		key, _ := ecies.GenerateKey(rand, crypto.S256(), nil)
-		pubKeys[i] = &key.PublicKey
-		fi := new(fr_bls12381.Element)
-		_, err := fi.SetRandom()
-		if err != nil {
-			return err
-		}
-		fis[i] = fi
-	}
-	fisBytes, _, _, _, encryptedFis, _, _, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
-	if err != nil {
-		return err
-	}
-	innerCircuit := circuit.GetSingleKeyShareEncryptionCircuit(fisBytes[0], encryptedFis[0])
-	css, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, innerCircuit)
-	if err != nil {
-		return err
-	}
-	_, _, p, err := mpc.InitGroth16Phase2(css, inputPath, outputpath)
-	if err != nil {
-		return err
-	}
-	sha := sha256.New()
-	if _, err := p.WriteTo(sha); err != nil {
-		return err
-	}
-	fmt.Println("File challenge:", hex.EncodeToString(sha.Sum(nil)))
-	helper.ExportCSS(css, r1csPath)
-	return nil
-}
-
-// verifyInnerPhase2 verifies the inner phase2 contribution.
-func verifyInnerPhase2(ctx *cli.Context) error {
-	path1 := ctx.Path(inputFileFlag.Name)
-	if path1 == "" {
-		return errors.New("invalid inner phase2 path")
-	}
-	path2 := ctx.Path(outputFileFlag.Name)
-	if path2 == "" {
-		return errors.New("invalid inner phase2 path")
-	}
-	challenge, err := mpc.VerifyGroth16Phase2(path1, path2)
-	if err != nil {
-		return err
-	}
-	fmt.Println("Inner Phase2 verified, and the previous challenge is", hex.EncodeToString(challenge))
-	return nil
-}
-
-// contributeInnerPhase2 contributes to the inner phase2 MPC.
-func contributeInnerPhase2(ctx *cli.Context) error {
-	inputPath := ctx.Path(inputFileFlag.Name)
-	if inputPath == "" {
-		return errors.New("invalid inner phase2 path")
-	}
-	outputPath := ctx.Path(outputFileFlag.Name)
-	if outputPath == "" {
-		outputPath = DefaultInnerFilePrefix + DefaultPhase2FilePrefix + "new"
-	}
-	p, err := mpc.ContributeGroth16Phase2(inputPath, outputPath)
-	if err != nil {
-		return err
-	}
-	fmt.Println("Contributed to:", hex.EncodeToString(p.Challenge))
-	sha := sha256.New()
-	if _, err := p.WriteTo(sha); err != nil {
-		return err
-	}
-	fmt.Println("File challenge:", hex.EncodeToString(sha.Sum(nil)))
-	return nil
-}
-
-// exportInnerSeal exports the inner proving key and verifying key.
-func exportInnerSeal(ctx *cli.Context) error {
 	srsPath := ctx.Path(srsFileFlag.Name)
 	if srsPath == "" {
-		return errors.New("invalid inner phase1 SRS path")
+		srsPath = DefaultSRSFilePrefix + string(1)
 	}
-	r1csPath := ctx.Path(innerCSSFileFlag.Name)
-	if r1csPath == "" {
-		return errors.New("invalid R1CS path")
-	}
-	phase2Path := ctx.Path(inputFileFlag.Name)
-	if phase2Path == "" {
-		return errors.New("invalid inner phase2 path")
-	}
-	innerPKPath := ctx.Path(pkFileFlag.Name)
-	if innerPKPath == "" {
-		innerPKPath = DefaultInnerFilePrefix + DefaultPKFileName
-	}
-	innerVKPath := ctx.Path(vkFileFlag.Name)
-	if innerVKPath == "" {
-		innerVKPath = DefaultInnerFilePrefix + DefaultVKFileName
-	}
-
-	css, err := helper.ReadCSS(r1csPath)
+	MaxSizeCSS, err := helper.ReadCSS(MaxSizeCSSPath)
 	if err != nil {
 		return err
 	}
-	pk, vk, err := helper.GetKeysFromExistedGroth16SetUp(css, srsPath, phase2Path)
+	r1cs := MaxSizeCSS.(*cs.SparseR1CS)
+	srsSize, _ := plonk.SRSSize(r1cs)
+	p, err := mpc.InitPlonkSRS(srsPath, srsSize)
 	if err != nil {
 		return err
 	}
-	helper.ExportGroth16ProvingKey(pk, innerPKPath)
-	helper.ExportGroth16VerifyingKey(vk, innerVKPath)
-	return nil
-}
-
-// initOuterSRS initializes the first outer SRS file for Plonk MPC.
-// It generates a batch of CSS files based on different verifications
-// on different number of inner circuits.
-func initOuterSRS(ctx *cli.Context) error {
-	innerCSSPath := ctx.Path(innerCSSFileFlag.Name)
-	if innerCSSPath == "" {
-		return errors.New("invalid inner R1CS path")
+	sha := sha256.New()
+	if _, err := p.WriteTo(sha); err != nil {
+		return err
 	}
-	innerPKPath := ctx.Path(pkFileFlag.Name)
-	if innerPKPath == "" {
-		return errors.New("invalid inner provingkey path")
-	}
-	innerVKPath := ctx.Path(vkFileFlag.Name)
-	if innerVKPath == "" {
-		return errors.New("invalid inner verifyingKey path")
-	}
-
-	outerSRSPath := ctx.Path(outputFileFlag.Name)
-	if outerSRSPath == "" {
-		outerSRSPath = DefaultOuterFilePrefix + DefaultSRSFileName
-	}
-	outerCSSPath := ctx.Path(outerCSSFileFlag.Name)
-	if outerCSSPath == "" {
-		outerCSSPath = DefaultOuterFilePrefix + DefaultCSSFileName
-	}
-	for i := 0; i < len(batchArray); i++ {
-		batch := batchArray[i]
-		innerCSS, err := helper.ReadCSS(innerCSSPath)
-		if err != nil {
-			return err
-		}
-		innerPK, err := helper.ReadGroth16ProvingKey(innerPKPath)
-		if err != nil {
-			return err
-		}
-		innerVK, err := helper.ReadGroth16VerifyingKey(innerVKPath)
-		if err != nil {
-			return err
-		}
-		innerCSSs := make([]constraint.ConstraintSystem, batch)
-		innerPKs := make([]*groth16.ProvingKey, batch)
-		innerVKs := make([]*groth16.VerifyingKey, batch)
-		for i := 0; i < batch; i++ {
-			innerCSSs[i] = innerCSS
-			innerPKs[i] = innerPK
-			innerVKs[i] = innerVK
-		}
-		outerCircuit, err := circuit.GetRecursionEncryptionCircuit(batch, innerCSSs, innerVKs)
-		if err != nil {
-			return err
-		}
-		outerCSS, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, outerCircuit)
-		if err != nil {
-			return err
-		}
-		r1cs := outerCSS.(*cs.SparseR1CS)
-		helper.ExportCSS(outerCSS, outerCSSPath+"_"+string(batchArray[i]))
-
-		if i == MaxBatch {
-			srsSize, _ := plonk.SRSSize(r1cs)
-			p, err := mpc.InitPlonkSRS(outerSRSPath, srsSize)
-			if err != nil {
-				return err
-			}
-			sha := sha256.New()
-			if _, err := p.WriteTo(sha); err != nil {
-				return err
-			}
-			fmt.Println("Outer SRS file challenge:", hex.EncodeToString(sha.Sum(nil)))
-		}
-	}
-
+	fmt.Println("SRS file challenge:", hex.EncodeToString(sha.Sum(nil)))
 	return nil
 }
 
 // verifyInitOuterSRS verifies if the initialization of an outer
 // SRS file is based on the correct SRS size of the outer circuit.
 // The R1CS file for maximum batch size is used for verification.
-func verifyInitOuterSRS(ctx *cli.Context) error {
-	outerCSSPath := ctx.Path(outerCSSFileFlag.Name)
-	if outerCSSPath == "" {
-		return errors.New("invalid outer CSS prefix")
+func verifyInitPlonkSRS(ctx *cli.Context) error {
+	MaxSizeCSSPath := ctx.Path(innerCSSFileFlag.Name)
+	if MaxSizeCSSPath == "" {
+		return errors.New("invalid css path")
 	}
-	srsPath := ctx.Path(outputFileFlag.Name)
+	srsPath := ctx.Path(srsFileFlag.Name)
 	if srsPath == "" {
 		return errors.New("invalid outer SRS path")
 	}
-	css, err := helper.ReadCSS(outerCSSPath + "_" + string(MaxBatch))
+	css, err := helper.ReadCSS(MaxSizeCSSPath)
 	if err != nil {
 		return err
 	}
@@ -649,7 +283,7 @@ func verifyInitOuterSRS(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Initial outer SRS verified")
+	fmt.Println("Initial SRS verified")
 	return nil
 }
 
@@ -657,10 +291,10 @@ func verifyInitOuterSRS(ctx *cli.Context) error {
 // based on the correct SRS size of the outer circuit and the
 // specified previous outer SRS file.
 // The R1CS file for maximum batch size is used for verification.
-func verifyOuterSRS(ctx *cli.Context) error {
-	outerCSSPath := ctx.Path(outerCSSFileFlag.Name)
-	if outerCSSPath == "" {
-		return errors.New("invalid outer CSS prefix")
+func verifyPlonkSRS(ctx *cli.Context) error {
+	MaxSizeCSSPath := ctx.Path(innerCSSFileFlag.Name)
+	if MaxSizeCSSPath == "" {
+		return errors.New("invalid inner R1CS path")
 	}
 	prePath := ctx.Path(inputFileFlag.Name)
 	if prePath == "" {
@@ -670,7 +304,7 @@ func verifyOuterSRS(ctx *cli.Context) error {
 	if curPath == "" {
 		return errors.New("invalid current outer SRS path")
 	}
-	css, err := helper.ReadCSS(outerCSSPath + "_" + string(MaxBatch))
+	css, err := helper.ReadCSS(MaxSizeCSSPath)
 	if err != nil {
 		return err
 	}
@@ -686,10 +320,10 @@ func verifyOuterSRS(ctx *cli.Context) error {
 
 // contributeOuterSRS contributes to the outer SRS MPC.
 // The R1CS file for maximum batch size is used for contribution.
-func contributeOuterSRS(ctx *cli.Context) error {
-	outerCSSPath := ctx.Path(outerCSSFileFlag.Name)
-	if outerCSSPath == "" {
-		return errors.New("invalid outer CSS prefix")
+func contributePlonkSRS(ctx *cli.Context) error {
+	MaxSizeCSSPath := ctx.Path(innerCSSFileFlag.Name)
+	if MaxSizeCSSPath == "" {
+		return errors.New("invalid inner R1CS path")
 	}
 	inputPath := ctx.Path(inputFileFlag.Name)
 	if inputPath == "" {
@@ -699,7 +333,7 @@ func contributeOuterSRS(ctx *cli.Context) error {
 	if outputPath == "" {
 		outputPath = DefaultOuterFilePrefix + DefaultSRSFileName + "_new"
 	}
-	css, err := helper.ReadCSS(outerCSSPath + "_" + string(MaxBatch))
+	css, err := helper.ReadCSS(MaxSizeCSSPath)
 	if err != nil {
 		return err
 	}
@@ -719,41 +353,153 @@ func contributeOuterSRS(ctx *cli.Context) error {
 	return nil
 }
 
+func exportInnerCircuit(ctx *cli.Context) error {
+	innerCSSPath := ctx.Path(innerCSSFileFlag.Name)
+	if innerCSSPath == "" {
+		innerCSSPath = DefaultInnerFilePrefix + DefaultCSSFilesPrefix
+	}
+	for index := 0; index < len(InnerVKIDs); index++ {
+		batch := InnerVKIDs[index]
+		// Generate node private key
+		source := rand.NewSource(time.Now().UnixNano())
+		rand := rand.New(source)
+		// Computing public key
+		fis := make([]*fr_bls12381.Element, batch)
+		pubKeys := make([]*ecies.PublicKey, batch)
+		for i := 0; i < batch; i++ {
+			key, _ := ecies.GenerateKey(rand, crypto.S256(), nil)
+			pubKeys[i] = &key.PublicKey
+			fi := new(fr_bls12381.Element)
+			_, err := fi.SetRandom()
+			if err != nil {
+				return err
+			}
+			fis[i] = fi
+		}
+		fisBytes, _, _, _, encryptedFis, _, _, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
+		if err != nil {
+			return err
+		}
+		innerCircuit := circuit.GetBatchEncryptionCircuit(fisBytes, encryptedFis)
+		innerCss, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, innerCircuit)
+		if err != nil {
+			return err
+		}
+		err = helper.ExportCSS(innerCss, innerCSSPath+string(batch))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// exportInnerSeal exports the inner proving key and verifying key.
+func exportInnerSeal(ctx *cli.Context) error {
+	srsPath := ctx.Path(srsFileFlag.Name)
+	if srsPath == "" {
+		return errors.New("invalid inner phase1 SRS path")
+	}
+	innerCSSPath := ctx.Path(innerCSSFileFlag.Name)
+	if innerCSSPath == "" {
+		return errors.New("invalid R1CS path")
+	}
+	innerPKPath := ctx.Path(innerPkFileFlag.Name)
+	if innerPKPath == "" {
+		innerPKPath = DefaultInnerFilePrefix + DefaultPKFilePrefix
+	}
+	innerVKPath := ctx.Path(innerVkFileFlag.Name)
+	if innerVKPath == "" {
+		innerVKPath = DefaultInnerFilePrefix + DefaultVKFilePrefix
+	}
+
+	for i := 0; i < len(InnerVKIDs); i++ {
+		innerCss, err := helper.ReadCSS(innerCSSPath + string(InnerVKIDs[i]))
+		if err != nil {
+			return err
+		}
+		pk, vk, err := helper.GetKeysFromExistedPlonkSetUp(innerCss, srsPath)
+		if err != nil {
+			return err
+		}
+		helper.ExportPlonkProvingKey(pk, innerPKPath+string(InnerVKIDs[i]))
+		helper.ExportPlonkVerifyingKey(vk, innerVKPath+string(InnerVKIDs[i]))
+	}
+	return nil
+}
+
 // exportOuterSeal exports the outer proving keys and verifying keys.
 // The file number is determined by the different batch sizes we suppose.
 func exportOuterSeal(ctx *cli.Context) error {
+	srsPath := ctx.Path(srsFileFlag.Name)
+	if srsPath == "" {
+		return errors.New("invalid common SRS path")
+	}
+	innerCSSPath := ctx.Path(innerCSSFileFlag.Name)
+	if innerCSSPath == "" {
+		return errors.New("invalid inner CSS prefix")
+	}
+	innerPKPath := ctx.Path(innerPkFileFlag.Name)
+	if innerPKPath == "" {
+		return errors.New("invalid inner pk prefix")
+	}
+	innerVKPath := ctx.Path(innerVkFileFlag.Name)
+	if innerVKPath == "" {
+		return errors.New("invalid inner vk prefix")
+	}
+
 	outerCSSPath := ctx.Path(outerCSSFileFlag.Name)
 	if outerCSSPath == "" {
-		return errors.New("invalid outer CSS prefix")
+		outerCSSPath = DefaultOuterFilePrefix + DefaultCSSFileName
 	}
-	inputPath := ctx.Path(inputFileFlag.Name)
-	if inputPath == "" {
-		return errors.New("invalid outer SRS path")
+	outerPKPath := ctx.Path(outerPkFileFlag.Name)
+	if outerPKPath == "" {
+		outerPKPath = DefaultOuterFilePrefix + DefaultPKFileName
 	}
-	pkPath := ctx.Path(pkFileFlag.Name)
-	if pkPath == "" {
-		pkPath = DefaultOuterFilePrefix + DefaultPKFileName
+	outerVKPath := ctx.Path(outerVkFileFlag.Name)
+	if outerVKPath == "" {
+		outerVKPath = DefaultOuterFilePrefix + DefaultVKFileName
 	}
-	vkPath := ctx.Path(vkFileFlag.Name)
-	if vkPath == "" {
-		vkPath = DefaultOuterFilePrefix + DefaultVKFileName
-	}
+
 	contractPath := ctx.Path(contractFileFlag.Name)
 	if contractPath == "" {
-		vkPath = DefaultOuterFilePrefix + DefaultContractFileName
+		contractPath = DefaultOuterFilePrefix + DefaultContractFileName
 	}
-	for i := 0; i < len(batchArray); i++ {
-		outerCSS, err := helper.ReadCSS(outerCSSPath + "_" + string(batchArray[i]))
+
+	innerCSSs := make([]constraint.ConstraintSystem, len(InnerVKIDs))
+	innerPKs := make([]plonk.ProvingKey, len(InnerVKIDs))
+	innerVKs := make([]plonk.VerifyingKey, len(InnerVKIDs))
+	for i := 0; i < len(InnerVKIDs); i++ {
+		innerCSS, err := helper.ReadCSS(innerCSSPath + string(InnerVKIDs[i]))
 		if err != nil {
 			return err
 		}
-		pk, vk, err := helper.GetKeysFromExistedPlonkSetUp(outerCSS, inputPath)
+		innerPK, err := helper.ReadPlonkProvingKey(innerPKPath+string(InnerVKIDs[i]), ecc.BN254)
 		if err != nil {
 			return err
 		}
-		helper.ExportPlonkProvingKey(pk, pkPath+"_"+string(batchArray[i]))
-		helper.ExportPlonkVerifyingKey(vk, vkPath+"_"+string(batchArray[i]))
-		helper.ExportContract(vk, contractPath+"_"+string(batchArray[i])+".sol")
+		innerVK, err := helper.ReadPlonkVerifyingKey(innerVKPath+string(InnerVKIDs[i]), ecc.BN254)
+		if err != nil {
+			return err
+		}
+		innerCSSs[i] = innerCSS
+		innerPKs[i] = innerPK
+		innerVKs[i] = innerVK
 	}
+	outerCircuit, err := circuit.GetRecursionEncryptionCircuit(innerCSSs[0], innerVKs, InnerVKIDs)
+	if err != nil {
+		return err
+	}
+	outerCSS, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, outerCircuit)
+	if err != nil {
+		return err
+	}
+	pk, vk, err := helper.GetKeysFromExistedPlonkSetUp(outerCSS, srsPath)
+	if err != nil {
+		return err
+	}
+	helper.ExportCSS(outerCSS, outerCSSPath)
+	helper.ExportPlonkProvingKey(pk, outerPKPath)
+	helper.ExportPlonkVerifyingKey(vk, outerVKPath)
+	helper.ExportContract(vk, contractPath)
 	return nil
 }
