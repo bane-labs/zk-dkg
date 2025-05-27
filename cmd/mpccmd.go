@@ -19,7 +19,6 @@ import (
 	"github.com/consensys/gnark/constraint"
 	cs "github.com/consensys/gnark/constraint/bn254"
 	"github.com/consensys/gnark/frontend"
-	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"github.com/consensys/gnark/frontend/cs/scs"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
@@ -383,7 +382,7 @@ func exportInnerCircuit(ctx *cli.Context) error {
 			return err
 		}
 		innerCircuit := circuit.GetBatchEncryptionCircuit(fisBytes, encryptedFis)
-		innerCss, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, innerCircuit)
+		innerCss, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, innerCircuit)
 		if err != nil {
 			return err
 		}
