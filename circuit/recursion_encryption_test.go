@@ -1,8 +1,6 @@
 package circuit
 
 import (
-	bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381"
-	"github.com/consensys/gnark-crypto/ecc/secp256k1"
 	"math/big"
 	"math/rand"
 	"os"
@@ -10,21 +8,22 @@ import (
 	"testing"
 	"time"
 
-	plonk_bn254 "github.com/consensys/gnark/backend/plonk/bn254"
-	"github.com/consensys/gnark/frontend/cs/scs"
-	"github.com/stretchr/testify/require"
-
 	"github.com/bane-labs/zk-dkg/helper"
 	"github.com/consensys/gnark-crypto/ecc"
+	bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381"
 	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	kzg_bn254 "github.com/consensys/gnark-crypto/ecc/bn254/kzg"
+	"github.com/consensys/gnark-crypto/ecc/secp256k1"
 	"github.com/consensys/gnark/backend/plonk"
+	plonk_bn254 "github.com/consensys/gnark/backend/plonk/bn254"
 	"github.com/consensys/gnark/constraint"
 	cs "github.com/consensys/gnark/constraint/bn254"
 	"github.com/consensys/gnark/frontend"
+	"github.com/consensys/gnark/frontend/cs/scs"
 	"github.com/consensys/gnark/test"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRecursionEncryptionCircuit(t *testing.T) {

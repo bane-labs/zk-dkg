@@ -1,21 +1,21 @@
 package circuit
 
 import (
-	fr_bn254 "github.com/consensys/gnark-crypto/ecc/bn254/fr"
-	native_plonk "github.com/consensys/gnark/backend/plonk"
-	plonk "github.com/consensys/gnark/backend/plonk/bn254"
-	"github.com/consensys/gnark/std/algebra/emulated/sw_bn254"
 	"math/big"
 
 	"github.com/bane-labs/zk-dkg/helper"
 	bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381"
 	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
+	fr_bn254 "github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
+	native_plonk "github.com/consensys/gnark/backend/plonk"
+	plonk "github.com/consensys/gnark/backend/plonk/bn254"
 	"github.com/consensys/gnark/backend/witness"
 	"github.com/consensys/gnark/constraint"
 	cs "github.com/consensys/gnark/constraint/bn254"
 	"github.com/consensys/gnark/frontend"
+	"github.com/consensys/gnark/std/algebra/emulated/sw_bn254"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
 	"github.com/consensys/gnark/std/math/emulated"
 	stdplonk "github.com/consensys/gnark/std/recursion/plonk"
