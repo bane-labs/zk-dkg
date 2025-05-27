@@ -13,7 +13,6 @@ import (
 	"github.com/consensys/gnark/backend/plonk"
 	"github.com/consensys/gnark/constraint"
 	cs "github.com/consensys/gnark/constraint/bn254"
-	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"github.com/consensys/gnark/frontend/cs/scs"
 
 	"github.com/bane-labs/zk-dkg/circuit"
@@ -385,11 +384,12 @@ func exportInnerCircuit(ctx *cli.Context) error {
 			return err
 		}
 		innerCircuit := circuit.GetBatchEncryptionCircuit(fisBytes, encryptedFis)
-		innerCss, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, innerCircuit)
+		innerCss, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, innerCircuit)
 		if err != nil {
 			return err
 		}
-		err = helper.ExportCSS(innerCss, innerCSSPath+strconv.Itoa(batch))
+		r1CS := innerCss.(*cs.SparseR1CS)
+		err = helper.ExportCSS(r1CS, innerCSSPath+strconv.Itoa(batch))
 		if err != nil {
 			return err
 		}

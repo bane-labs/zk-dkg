@@ -153,7 +153,7 @@ func ExportPlonkVerifyingKey(vk plonk.VerifyingKey, path string) error {
  * @param path: r1cs file path
  */
 func ReadCSS(path string) (constraint.ConstraintSystem, error) {
-	css := new(cs.R1CS)
+	css := new(cs.SparseR1CS)
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
