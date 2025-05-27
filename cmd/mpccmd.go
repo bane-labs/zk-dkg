@@ -10,20 +10,19 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/consensys/gnark/backend/plonk"
-	"github.com/consensys/gnark/constraint"
-	cs "github.com/consensys/gnark/constraint/bn254"
-	"github.com/consensys/gnark/frontend/cs/scs"
-
 	"github.com/bane-labs/zk-dkg/circuit"
 	"github.com/bane-labs/zk-dkg/helper"
 	"github.com/bane-labs/zk-dkg/mpc"
 	"github.com/consensys/gnark-crypto/ecc"
 	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
+	"github.com/consensys/gnark/backend/plonk"
+	"github.com/consensys/gnark/constraint"
+	cs "github.com/consensys/gnark/constraint/bn254"
 	"github.com/consensys/gnark/frontend"
+	"github.com/consensys/gnark/frontend/cs/r1cs"
+	"github.com/consensys/gnark/frontend/cs/scs"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
-
 	"github.com/urfave/cli/v2"
 )
 
@@ -384,12 +383,11 @@ func exportInnerCircuit(ctx *cli.Context) error {
 			return err
 		}
 		innerCircuit := circuit.GetBatchEncryptionCircuit(fisBytes, encryptedFis)
-		innerCss, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, innerCircuit)
+		innerCss, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, innerCircuit)
 		if err != nil {
 			return err
 		}
-		r1CS := innerCss.(*cs.SparseR1CS)
-		err = helper.ExportCSS(r1CS, innerCSSPath+strconv.Itoa(batch))
+		err = helper.ExportCSS(innerCss, innerCSSPath+strconv.Itoa(batch))
 		if err != nil {
 			return err
 		}

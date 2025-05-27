@@ -4,13 +4,12 @@ import (
 	"crypto/sha256"
 	"os"
 
-	kzg_bn254 "github.com/consensys/gnark-crypto/ecc/bn254/kzg"
-	plonk_bn254 "github.com/consensys/gnark/backend/plonk/bn254"
-
 	"github.com/bane-labs/zk-dkg/mpc"
 	"github.com/consensys/gnark-crypto/ecc"
+	kzg_bn254 "github.com/consensys/gnark-crypto/ecc/bn254/kzg"
 	"github.com/consensys/gnark/backend"
 	"github.com/consensys/gnark/backend/plonk"
+	plonk_bn254 "github.com/consensys/gnark/backend/plonk/bn254"
 	"github.com/consensys/gnark/backend/witness"
 	"github.com/consensys/gnark/constraint"
 	cs "github.com/consensys/gnark/constraint/bn254"
@@ -96,7 +95,6 @@ func ReadPlonkProvingKey(path string, curveID ecc.ID) (plonk.ProvingKey, error) 
  * @param path: proving key file path
  */
 func ExportPlonkProvingKey(pk plonk.ProvingKey, path string) error {
-	//key := pk.(*plonk_bn254.ProvingKey)
 	file, err := os.Create(path)
 	if err != nil {
 		return err
@@ -135,7 +133,6 @@ func ReadPlonkVerifyingKey(path string, curveID ecc.ID) (plonk.VerifyingKey, err
  * @param path: verifying key file path
  */
 func ExportPlonkVerifyingKey(vk plonk.VerifyingKey, path string) error {
-	//key := vk.(*plonk_bn254.VerifyingKey)
 	file, err := os.Create(path)
 	if err != nil {
 		return err
@@ -193,9 +190,9 @@ func ExportContract(vk plonk.VerifyingKey, path string) error {
 		return err
 	}
 	defer contract.Close()
-	VK := vk.(*plonk_bn254.VerifyingKey)
+	//VK := vk.(*plonk_bn254.VerifyingKey)
 	//err = VK.ExportSolidity(contract, solidity.WithHashToFieldFunction(sha256.New()))
-	err = VK.ExportSolidity(contract)
+	err = vk.ExportSolidity(contract)
 	if err != nil {
 		return err
 	}
