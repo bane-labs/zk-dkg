@@ -1,7 +1,9 @@
 package zkdkg
 
 import (
+	"fmt"
 	"math/big"
+	"strconv"
 
 	"github.com/bane-labs/zk-dkg/circuit"
 	"github.com/bane-labs/zk-dkg/helper"
@@ -47,5 +49,10 @@ func ProveMultipleKeyShareEncryption(outerCss constraint.ConstraintSystem, outer
 	if err != nil {
 		return nil, nil, err
 	}
+	var temp = ""
+	for k := 0; k < len(sumHash); k++ {
+		temp = temp + "\"" + strconv.Itoa(int(sumHash[k])) + "\"" + ","
+	}
+	fmt.Println("public input is", temp)
 	return proof, witness, nil
 }

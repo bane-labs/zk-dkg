@@ -2,10 +2,11 @@ package zkdkg
 
 import (
 	crypto_rand "crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"math/rand"
+	"strconv"
 	"testing"
 	"time"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc"
 	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1"
-	"github.com/consensys/gnark/backend"
 	"github.com/consensys/gnark/backend/plonk"
 	"github.com/consensys/gnark/test"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -24,7 +24,7 @@ import (
 func TestBatchEncryptionWithMPC(t *testing.T) {
 	assert := test.NewAssert(t)
 	// To demo send N fragements to N nodes, N=batch
-	var batch = 1
+	var batch = 7
 	// Generate node private key
 	source := rand.NewSource(time.Now().UnixNano())
 	rand := rand.New(source)
@@ -50,9 +50,9 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 		t.Logf("Share message: %s", hex.EncodeToString(messages[i]))
 	}
 	// Read files
-	innerCSSPath := "inner_ccs"
-	innerPKPath := "inner_pk"
-	innerVKPath := "inner_vk"
+	innerCSSPath := "inner_ccs_" + strconv.Itoa(batch)
+	innerPKPath := "inner_pk_" + strconv.Itoa(batch)
+	innerVKPath := "inner_vk_" + strconv.Itoa(batch)
 	innerCSS, err := helper.ReadCSS(innerCSSPath)
 	assert.NoError(err)
 	innerPK, err := helper.ReadPlonkProvingKey(innerPKPath, ecc.BN254)
@@ -73,23 +73,25 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 	// Compute proof
 	proof, witness, err := ProveMultipleKeyShareEncryption(outerCSS, outerPK, innerCSS, innerPK, innerVK, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
 	assert.NoError(err)
-
 	// Verify proof
 	publicWitness, err := witness.Public()
 	assert.NoError(err)
-	err = plonk.Verify(proof, outerVK, publicWitness, backend.WithVerifierHashToFieldFunction(sha256.New()))
+	err = plonk.Verify(proof, outerVK, publicWitness)
 	assert.NoError(err)
+	output := helper.GetContractInput(proof)
+	fmt.Println("Plonk proof is", "0x"+hex.EncodeToString(output))
 }
 
 func TestTwoRecoverMessageGeneration(t *testing.T) {
 	assert := test.NewAssert(t)
 	// Generate node private key
+	var batch = 2
 	source := rand.NewSource(time.Now().UnixNano())
 	rand := rand.New(source)
 	// Compute public key
-	fis := make([]*fr_bls12381.Element, 2)
-	pubKeys := make([]*ecies.PublicKey, 2)
-	for i := 0; i < 2; i++ {
+	fis := make([]*fr_bls12381.Element, batch)
+	pubKeys := make([]*ecies.PublicKey, batch)
+	for i := 0; i < batch; i++ {
 		key, err := ecies.GenerateKey(rand, crypto.S256(), nil)
 		assert.NoError(err)
 		pubKeys[i] = &key.PublicKey
@@ -108,13 +110,13 @@ func TestTwoRecoverMessageGeneration(t *testing.T) {
 	fisBytes, fisInts, bigFis, nonces, encryptedFis, rs, bigRs, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
 	assert.NoError(err)
 	messages := encodeMessages(encryptedFis, bigRs, nonces)
-	for i := 0; i < 2; i++ {
+	for i := 0; i < batch; i++ {
 		t.Logf("Share message: %s", hex.EncodeToString(messages[i]))
 	}
 	// Read files
-	innerCSSPath := "inner_ccs"
-	innerPKPath := "inner_pk"
-	innerVKPath := "inner_vk"
+	innerCSSPath := "inner_ccs_" + strconv.Itoa(batch)
+	innerPKPath := "inner_pk_" + strconv.Itoa(batch)
+	innerVKPath := "inner_vk_" + strconv.Itoa(batch)
 	innerCSS, err := helper.ReadCSS(innerCSSPath)
 	assert.NoError(err)
 	innerPK, err := helper.ReadPlonkProvingKey(innerPKPath, ecc.BN254)
@@ -138,25 +140,8 @@ func TestTwoRecoverMessageGeneration(t *testing.T) {
 	// Verify proof
 	publicWitness, err := witness.Public()
 	assert.NoError(err)
-	err = plonk.Verify(proof, outerVK, publicWitness, backend.WithVerifierHashToFieldFunction(sha256.New()))
+	err = plonk.Verify(proof, outerVK, publicWitness)
 	assert.NoError(err)
-	// Output proof data
-	/*	proofData, cmts, cmtPok := helper.GetContractInput(proof)
-		// proof.Ar, proof.Bs, proof.Krs
-		t.Log("Proof:")
-		for i := 0; i < 8; i++ {
-			t.Log(proofData[i].String())
-		}
-		// commitments
-		t.Log("Commitments:")
-		for i := 0; i < len(cmts); i++ {
-			t.Log(cmts[i].String())
-		}
-		// commitmentPok
-		t.Log("CommitmentPok:")
-		for i := 0; i < len(cmtPok); i++ {
-			t.Log(cmtPok[i].String())
-		}*/
 }
 
 func randScalar() *big.Int {

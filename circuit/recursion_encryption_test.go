@@ -1,6 +1,8 @@
 package circuit
 
 import (
+	"encoding/hex"
+	"fmt"
 	"math/big"
 	"math/rand"
 	"os"
@@ -28,8 +30,8 @@ import (
 
 func TestRecursionEncryptionCircuit(t *testing.T) {
 	assert := test.NewAssert(t)
-	innerVKIDs := []int{1, 2}
-	MaxBatchIDIndex := 1
+	innerVKIDs := []int{1, 2, 7}
+	MaxBatchIDIndex := len(innerVKIDs) - 1
 	td := make([]Tempdata, len(innerVKIDs))
 	for j := 0; j < len(innerVKIDs); j++ {
 		batch := innerVKIDs[j]
@@ -56,26 +58,26 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 	innerCSSs := make([]constraint.ConstraintSystem, len(innerVKIDs))
 	innerPKs := make([]plonk.ProvingKey, len(innerVKIDs))
 	innerVKs := make([]plonk.VerifyingKey, len(innerVKIDs))
-	srsPath := "inner_srs_2"
+	srsPath := "srs_2"
 	if _, err := os.Stat(srsPath); err != nil {
 		circuit := GetBatchEncryptionCircuit(td[MaxBatchIDIndex].data1, td[MaxBatchIDIndex].data5)
 		css, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, circuit)
 		require.NoError(t, err)
-		err = mockSRCMPC("inner_srs_", css, 2)
+		err = mockSRCMPC("srs_", css, 2)
 		if err != nil {
 			require.NoError(t, err)
 		}
 	}
 
 	for j := 0; j < len(innerVKIDs); j++ {
-		innerCSSPath := strconv.Itoa(innerVKIDs[j]) + "_" + "inner_ccs"
-		innerPKPath := strconv.Itoa(innerVKIDs[j]) + "_" + "inner_pk"
-		innerVKPath := strconv.Itoa(innerVKIDs[j]) + "_" + "inner_vk"
+		innerCSSPath := "inner_ccs_" + strconv.Itoa(innerVKIDs[j])
+		innerPKPath := "inner_pk_" + strconv.Itoa(innerVKIDs[j])
+		innerVKPath := "inner_vk_" + strconv.Itoa(innerVKIDs[j])
 		if _, err := os.Stat(innerCSSPath); err != nil {
 			circuit := GetBatchEncryptionCircuit(td[j].data1, td[j].data5)
 			css, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, circuit)
 			require.NoError(t, err)
-			_, _, err = mockSeal(strconv.Itoa(innerVKIDs[j])+"_"+"inner_", css, srsPath)
+			_, _, err = mockSeal("inner_", css, srsPath, innerVKIDs[j])
 			if err != nil {
 				require.NoError(t, err)
 			}
@@ -100,25 +102,25 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 	}
 	outerAssignment, err := ComputeRecursionEncryptionAssignment(ecc.BN254.ScalarField(), ecc.BN254.ScalarField(), innerVKIDs[MaxBatchIDIndex], innerCSSs[MaxBatchIDIndex], innerPKs[MaxBatchIDIndex], innerVKs[MaxBatchIDIndex], innerAssignments, rawSumHash)
 	require.NoError(t, err)
-	err = test.IsSolved(outerCircuit, outerAssignment, ecc.BN254.ScalarField())
-	if err != nil {
-		panic(err)
-	}
-	/*outerCSSPath := "outer_ccs"
+	/*	err = test.IsSolved(outerCircuit, outerAssignment, ecc.BN254.ScalarField())
+		if err != nil {
+			panic(err)
+		}*/
+	outerCSSPath := "outer_ccs"
 	outerPKPath := "outer_pk"
 	outerVKPath := "outer_vk"
 	//outerContract := "outer_contract.sol"
 	if _, err := os.Stat(outerCSSPath); err != nil {
-		mockouterCcs, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, outerCircuit)
+		mockOuterCcs, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, outerCircuit)
 		require.NoError(t, err)
-		_, _, err = mockSRCMPC_BLS12381("outer_", mockouterCcs, 2)
+		_, _, err = mockOuterSeal("outer_", mockOuterCcs, srsPath)
 		require.NoError(t, err)
 	}
 	outerCSS, err := helper.ReadCSS(outerCSSPath)
 	require.NoError(t, err)
-	outerPK, err := helper.ReadPlonkProvingKey(outerPKPath)
+	outerPK, err := helper.ReadPlonkProvingKey(outerPKPath, ecc.BN254)
 	require.NoError(t, err)
-	outerVK, err := helper.ReadPlonkVerifyingKey(outerVKPath)
+	outerVK, err := helper.ReadPlonkVerifyingKey(outerVKPath, ecc.BN254)
 	require.NoError(t, err)
 
 	witness, err := frontend.NewWitness(outerAssignment, ecc.BN254.ScalarField())
@@ -136,7 +138,7 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 		temp = temp + "\"" + strconv.Itoa(int(sumHash[k])) + "\"" + ","
 	}
 	fmt.Println("public input is", temp)
-	fmt.Println("Plonk proof is", "0x"+hex.EncodeToString(output))*/
+	fmt.Println("Plonk proof is", "0x"+hex.EncodeToString(output))
 }
 
 type Tempdata struct {
@@ -188,7 +190,7 @@ func mockSRCMPC(prefix string, ccs constraint.ConstraintSystem, nContributions i
 	return nil
 }
 
-func mockSeal(prefix string, ccs constraint.ConstraintSystem, srsPath string) (pk plonk.ProvingKey, vk plonk.VerifyingKey, err error) {
+func mockSeal(prefix string, ccs constraint.ConstraintSystem, srsPath string, innerVKID int) (pk plonk.ProvingKey, vk plonk.VerifyingKey, err error) {
 	scs := ccs.(*cs.SparseR1CS)
 	srsSize, lagrange := plonk.SRSSize(scs)
 	p := kzg_bn254.InitializeSetup(srsSize)
@@ -197,7 +199,43 @@ func mockSeal(prefix string, ccs constraint.ConstraintSystem, srsPath string) (p
 	if err != nil {
 		return nil, nil, err
 	}
-	srs := p.Seal([]byte("test"))
+	srs := p.Seal([]byte("beacon SRS"))
+	srsLagrange := &kzg_bn254.SRS{Vk: srs.Vk}
+	srsLagrange.Pk.G1, err = kzg_bn254.ToLagrangeG1(srs.Pk.G1[:lagrange])
+	if err != nil {
+		return nil, nil, err
+	}
+	p1, v1, err := plonk.Setup(ccs, &srs, srsLagrange)
+	if err != nil {
+		return nil, nil, err
+	}
+	pk = p1.(*plonk_bn254.ProvingKey)
+	vk = v1.(*plonk_bn254.VerifyingKey)
+	err = helper.ExportPlonkProvingKey(pk, prefix+"pk_"+strconv.Itoa(innerVKID))
+	if err != nil {
+		return nil, nil, err
+	}
+	err = helper.ExportPlonkVerifyingKey(vk, prefix+"vk_"+strconv.Itoa(innerVKID))
+	if err != nil {
+		return nil, nil, err
+	}
+	err = helper.ExportCSS(ccs, prefix+"ccs_"+strconv.Itoa(innerVKID))
+	if err != nil {
+		return nil, nil, err
+	}
+	return pk, vk, nil
+}
+
+func mockOuterSeal(prefix string, ccs constraint.ConstraintSystem, srsPath string) (pk plonk.ProvingKey, vk plonk.VerifyingKey, err error) {
+	scs := ccs.(*cs.SparseR1CS)
+	srsSize, lagrange := plonk.SRSSize(scs)
+	p := kzg_bn254.InitializeSetup(srsSize)
+	file, err := os.Open(srsPath)
+	_, err = p.ReadFrom(file)
+	if err != nil {
+		return nil, nil, err
+	}
+	srs := p.Seal([]byte("beacon SRS"))
 	srsLagrange := &kzg_bn254.SRS{Vk: srs.Vk}
 	srsLagrange.Pk.G1, err = kzg_bn254.ToLagrangeG1(srs.Pk.G1[:lagrange])
 	if err != nil {

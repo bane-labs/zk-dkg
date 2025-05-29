@@ -22,12 +22,12 @@ type RecursionEncryptionWrapper[FR emulated.FieldParams, G1El algebra.G1ElementT
 }
 
 // Define declares the circuit's constraints
+// Need check batch==VerifyingID[index] outside
 func (c *RecursionEncryptionWrapper[FR, G1El, G2El, GtEl]) Define(api frontend.API) error {
 	field, err := emulated.NewField[FR](api)
 	if err != nil {
 		return err
 	}
-	flag := true
 	var i int
 	for i = 0; i < len(c.VerifyingID); i++ {
 		if c.Batch == c.VerifyingID[i] {
@@ -51,11 +51,7 @@ func (c *RecursionEncryptionWrapper[FR, G1El, G2El, GtEl]) Define(api frontend.A
 			for i := 0; i < len(innerhash); i++ {
 				api.AssertIsEqual(innerhash[i].Val, c.SumHash[i])
 			}
-			flag = false
 		}
-	}
-	if flag {
-		return fmt.Errorf("inner circuit verify fault: can not find inner verify key")
 	}
 	return nil
 }
