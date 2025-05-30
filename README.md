@@ -16,30 +16,21 @@ A zero knowledge library for Neo X's Anti-MEV key generation in Geth node.
 - Proof generation: `ComputeProof`;
 - Export Solidity contracts: `ExportContract`;
 - Export contracts inputs: `GetOutputData`;
-- MPC parameter reader: `GetInitParamsFromExistedMPCSetUp`.
+- MPC parameter reader: `GetKeysFromExistedPlonkSetUp`.
 
 For easy of use, `zkdkg` provides:
-- Compute a zk proof and witness for single DKG key share encryption: `ProveSingleKeyShareEncryption`;
 - Compute a zk proof and witness for a batch of DKG key share encryption: `ProveMultipleKeyShareEncryption`.
 
 ## Examples
-- Single proof: `TestECIESCircuit` and `TestECIESWithMPC`;
-- Batch proof: `TestBatchEncryptionCircuit` and `TestBatchEncryptionWithMPC`.
+- Batch proof: `TestRecursionEncryptionCircuit`.
 
 ## MPC usage process
-Stage one:
-1) `go run mpccmd.go phase1 init --output <phase1 file path>`,this command is used to generate the phase1 initial file
-2) `go run mpccmd.go phase1 contribute --input <prev phase1 file path> --output <curr phase1 file path>`,this command is used by participants in this round to calculate phase1 data
-3) `go run mpccmd.go phase1 verify --input <prev phase1 file path> --output <curr phase1 file path>`,this command is used by other participants to verify phase1 data
+1) `go run mpccmd.go export innerCircuit --inner-css <filesprefix>`,this command is used to generate inner ccs files,and 3 files will be generated.
+2) `go run mpccmd.go CommonSRS init --inner-css <filepath> --srs <filepath>`,this command is used to generate initial srs file.
+3) `go run mpccmd.go CommonSRS checkInit --inner-css <filepath> --srs <filepath>`,this command is used to check the legality of initial srs file.
+4) `go run mpccmd.go CommonSRS contribute --inner-css <filepath> --input <filepath> --output <filepath>`,this command is used by participants in this round to calculate srs data
+5) `go run mpccmd.go CommonSRS verify --inner-css <filepath> --input <filepath> --output <filepath>`,this command is used by other participants to verify srs data
+6) `go run mpccmd.go export innerSeal --srs <filepath> --inner-css <filesprefix> --inner-pk <outputpath> --inner-vk <outputpath>`,this command is used to generate inner pk and vk files.
+7) `go run mpccmd.go xport outerSeal --srs <filepath> --inner-css <filesprefix> --inner-pk <filesprefix> --inner-vk <filesprefix> --outer-css <outputpath> --outer-pk <outputpath> --outer-vk <outputpath> --contract <outputpath>`,this command is used to generate outer ccs ,pk and vk files
 
-Repeat steps 2-3 in a loop until all participants complete the calculation and verification work of phase1.
-
-Stage two:
-1) `go run mpccmd.go phase2 init --input <phase1 file path> --output <phase2 file path> --batch <batch size>`,this command is used to generate the phase2 initial file
-2) `go run mpccmd.go phase2 contribute --input <prev phase2 file path> --output <curr phase2 file path>`,this command is used by participants in this round to calculate phase2 data
-3) `go run mpccmd.go phase2 verify --input <prev phase2 file path> --output <curr phase2 file path>`,this command is used by other participants to verify phase2 data
-
-Repeat steps 2-3 in a loop until all participants complete the calculation and verification work of phase2.
-
-Export contract:
-- `go run mpccmd.go contract export --phase1file <phase1 file path> --phase2file <phase2 file path> --batch <batch size> --contract <verify-contract file path>`,this command is used to export verification contracts after mpc has completed
+Repeat steps 2-5 in a loop until all participants complete the calculation and verification work of srs.
