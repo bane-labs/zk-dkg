@@ -31,6 +31,6 @@ For easy of use, `zkdkg` provides:
 4) `go run mpccmd.go CommonSRS contribute --inner-css <filepath> --input <filepath> --output <filepath>`,this command is used by participants in this round to calculate srs data
 5) `go run mpccmd.go CommonSRS verify --inner-css <filepath> --input <filepath> --output <filepath>`,this command is used by other participants to verify srs data
 6) `go run mpccmd.go export innerSeal --srs <filepath> --inner-css <filesprefix> --inner-pk <outputpath> --inner-vk <outputpath>`,this command is used to generate inner pk and vk files.
-7) `go run mpccmd.go xport outerSeal --srs <filepath> --inner-css <filesprefix> --inner-pk <filesprefix> --inner-vk <filesprefix> --outer-css <outputpath> --outer-pk <outputpath> --outer-vk <outputpath> --contract <outputpath>`,this command is used to generate outer ccs ,pk and vk files
+7) `go run mpccmd.go export outerSeal --srs <filepath> --inner-css <filesprefix> --inner-pk <filesprefix> --inner-vk <filesprefix> --outer-css <outputpath> --outer-pk <outputpath> --outer-vk <outputpath> --contract <outputpath>`,this command is used to generate outer ccs ,pk and vk files
 
 Repeat steps 2-5 in a loop until all participants complete the calculation and verification work of srs.

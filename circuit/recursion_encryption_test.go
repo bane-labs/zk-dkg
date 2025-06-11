@@ -61,9 +61,9 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 	srsPath := "srs_2"
 	if _, err := os.Stat(srsPath); err != nil {
 		circuit := GetBatchEncryptionCircuit(td[MaxBatchIDIndex].data1, td[MaxBatchIDIndex].data5)
-		css, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, circuit)
+		ccs, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, circuit)
 		require.NoError(t, err)
-		err = mockSRCMPC("srs_", css, 2)
+		err = mockSRCMPC("srs_", ccs, 2)
 		if err != nil {
 			require.NoError(t, err)
 		}
