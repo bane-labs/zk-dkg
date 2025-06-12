@@ -31,7 +31,7 @@ import (
 func TestRecursionEncryptionCircuit(t *testing.T) {
 	assert := test.NewAssert(t)
 	innerVKIDs := []int{1, 2, 7}
-	MaxBatchIDIndex := 1
+	MaxBatchIDIndex := len(innerVKIDs) - 1
 	td := make([]Tempdata, len(innerVKIDs))
 	for j := 0; j < len(innerVKIDs); j++ {
 		batch := innerVKIDs[j]

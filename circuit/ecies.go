@@ -20,7 +20,7 @@ type ECIESWrapper[T1, S1, T2, S2 emulated.FieldParams] struct {
 	Pub    sw_emulated.AffinePoint[T1] `gnark:",secret"`
 	RPub   sw_emulated.AffinePoint[T1] `gnark:",secret"`
 
-	PlainChunks  []frontend.Variable   `gnark:",secret"`
+	//PlainChunks  []frontend.Variable   `gnark:",secret"`
 	Iv           [12]frontend.Variable `gnark:",secret"`
 	ChunkIndex   frontend.Variable     `gnark:",secret"`
 	CipherChunks []frontend.Variable   `gnark:",secret"`
