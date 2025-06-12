@@ -5,3 +5,6 @@
 */*.pk
 */*.vk
 */*.ccs
+inner_*
+outer_*
+srs_*
