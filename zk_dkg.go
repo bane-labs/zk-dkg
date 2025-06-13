@@ -20,7 +20,7 @@ import (
 /**
  * Function: ProveMultipleKeyShareEncryption
  * @Description: generate a zk proof of a key share batch generating process
- * @param css: compiled circuit constraint system
+ * @param ccs: compiled circuit constraint system
  * @param provingKey: proving key used for proof encryption
  * @param pubKey: a set of public keys used for key share encryption
  * @param rs: a set of the integer format of random numbers
@@ -34,18 +34,18 @@ import (
  * @return witness: witness of zk proof
  * @return err:
  */
-func ProveMultipleKeyShareEncryption(outerCss constraint.ConstraintSystem, outerProvingKey plonk.ProvingKey, innerCcss constraint.ConstraintSystem, innerPKs plonk.ProvingKey, innerVKs plonk.VerifyingKey, pubKey []*ecies.PublicKey, rs []*big.Int, bigRs []*secp256k1.G1Affine, fisInts []*big.Int, bigFis []*bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) (plonk.Proof, witness.Witness, error) {
+func ProveMultipleKeyShareEncryption(outerCCS constraint.ConstraintSystem, outerProvingKey plonk.ProvingKey, innerCccs constraint.ConstraintSystem, innerPKs plonk.ProvingKey, innerVKs plonk.VerifyingKey, pubKey []*ecies.PublicKey, rs []*big.Int, bigRs []*secp256k1.G1Affine, fisInts []*big.Int, bigFis []*bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) (plonk.Proof, witness.Witness, error) {
 	batch := len(pubKey)
 	innerAssignment, sumHash := circuit.ComputeMultipleKeyShareEncryptionAssignment(batch, pubKey, rs, bigRs, fisInts, bigFis, encryptedFis, nonces)
 	rawSumHash := make([]frontend.Variable, len(sumHash))
 	for i := 0; i < len(sumHash); i++ {
 		rawSumHash[i] = sumHash[i]
 	}
-	outerAssignment, err := circuit.ComputeRecursionEncryptionAssignment(ecc.BN254.ScalarField(), ecc.BN254.ScalarField(), batch, innerCcss, innerPKs, innerVKs, innerAssignment, rawSumHash)
+	outerAssignment, err := circuit.ComputeRecursionEncryptionAssignment(ecc.BN254.ScalarField(), ecc.BN254.ScalarField(), batch, innerCccs, innerPKs, innerVKs, innerAssignment, rawSumHash)
 	if err != nil {
 		return nil, nil, err
 	}
-	proof, witness, err := helper.ComputeProof(outerCss, outerProvingKey, outerAssignment)
+	proof, witness, err := helper.ComputeProof(outerCCS, outerProvingKey, outerAssignment)
 	if err != nil {
 		return nil, nil, err
 	}

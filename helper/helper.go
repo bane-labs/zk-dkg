@@ -19,7 +19,7 @@ import (
 /**
  * Function: ComputeProof
  * @Description: a general zk proof calculation method
- * @param css: circuit constraints
+ * @param ccs: circuit constraints
  * @param pk: proving key
  * @param assignment: input data collection
  * @return proof: zk proof
@@ -150,16 +150,16 @@ func ExportPlonkVerifyingKey(vk plonk.VerifyingKey, path string) error {
  * @param path: r1cs file path
  */
 func ReadCCS(path string) (constraint.ConstraintSystem, error) {
-	css := new(cs.SparseR1CS)
+	ccs := new(cs.SparseR1CS)
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	_, err = css.ReadFrom(file)
+	_, err = ccs.ReadFrom(file)
 	if err != nil {
 		return nil, err
 	}
-	return css, nil
+	return ccs, nil
 }
 
 /**
@@ -167,12 +167,12 @@ func ReadCCS(path string) (constraint.ConstraintSystem, error) {
  * @Description: export r1cs file
  * @param ccs: r1cs
  */
-func ExportCCS(css constraint.ConstraintSystem, path string) error {
+func ExportCCS(ccs constraint.ConstraintSystem, path string) error {
 	file, err := os.Create(path)
 	if err != nil {
 		return err
 	}
-	_, err = css.WriteTo(file)
+	_, err = ccs.WriteTo(file)
 	if err != nil {
 		return err
 	}
