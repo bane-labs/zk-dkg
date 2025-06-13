@@ -31,11 +31,10 @@ func TestECIESCircuit(t *testing.T) {
 	assert.NoError(err)
 	// Verify circuit
 	circuit := ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
-		PlainChunks:  make([]frontend.Variable, len(fiBytes)),
 		CipherChunks: make([]frontend.Variable, len(encryptedFi)),
 		PubInputHash: make([]frontend.Variable, 32),
 	}
-	parameters, hashes := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, bigR, fiBytes, fiInt, bigFi, encryptedFi, nonce)
+	parameters, hashes := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, bigR, fiInt, bigFi, encryptedFi, nonce)
 	rawSumHash := make([]frontend.Variable, len(hashes))
 	for i := 0; i < len(hashes); i++ {
 		rawSumHash[i] = hashes[i]
@@ -45,7 +44,6 @@ func TestECIESCircuit(t *testing.T) {
 		BigR:         parameters.BigR,
 		Pub:          parameters.Pub,
 		RPub:         parameters.RPub,
-		PlainChunks:  parameters.PlainChunks,
 		Iv:           parameters.Iv,
 		ChunkIndex:   parameters.ChunkIndex,
 		CipherChunks: parameters.CipherChunks,
@@ -73,13 +71,12 @@ func TestECIESWithMPC(t *testing.T) {
 	assert.NoError(err)
 	// Compute proof
 	circuit := ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
-		PlainChunks:  make([]frontend.Variable, len(fiBytes)),
 		CipherChunks: make([]frontend.Variable, len(encryptedFi)),
 		PubInputHash: make([]frontend.Variable, 32),
 	}
 	_, err = frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
 	assert.NoError(err)
-	parameters, hashes := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, bigR, fiBytes, fiInt, bigFi, encryptedFi, nonce)
+	parameters, hashes := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, bigR, fiInt, bigFi, encryptedFi, nonce)
 	rawSumHash := make([]frontend.Variable, len(hashes))
 	for i := 0; i < len(hashes); i++ {
 		rawSumHash[i] = hashes[i]
@@ -89,7 +86,6 @@ func TestECIESWithMPC(t *testing.T) {
 		BigR:         parameters.BigR,
 		Pub:          parameters.Pub,
 		RPub:         parameters.RPub,
-		PlainChunks:  parameters.PlainChunks,
 		Iv:           parameters.Iv,
 		ChunkIndex:   parameters.ChunkIndex,
 		CipherChunks: parameters.CipherChunks,

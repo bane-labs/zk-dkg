@@ -32,7 +32,7 @@ const (
 	DefaultCSSFilesPrefix   = "ccs_"
 	DefaultPKFilePrefix     = "pk_"
 	DefaultVKFilePrefix     = "vk_"
-	DefaultCSSFileName      = "ccs"
+	DefaultCCSFileName      = "ccs"
 	DefaultSRSFileName      = "srs"
 	DefaultPKFileName       = "pk"
 	DefaultVKFileName       = "vk"
@@ -244,7 +244,7 @@ func initPlonkSRS(ctx *cli.Context) error {
 	if srsPath == "" {
 		srsPath = DefaultSRSFilePrefix + strconv.Itoa(1)
 	}
-	MaxSizeCSS, err := helper.ReadCSS(MaxSizeCSSPath)
+	MaxSizeCSS, err := helper.ReadCCS(MaxSizeCSSPath)
 	if err != nil {
 		return err
 	}
@@ -274,7 +274,7 @@ func verifyInitPlonkSRS(ctx *cli.Context) error {
 	if srsPath == "" {
 		return errors.New("invalid outer SRS path")
 	}
-	css, err := helper.ReadCSS(MaxSizeCSSPath)
+	css, err := helper.ReadCCS(MaxSizeCSSPath)
 	if err != nil {
 		return err
 	}
@@ -305,7 +305,7 @@ func verifyPlonkSRS(ctx *cli.Context) error {
 	if curPath == "" {
 		return errors.New("invalid current outer SRS path")
 	}
-	css, err := helper.ReadCSS(MaxSizeCSSPath)
+	css, err := helper.ReadCCS(MaxSizeCSSPath)
 	if err != nil {
 		return err
 	}
@@ -334,7 +334,7 @@ func contributePlonkSRS(ctx *cli.Context) error {
 	if outputPath == "" {
 		outputPath = DefaultOuterFilePrefix + DefaultSRSFileName + "_new"
 	}
-	css, err := helper.ReadCSS(MaxSizeCSSPath)
+	css, err := helper.ReadCCS(MaxSizeCSSPath)
 	if err != nil {
 		return err
 	}
@@ -377,16 +377,16 @@ func exportInnerCircuit(ctx *cli.Context) error {
 			}
 			fis[i] = fi
 		}
-		fisBytes, _, _, _, encryptedFis, _, _, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
+		_, _, _, encryptedFis, _, _, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
 		if err != nil {
 			return err
 		}
-		innerCircuit := circuit.GetBatchEncryptionCircuit(fisBytes, encryptedFis)
+		innerCircuit := circuit.GetBatchEncryptionCircuit(encryptedFis)
 		innerCss, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, innerCircuit)
 		if err != nil {
 			return err
 		}
-		err = helper.ExportCSS(innerCss, innerCSSPath+strconv.Itoa(batch))
+		err = helper.ExportCCS(innerCss, innerCSSPath+strconv.Itoa(batch))
 		if err != nil {
 			return err
 		}
@@ -414,7 +414,7 @@ func exportInnerSeal(ctx *cli.Context) error {
 	}
 
 	for i := 0; i < len(InnerVKIDs); i++ {
-		innerCss, err := helper.ReadCSS(innerCSSPath + strconv.Itoa(InnerVKIDs[i]))
+		innerCss, err := helper.ReadCCS(innerCSSPath + strconv.Itoa(InnerVKIDs[i]))
 		if err != nil {
 			return err
 		}
@@ -456,7 +456,7 @@ func exportOuterSeal(ctx *cli.Context) error {
 
 	outerCSSPath := ctx.Path(outerCSSFileFlag.Name)
 	if outerCSSPath == "" {
-		outerCSSPath = DefaultOuterFilePrefix + DefaultCSSFileName
+		outerCSSPath = DefaultOuterFilePrefix + DefaultCCSFileName
 	}
 	outerPKPath := ctx.Path(outerPkFileFlag.Name)
 	if outerPKPath == "" {
@@ -476,7 +476,7 @@ func exportOuterSeal(ctx *cli.Context) error {
 	innerPKs := make([]plonk.ProvingKey, len(InnerVKIDs))
 	innerVKs := make([]plonk.VerifyingKey, len(InnerVKIDs))
 	for i := 0; i < len(InnerVKIDs); i++ {
-		innerCSS, err := helper.ReadCSS(innerCSSPath + strconv.Itoa(InnerVKIDs[i]))
+		innerCSS, err := helper.ReadCCS(innerCSSPath + strconv.Itoa(InnerVKIDs[i]))
 		if err != nil {
 			return err
 		}
@@ -504,7 +504,7 @@ func exportOuterSeal(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	err = helper.ExportCSS(outerCSS, outerCSSPath)
+	err = helper.ExportCCS(outerCSS, outerCSSPath)
 	if err != nil {
 		return err
 	}

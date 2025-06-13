@@ -19,7 +19,6 @@ type ECIESParameters[T1, S1, T2, S2 emulated.FieldParams] struct {
 	Pub    sw_emulated.AffinePoint[T1]
 	RPub   sw_emulated.AffinePoint[T1]
 
-	PlainChunks  []frontend.Variable
 	Iv           [12]frontend.Variable
 	ChunkIndex   frontend.Variable
 	CipherChunks []frontend.Variable
@@ -37,7 +36,6 @@ func (c *BatchEncryptionWrapper[T1, S1, T2, S2]) Define(api frontend.API) error 
 		bigR := account.BigR
 		pub := account.Pub
 		rPub := account.RPub
-		//plainChunks := account.PlainChunks[:]
 		iv := account.Iv
 		chunkIndex := account.ChunkIndex
 		cipherChunks := account.CipherChunks[:]

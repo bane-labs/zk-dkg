@@ -27,7 +27,6 @@ import (
  * @Description: encrypt a batch of key shares and return related data
  * @param pubs: a set of public keys required for ecies encryption
  * @param fis: a set of key shares to be encrypted
- * @return fisBytes: a set of key shares, each in a byte array
  * @return fisInts: the key shares in integers
  * @return bigFis: the bls12381 commitments of the key shares
  * @return nonces: a set of salts
@@ -36,7 +35,7 @@ import (
  * @return bigRs: a set of the corresponding bls12381 commitment of random number
  * @return err: error
  */
-func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []*fr_bls12381.Element) ([][]byte, []*big.Int, []*bls12381.G1Affine, [][]byte, [][]byte, []*big.Int, []*secp256k1.G1Affine, error) {
+func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []*fr_bls12381.Element) ([]*big.Int, []*bls12381.G1Affine, [][]byte, [][]byte, []*big.Int, []*secp256k1.G1Affine, error) {
 	amount := len(pubs)
 	fisBytes := make([][]byte, amount)
 	fisInts := make([]*big.Int, amount)
@@ -50,10 +49,10 @@ func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []*fr_bls12381.Eleme
 		fisBytes[i], fisInts[i], bigFis[i] = transformKeyShare(fis[i])
 		nonces[i], encryptedFis[i], rs[i], bigRs[i], err = encryptKeyShare(pubs[i], fisBytes[i])
 		if err != nil {
-			return nil, nil, nil, nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, nil, err
 		}
 	}
-	return fisBytes, fisInts, bigFis, nonces, encryptedFis, rs, bigRs, nil
+	return fisInts, bigFis, nonces, encryptedFis, rs, bigRs, nil
 }
 
 /**
@@ -62,7 +61,6 @@ func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []*fr_bls12381.Eleme
  * @param pubKey: public key used for key share encryption
  * @param r: the integer format of random number
  * @param bigR: the corresponding elliptic curve point of random number
- * @param fiBytes: the key share in a byte array
  * @param fiInt: the integer format of the key share
  * @param bigFi: the bls12381 commitment of the key share
  * @param encryptedFi: the encrypted key
@@ -72,12 +70,9 @@ func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []*fr_bls12381.Eleme
  * @return assignment: input data collection
  * @return err: error
  */
-func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r *big.Int, bigR *secp256k1.G1Affine, fiBytes []byte, fiInt *big.Int, bigFi *bls12381.G1Affine, encryptedFi []byte, nonce []byte) (ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte) {
+func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r *big.Int, bigR *secp256k1.G1Affine, fiInt *big.Int, bigFi *bls12381.G1Affine, encryptedFi []byte, nonce []byte) (ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte) {
 	// Format data
-	plainChunksBytes := make([]frontend.Variable, len(fiBytes))
-	for i := 0; i < len(fiBytes); i++ {
-		plainChunksBytes[i] = fiBytes[i]
-	}
+
 	ciphertextBytes := make([]frontend.Variable, len(encryptedFi))
 	for i := 0; i < len(encryptedFi); i++ {
 		ciphertextBytes[i] = encryptedFi[i]
@@ -113,7 +108,6 @@ func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r *big.I
 			X: emulated.ValueOf[emulated.Secp256k1Fp](rPub.X),
 			Y: emulated.ValueOf[emulated.Secp256k1Fp](rPub.Y),
 		},
-		PlainChunks:  plainChunksBytes,
 		Iv:           nonceBytes,
 		ChunkIndex:   2,
 		CipherChunks: ciphertextBytes,
@@ -129,11 +123,11 @@ func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r *big.I
 
 // ComputeMultipleKeyShareEncryptionAssignment loops and computes an assignment array for several key share
 // encryption jobs. And it also returns the sum hash of all assignments.
-func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.PublicKey, rs []*big.Int, bigRs []*secp256k1.G1Affine, fisBytes [][]byte, fisInts []*big.Int, bigFis []*bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) (*BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte) {
+func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.PublicKey, rs []*big.Int, bigRs []*secp256k1.G1Affine, fisInts []*big.Int, bigFis []*bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) (*BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte) {
 	Parameters := make([]ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], batch)
 	innerhashes := make([][]byte, batch)
 	for i := 0; i < batch; i++ {
-		Parameters[i], innerhashes[i] = ComputeSingleKeyShareEncryptionAssignment(pubKey[i], rs[i], bigRs[i], fisBytes[i], fisInts[i], bigFis[i], encryptedFis[i], nonces[i])
+		Parameters[i], innerhashes[i] = ComputeSingleKeyShareEncryptionAssignment(pubKey[i], rs[i], bigRs[i], fisInts[i], bigFis[i], encryptedFis[i], nonces[i])
 	}
 	// Compute sum hash
 	sumhash := make([]byte, 0)
@@ -203,14 +197,13 @@ func ComputeInnerProof(field, outer *big.Int, innerCcs constraint.ConstraintSyst
 }
 
 // GetBatchEncryptionCircuit returns a circuit for a single key share encryption.
-func GetBatchEncryptionCircuit(fisBytes [][]byte, encryptedFis [][]byte) *BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr] {
-	batch := len(fisBytes)
+func GetBatchEncryptionCircuit(encryptedFis [][]byte) *BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr] {
+	batch := len(encryptedFis)
 	circuit := &BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
 		Parameters: make([]ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], batch),
 		SumHash:    make([]frontend.Variable, 32),
 	}
 	for i := 0; i < batch; i++ {
-		circuit.Parameters[i].PlainChunks = make([]frontend.Variable, len(fisBytes[i]))
 		circuit.Parameters[i].CipherChunks = make([]frontend.Variable, len(encryptedFis[i]))
 	}
 	return circuit

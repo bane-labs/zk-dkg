@@ -145,11 +145,11 @@ func ExportPlonkVerifyingKey(vk plonk.VerifyingKey, path string) error {
 }
 
 /**
- * Function: ReadCSS
+ * Function: ReadCCS
  * @Description: import r1cs file
  * @param path: r1cs file path
  */
-func ReadCSS(path string) (constraint.ConstraintSystem, error) {
+func ReadCCS(path string) (constraint.ConstraintSystem, error) {
 	css := new(cs.SparseR1CS)
 	file, err := os.Open(path)
 	if err != nil {
@@ -163,11 +163,11 @@ func ReadCSS(path string) (constraint.ConstraintSystem, error) {
 }
 
 /**
- * Function: ExportCSS
+ * Function: ExportCCS
  * @Description: export r1cs file
- * @param css: r1cs
+ * @param ccs: r1cs
  */
-func ExportCSS(css constraint.ConstraintSystem, path string) error {
+func ExportCCS(css constraint.ConstraintSystem, path string) error {
 	file, err := os.Create(path)
 	if err != nil {
 		return err

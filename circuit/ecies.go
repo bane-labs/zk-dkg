@@ -20,7 +20,6 @@ type ECIESWrapper[T1, S1, T2, S2 emulated.FieldParams] struct {
 	Pub    sw_emulated.AffinePoint[T1] `gnark:",secret"`
 	RPub   sw_emulated.AffinePoint[T1] `gnark:",secret"`
 
-	//PlainChunks  []frontend.Variable   `gnark:",secret"`
 	Iv           [12]frontend.Variable `gnark:",secret"`
 	ChunkIndex   frontend.Variable     `gnark:",secret"`
 	CipherChunks []frontend.Variable   `gnark:",secret"`
@@ -70,21 +69,15 @@ type ECIES[T1, S1, T2, S2 emulated.FieldParams] struct {
 
 // Encrypt encrypts the plaintext using ECIES
 func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(cipherChunks []frontend.Variable, iv [12]frontend.Variable, r emulated.Element[S1], bigR, pub, rPub sw_emulated.AffinePoint[T1], chunkIndex frontend.Variable, fi emulated.Element[S2], bigFi sw_emulated.AffinePoint[T2]) ([]uints.U8, error) {
-	//pBytes := make([]uints.U8, len(plainChunks))
-	//for i := 0; i < len(plainChunks); i++ {
-	//	pBytes[i] = uints.U8{Val: plainChunks[i]}
-	//}
 	api := ecies.api
 	f, err := emulated.NewField[S2](api)
 	if err != nil {
 		return nil, err
 	}
 	shareBits := f.ToBits(&fi) // little-endian, in reverse
-	//fmt.Println(len(shareBits))
 	for len(shareBits)%8 != 0 {
 		shareBits = append(shareBits, 0) // fill in 0
 	}
-	//fmt.Println(len(shareBits))
 	pBytes := make([]uints.U8, 0)
 	for i := 0; i < len(shareBits)/8; i++ {
 		index := len(shareBits)/8 - 1 - i
@@ -140,23 +133,7 @@ func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(cipherChunks []frontend.Variable, iv
 	aes := NewAES256(api)
 	gcm := NewGCM256(api, &aes)
 	gcm.Assert(key, ivBytes, chunkIndex, pBytes, cBytes)
-	// Check smallFi==m
-	//f, err := emulated.NewField[S2](api)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//fiBits := f.ToBits(&fi)
-	//var plainBits []frontend.Variable
-	//for i := range pBytes {
-	//	chunkBits := bits.ToBinary(api, pBytes[len(pBytes)-i-1].Val, bits.WithNbDigits(8))
-	//	plainBits = append(plainBits, chunkBits...)
-	//}
-	//if len(plainBits) != len(fiBits) {
-	//	return nil, fmt.Errorf("mismatch length: %d != %d", len(plainBits), len(fiBits))
-	//}
-	//for i := range plainBits {
-	//	api.AssertIsEqual(plainBits[i], fiBits[i])
-	//}
+
 	// Compute pubInputs=(pub1,pub2.....)
 	rawBigR := cr.MarshalG1(bigR)
 	rawPub := cr.MarshalG1(pub)
