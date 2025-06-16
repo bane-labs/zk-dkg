@@ -382,11 +382,11 @@ func exportInnerCircuit(ctx *cli.Context) error {
 			return err
 		}
 		innerCircuit := circuit.GetBatchEncryptionCircuit(encryptedFis)
-		innerCss, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, innerCircuit)
+		innerCCS, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, innerCircuit)
 		if err != nil {
 			return err
 		}
-		err = helper.ExportCCS(innerCss, innerCCSPath+strconv.Itoa(batch))
+		err = helper.ExportCCS(innerCCS, innerCCSPath+strconv.Itoa(batch))
 		if err != nil {
 			return err
 		}
@@ -414,11 +414,11 @@ func exportInnerSeal(ctx *cli.Context) error {
 	}
 
 	for i := 0; i < len(InnerVKIDs); i++ {
-		innerCss, err := helper.ReadCCS(innerCCSPath + strconv.Itoa(InnerVKIDs[i]))
+		innerCCS, err := helper.ReadCCS(innerCCSPath + strconv.Itoa(InnerVKIDs[i]))
 		if err != nil {
 			return err
 		}
-		pk, vk, err := helper.GetKeysFromExistedPlonkSetUp(innerCss, srsPath)
+		pk, vk, err := helper.GetKeysFromExistedPlonkSetUp(innerCCS, srsPath)
 		if err != nil {
 			return err
 		}
