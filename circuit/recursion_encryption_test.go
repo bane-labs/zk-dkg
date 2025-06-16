@@ -32,7 +32,7 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 	assert := test.NewAssert(t)
 	innerVKIDs := []int{1, 2, 7}
 	MaxBatchIDIndex := len(innerVKIDs) - 1 // max ccs's index
-	TestBatchIndex := 1                    // index for test
+	TestBatchIndex := 2                    // index for test
 	td := make([]Tempdata, len(innerVKIDs))
 	for j := 0; j < len(innerVKIDs); j++ {
 		batch := innerVKIDs[j]
@@ -64,10 +64,26 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 		circuit := GetBatchEncryptionCircuit(td[MaxBatchIDIndex].data5)
 		ccs, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, circuit)
 		require.NoError(t, err)
-		err = mockSRCMPC("srs_", ccs, 2)
-		if err != nil {
+		srsMpcSsetupPath := "srs_2"
+		if _, err = os.Stat(srsMpcSsetupPath); err != nil {
+			// if mpcsetup is not generated
+			err = mockSRCMPC("srs_", ccs, 2)
+			if err != nil {
+				require.NoError(t, err)
+			}
+		} else {
+			// load mpcsetup
+			file, err := os.Open(srsMpcSsetupPath)
+			require.NoError(t, err)
+			var srs kzg_bn254.MpcSetup
+			_, err = srs.ReadFrom(file)
+			require.NoError(t, err)
+			err = file.Close()
+			require.NoError(t, err)
+			err = SealSRSMpcSetup(srs, srscPath)
 			require.NoError(t, err)
 		}
+
 	}
 
 	var srsc kzg_bn254.SRS
@@ -200,11 +216,17 @@ func mockSRCMPC(prefix string, ccs constraint.ConstraintSystem, nContributions i
 			return err
 		}
 	}
+	path := prefix + strconv.Itoa(nContributions) + "_canonical"
 	// here we get p (mpcsetup)
 	// since srsc = p.Seal() is too slow and can be reused
 	// so we export srsc
+	return SealSRSMpcSetup(p, path)
+
+}
+
+func SealSRSMpcSetup(p kzg_bn254.MpcSetup, path string) error {
 	srsc := p.Seal([]byte("beacon SRS")) // in gnark, this challenge is fixed (in verifier, e.g. plonk.Verify)
-	f, err := os.Create(prefix + strconv.Itoa(nContributions) + "_canonical")
+	f, err := os.Create(path)
 	defer f.Close()
 	if err != nil {
 		return err
