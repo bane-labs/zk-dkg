@@ -50,9 +50,6 @@ func (c *RecursionEncryptionWrapper[Fr, G1, G2, GT]) Define(api frontend.API) er
 	for i := 0; i < len(innerhash); i++ {
 		api.AssertIsEqual(innerhash[i].Val, c.SumHash[i])
 	}
-	//
-
-	// h1, h2, h3表示三个取值
 
 	return nil
 }

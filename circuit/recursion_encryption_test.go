@@ -32,7 +32,7 @@ import (
 func TestRecursionEncryptionCircuit(t *testing.T) {
 	assert := test.NewAssert(t)
 	innerVKIDs := []int{1, 2, 7}
-	rootDir := "/root/zk-dkg/cmd/"         // change the path, cmd/(from mpccmd.go) or ""(mock)
+	rootDir := ""                          // change the path, cmd/(from mpccmd.go) or ""(mock)
 	MaxBatchIDIndex := len(innerVKIDs) - 1 // max ccs's index
 	TestBatchIndex := 1                    // index for test
 	td := make([]Tempdata, len(innerVKIDs))
