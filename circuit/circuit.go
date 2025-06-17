@@ -1,7 +1,9 @@
 package circuit
 
 import (
+	"github.com/consensys/gnark/std/commitments/kzg"
 	"math/big"
+	"runtime"
 
 	"github.com/bane-labs/zk-dkg/helper"
 	bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381"
@@ -148,7 +150,7 @@ func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.Publ
 }
 
 // ComputeRecursionEncryptionAssignment computes the assignment for verification recursion.
-func ComputeRecursionEncryptionAssignment(field, outer *big.Int, batch int, innerCcs constraint.ConstraintSystem, innerPK native_plonk.ProvingKey, innerVK native_plonk.VerifyingKey, innerAssignments *BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], sumHash []frontend.Variable) (*RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl], error) {
+func ComputeRecursionEncryptionAssignment(field, outer *big.Int, vkIndex int, vks []native_plonk.VerifyingKey, innerCcs constraint.ConstraintSystem, innerPK native_plonk.ProvingKey, innerVK native_plonk.VerifyingKey, innerAssignments *BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], sumHash []frontend.Variable) (*RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl], error) {
 	innerProofs, innerWitness, err := ComputeInnerProof(field, outer, innerCcs, innerPK, innerVK, innerAssignments)
 	if err != nil {
 		return nil, err
@@ -162,11 +164,28 @@ func ComputeRecursionEncryptionAssignment(field, outer *big.Int, batch int, inne
 		return nil, err
 	}
 
+	circuitVks := make([]stdplonk.CircuitVerifyingKey[sw_bn254.ScalarField, sw_bn254.G1Affine], len(vks))
+	//supportedBatches := make([]frontend.Variable, len(batches))
+	var baseVk stdplonk.BaseVerifyingKey[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine]
+	for i, vk := range vks {
+		pvk, err := stdplonk.ValueOfVerifyingKey[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine](vk)
+		if err != nil {
+			return nil, err
+		}
+		if i == 0 {
+			baseVk = pvk.BaseVerifyingKey
+		}
+		circuitVks[i] = pvk.CircuitVerifyingKey
+		//supportedBatches[i] = batch
+	}
+
 	outerAssignment := &RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl]{
-		InnerWitness: circuitWitness,
-		Proof:        circuitProof,
-		SumHash:      sumHash,
-		Batch:        batch,
+		InnerWitness:         [32]emulated.Element[sw_bn254.ScalarField](circuitWitness.Public),
+		Proof:                circuitProof,
+		SumHash:              [32]frontend.Variable(sumHash),
+		VerifyingKeyIndex:    vkIndex,
+		BaseVerifyingKey:     baseVk,
+		CircuitVerifyingKeys: circuitVks,
 	}
 	return outerAssignment, nil
 }
@@ -192,7 +211,7 @@ func ComputeInnerProof(field, outer *big.Int, innerCcs constraint.ConstraintSyst
 	if err != nil {
 		return nil, nil, err
 	}
-
+	runtime.GC()
 	return innerProof, innerPubWitness, nil
 }
 
@@ -209,28 +228,33 @@ func GetBatchEncryptionCircuit(encryptedFis [][]byte) *BatchEncryptionWrapper[em
 	return circuit
 }
 
-// GetRecursionEncryptionCircuit returns a circuit for proving the verification of a batch of key share encryptions.
-func GetRecursionEncryptionCircuit(innerCcs constraint.ConstraintSystem, innerVKs []native_plonk.VerifyingKey, innerVKIDs []int) (*RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl], error) {
-	size := len(innerVKs)
-	circuitVk := make([]stdplonk.VerifyingKey[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine], size)
-	circuitVkID := make([]frontend.Variable, size)
-	for i := 0; i < size; i++ {
-		// initialize the witness elements
-		var err error
-		circuitVk[i], err = stdplonk.ValueOfVerifyingKey[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine](innerVKs[i])
+func GetRecursionEncryptionCircuit(nbPublic int, nbCommitments int, vks []native_plonk.VerifyingKey) (*RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl], error) {
+	circuitVks := make([]stdplonk.CircuitVerifyingKey[sw_bn254.ScalarField, sw_bn254.G1Affine], len(vks))
+	var baseVk stdplonk.BaseVerifyingKey[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine]
+	for i, vk := range vks {
+		pvk, err := stdplonk.ValueOfVerifyingKey[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine](vk)
 		if err != nil {
 			return nil, err
 		}
-		circuitVkID[i] = innerVKIDs[i]
+		if i == 0 {
+			baseVk = pvk.BaseVerifyingKey
+		}
+		circuitVks[i] = pvk.CircuitVerifyingKey
 	}
-	circuitWitness := stdplonk.PlaceholderWitness[sw_bn254.ScalarField](innerCcs)
-	circuitProof := stdplonk.PlaceholderProof[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine](innerCcs)
-	outerCircuit := &RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl]{
-		InnerWitness: circuitWitness,
-		VerifyingKey: circuitVk,
-		VerifyingID:  circuitVkID,
-		Proof:        circuitProof,
-		SumHash:      make([]frontend.Variable, 32),
+
+	circuitWitness := stdplonk.Witness[sw_bn254.ScalarField]{
+		Public: make([]emulated.Element[sw_bn254.ScalarField], nbPublic),
 	}
-	return outerCircuit, nil
+	circuitProof := stdplonk.Proof[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine]{
+		BatchedProof: kzg.BatchOpeningProof[sw_bn254.ScalarField, sw_bn254.G1Affine]{
+			ClaimedValues: make([]emulated.Element[sw_bn254.ScalarField], 6+nbCommitments),
+		},
+		Bsb22Commitments: make([]kzg.Commitment[sw_bn254.G1Affine], nbCommitments),
+	}
+	return &RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl]{
+		InnerWitness:         [32]emulated.Element[sw_bn254.ScalarField](circuitWitness.Public),
+		BaseVerifyingKey:     baseVk,
+		CircuitVerifyingKeys: circuitVks,
+		Proof:                circuitProof,
+	}, nil
 }

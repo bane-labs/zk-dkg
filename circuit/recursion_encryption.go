@@ -1,8 +1,6 @@
 package circuit
 
 import (
-	"fmt"
-
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/algebra"
 	"github.com/consensys/gnark/std/math/bits"
@@ -12,46 +10,49 @@ import (
 )
 
 // RecursionEncryptionWrapper is the circuit for proving the verification of a batch of ECIES encryptions.
-type RecursionEncryptionWrapper[FR emulated.FieldParams, G1El algebra.G1ElementT, G2El algebra.G2ElementT, GtEl algebra.GtElementT] struct {
-	Proof        stdplonk.Proof[FR, G1El, G2El]          `gnark:",secret"`
-	VerifyingKey []stdplonk.VerifyingKey[FR, G1El, G2El] `gnark:"-"`
-	VerifyingID  []frontend.Variable                     `gnark:"-"`
-	InnerWitness stdplonk.Witness[FR]                    `gnark:",secret"`
-	SumHash      []frontend.Variable                     `gnark:",public"`
-	Batch        frontend.Variable                       `gnark:",public"`
+
+type RecursionEncryptionWrapper[Fr emulated.FieldParams, G1 algebra.G1ElementT, G2 algebra.G2ElementT, GT algebra.GtElementT] struct {
+	Proof                stdplonk.Proof[Fr, G1, G2]             `gnark:",secret"`
+	BaseVerifyingKey     stdplonk.BaseVerifyingKey[Fr, G1, G2]  `gnark:"-"`              // all vks should use the same srsc, then the baseVerifyKey is same
+	CircuitVerifyingKeys []stdplonk.CircuitVerifyingKey[Fr, G1] `gnark:"-"`              // CircuitVerifyKeys is related to the srsl and ccs
+	InnerWitness         [32]emulated.Element[Fr]               `gnark:",publicWitness"` // Public inputs in inner circuit
+	VerifyingKeyIndex    frontend.Variable                      `gnark:",public"`        // "Index" for choose which vk should be used in current proof generation
+	SumHash              [32]frontend.Variable                  `gnark:",public"`        // hash of public inputs
 }
 
-// Define declares the circuit's constraints
-// Need check batch==VerifyingID[index] outside
-func (c *RecursionEncryptionWrapper[FR, G1El, G2El, GtEl]) Define(api frontend.API) error {
-	field, err := emulated.NewField[FR](api)
+func (c *RecursionEncryptionWrapper[Fr, G1, G2, GT]) Define(api frontend.API) error {
+	field, err := emulated.NewField[Fr](api)
 	if err != nil {
 		return err
 	}
-	var i int
-	for i = 0; i < len(c.VerifyingID); i++ {
-		if c.Batch == c.VerifyingID[i] {
-			verifier, err := stdplonk.NewVerifier[FR, G1El, G2El, GtEl](api)
-			if err != nil {
-				return fmt.Errorf("new verifier: %w", err)
-			}
-			err = verifier.AssertProof(c.VerifyingKey[i], c.Proof, c.InnerWitness)
-			if err != nil {
-				return fmt.Errorf("inner circuit verify fault: %w", err)
-			}
-			uapi, err := uints.New[uints.U64](api)
-			if err != nil {
-				return err
-			}
-			innerhash := make([]uints.U8, 32)
-			for j, input := range c.InnerWitness.Public {
-				inputbits := field.ToBits(&input)
-				innerhash[j] = uapi.ByteValueOf(bits.FromBinary(api, inputbits, bits.WithUnconstrainedInputs()))
-			}
-			for i := 0; i < len(innerhash); i++ {
-				api.AssertIsEqual(innerhash[i].Val, c.SumHash[i])
-			}
-		}
+	verifier, err := stdplonk.NewVerifier[Fr, G1, G2, GT](api)
+	if err != nil {
+		return err
 	}
+	vk, err := verifier.SwitchVerificationKey(c.BaseVerifyingKey, c.VerifyingKeyIndex, c.CircuitVerifyingKeys)
+	if err != nil {
+		return err
+	}
+	err = verifier.AssertProof(vk, c.Proof, stdplonk.Witness[Fr]{Public: c.InnerWitness[:]}, stdplonk.WithCompleteArithmetic())
+	if err != nil {
+		return nil
+	}
+
+	uapi, err := uints.New[uints.U64](api)
+	if err != nil {
+		return err
+	}
+	innerhash := [32]uints.U8{}
+	for j, witness := range c.InnerWitness {
+		inputbits := field.ToBits(&witness)
+		innerhash[j] = uapi.ByteValueOf(bits.FromBinary(api, inputbits, bits.WithUnconstrainedInputs()))
+	}
+	for i := 0; i < len(innerhash); i++ {
+		api.AssertIsEqual(innerhash[i].Val, c.SumHash[i])
+	}
+	//
+
+	// h1, h2, h3表示三个取值
+
 	return nil
 }

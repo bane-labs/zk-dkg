@@ -32,8 +32,9 @@ import (
 func TestRecursionEncryptionCircuit(t *testing.T) {
 	assert := test.NewAssert(t)
 	innerVKIDs := []int{1, 2, 7}
+	rootDir := "/root/zk-dkg/cmd/"         // change the path, cmd/(from mpccmd.go) or ""(mock)
 	MaxBatchIDIndex := len(innerVKIDs) - 1 // max ccs's index
-	TestBatchIndex := 2                    // index for test
+	TestBatchIndex := 1                    // index for test
 	td := make([]Tempdata, len(innerVKIDs))
 	for j := 0; j < len(innerVKIDs); j++ {
 		batch := innerVKIDs[j]
@@ -60,50 +61,57 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 	innerCCSs := make([]constraint.ConstraintSystem, len(innerVKIDs))
 	innerPKs := make([]plonk.ProvingKey, len(innerVKIDs))
 	innerVKs := make([]plonk.VerifyingKey, len(innerVKIDs))
-	srscPath := "srs_2_canonical" // not kzg.mpcsetup, is kzg.srs(canonical), points on curve
-	if _, err := os.Stat(srscPath); err != nil {
-		circuit := GetBatchEncryptionCircuit(td[MaxBatchIDIndex].data5)
-		ccs, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, circuit)
-		require.NoError(t, err)
-		srsMpcSsetupPath := "srs_2"
-		if _, err = os.Stat(srsMpcSsetupPath); err != nil {
-			// if mpcsetup is not generated
-			err = mockSRCMPC("srs_", ccs, 2)
-			if err != nil {
+	SRSCFlag := false
+	var srsc kzg_bn254.SRS
+	// if pk/vk pairs has been generated, we don't need to load or generate srs/srsc
+	checkSRSC := func() {
+		srscPath := rootDir + "srs_2_canonical" // not kzg.mpcsetup, is kzg.srs(canonical), points on curve
+		if !SRSCFlag {
+			// if srsc has not been generated
+			if _, err := os.Stat(srscPath); err != nil {
+				circuit := GetBatchEncryptionCircuit(td[MaxBatchIDIndex].data5)
+				ccs, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, circuit)
 				require.NoError(t, err)
+				srsMpcSsetupPath := rootDir + "srs_2"
+				if _, err = os.Stat(srsMpcSsetupPath); err != nil {
+					// if mpcsetup is not generated
+					err = mockSRCMPC("srs_", ccs, 2)
+					if err != nil {
+						require.NoError(t, err)
+					}
+				} else {
+					// load mpcsetup
+					file, err := os.Open(srsMpcSsetupPath)
+					require.NoError(t, err)
+					var srs kzg_bn254.MpcSetup
+					_, err = srs.ReadFrom(file)
+					require.NoError(t, err)
+					err = file.Close()
+					require.NoError(t, err)
+					err = SealSRSMpcSetup(srs, srscPath)
+					require.NoError(t, err)
+				}
 			}
-		} else {
-			// load mpcsetup
-			file, err := os.Open(srsMpcSsetupPath)
+			SRSCFlag = true
+			file, err := os.Open(srscPath)
 			require.NoError(t, err)
-			var srs kzg_bn254.MpcSetup
-			_, err = srs.ReadFrom(file)
+			_, err = srsc.ReadFrom(file)
 			require.NoError(t, err)
 			err = file.Close()
 			require.NoError(t, err)
-			err = SealSRSMpcSetup(srs, srscPath)
-			require.NoError(t, err)
 		}
-
 	}
 
-	var srsc kzg_bn254.SRS
-	// load srsc which can be reused
-	file, err := os.Open(srscPath)
-	require.NoError(t, err)
-	_, err = srsc.ReadFrom(file)
-	require.NoError(t, err)
-	err = file.Close()
-	require.NoError(t, err)
-
 	for j := 0; j < len(innerVKIDs); j++ {
-		innerCCSPath := "inner_ccs_" + strconv.Itoa(innerVKIDs[j])
-		innerPKPath := "inner_pk_" + strconv.Itoa(innerVKIDs[j])
-		innerVKPath := "inner_vk_" + strconv.Itoa(innerVKIDs[j])
+		innerCCSPath := rootDir + "inner_ccs_" + strconv.Itoa(innerVKIDs[j])
+		innerPKPath := rootDir + "inner_pk_" + strconv.Itoa(innerVKIDs[j])
+		innerVKPath := rootDir + "inner_vk_" + strconv.Itoa(innerVKIDs[j])
 		if _, err := os.Stat(innerCCSPath); err != nil {
 			circuit := GetBatchEncryptionCircuit(td[j].data5)
 			ccs, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, circuit)
 			require.NoError(t, err)
+			// check srs has been generated
+			checkSRSC()
 			// here we just input srsc, not need to seal in each loop(too slow, and cpu usage is very low)
 			_, _, err = mockSeal("inner_", ccs, &srsc, innerVKIDs[j])
 			if err != nil {
@@ -121,34 +129,39 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 		innerPKs[j] = innerPK
 		innerVKs[j] = innerVK
 	}
-	outerCircuit, err := GetRecursionEncryptionCircuit(innerCCSs[0], innerVKs, innerVKIDs)
+	nbPublic, nbCommitment := innerCCSs[0].GetNbPublicVariables(), len(innerCCSs[0].GetCommitments().CommitmentIndexes())
+	for i := 0; i < len(innerCCSs); i++ {
+		if innerCCSs[i].GetNbPublicVariables() != nbPublic || len(innerCCSs[i].GetCommitments().CommitmentIndexes()) != nbCommitment {
+			t.Fatal(fmt.Errorf("all inner ccs should have the same len(public) and len(commitments)"))
+		}
+	}
+	outerCircuit, err := GetRecursionEncryptionCircuit(nbPublic, nbCommitment, innerVKs)
 	require.NoError(t, err)
 	innerAssignments, sumHash := ComputeMultipleKeyShareEncryptionAssignment(innerVKIDs[TestBatchIndex], td[TestBatchIndex].data8, td[TestBatchIndex].data6, td[TestBatchIndex].data7, td[TestBatchIndex].data2, td[TestBatchIndex].data3, td[TestBatchIndex].data5, td[TestBatchIndex].data4)
 	rawSumHash := make([]frontend.Variable, len(sumHash))
 	for i := 0; i < len(sumHash); i++ {
 		rawSumHash[i] = sumHash[i]
 	}
-	outerAssignment, err := ComputeRecursionEncryptionAssignment(ecc.BN254.ScalarField(), ecc.BN254.ScalarField(), innerVKIDs[TestBatchIndex], innerCCSs[TestBatchIndex], innerPKs[TestBatchIndex], innerVKs[TestBatchIndex], innerAssignments, rawSumHash)
+	outerAssignment, err := ComputeRecursionEncryptionAssignment(ecc.BN254.ScalarField(), ecc.BN254.ScalarField(), TestBatchIndex, innerVKs, innerCCSs[TestBatchIndex], innerPKs[TestBatchIndex], innerVKs[TestBatchIndex], innerAssignments, rawSumHash)
 	require.NoError(t, err)
 	/*	err = test.IsSolved(outerCircuit, outerAssignment, ecc.BN254.ScalarField())
 		if err != nil {
 			panic(err)
 		}*/
-	outerCCSPath := "outer_ccs"
-	outerPKPath := "outer_pk"
-	outerVKPath := "outer_vk"
+	outerCCSPath := rootDir + "outer_ccs"
+	outerPKPath := rootDir + "outer_pk"
+	outerVKPath := rootDir + "outer_vk"
 	//outerContract := "outer_contract.sol"
 	if _, err := os.Stat(outerCCSPath); err != nil {
 		mockOuterCcs, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, outerCircuit)
 		require.NoError(t, err)
+		checkSRSC()
 		_, _, err = mockSeal("outer_", mockOuterCcs, &srsc) // similarly, just input srsc
 		require.NoError(t, err)
 	}
 	outerCCS, err := helper.ReadCCS(outerCCSPath)
 	require.NoError(t, err)
-	fmt.Println(outerCCS.GetNbConstraints()) // here the output is 0, meaning that this ccs is invalid
-	// I think the problem is the "if" in circuit, in gnark, the logic of "if" should be written is api.Select
-	// I have a api-based circuit which is tested successfully in local, I will commit it in next pr.
+	fmt.Println(outerCCS.GetNbConstraints())
 	outerPK, err := helper.ReadPlonkProvingKey(outerPKPath, ecc.BN254)
 	require.NoError(t, err)
 	outerVK, err := helper.ReadPlonkVerifyingKey(outerVKPath, ecc.BN254)
@@ -164,12 +177,13 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 	require.NoError(t, err)
 	//helper.ExportContract(outerVKs, outerContract)
 	output := helper.GetContractInput(proof)
-	var temp = ""
+	publicInputs := []uint32{uint32(TestBatchIndex)}
 	for k := 0; k < len(sumHash); k++ {
-		temp = temp + "\"" + strconv.Itoa(int(sumHash[k])) + "\"" + ","
+		publicInputs = append(publicInputs, uint32(sumHash[k]))
 	}
-	fmt.Println("public input is", temp)
-	fmt.Println("Plonk proof is", "0x"+hex.EncodeToString(output))
+	fmt.Println("Plonk proof is: \n", "0x"+hex.EncodeToString(output))
+	fmt.Println("Onchain Public input is: \n", publicInputs)
+
 }
 
 type Tempdata struct {

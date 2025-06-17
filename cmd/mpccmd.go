@@ -492,7 +492,13 @@ func exportOuterSeal(ctx *cli.Context) error {
 		innerPKs[i] = innerPK
 		innerVKs[i] = innerVK
 	}
-	outerCircuit, err := circuit.GetRecursionEncryptionCircuit(innerCCSs[0], innerVKs, InnerVKIDs)
+	nbPublic, nbCommitment := innerCCSs[0].GetNbPublicVariables(), len(innerCCSs[0].GetCommitments().CommitmentIndexes())
+	for i := 0; i < len(innerCCSs); i++ {
+		if innerCCSs[i].GetNbPublicVariables() != nbPublic || len(innerCCSs[i].GetCommitments().CommitmentIndexes()) != nbCommitment {
+			return fmt.Errorf("all inner ccs should have the same len(public) and len(commitments)")
+		}
+	}
+	outerCircuit, err := circuit.GetRecursionEncryptionCircuit(nbPublic, nbCommitment, innerVKs)
 	if err != nil {
 		return err
 	}
