@@ -20,7 +20,7 @@ import (
 /**
  * Function: ProveMultipleKeyShareEncryption
  * @Description: generate a zk proof of a key share batch generating process
- * @param css: compiled circuit constraint system
+ * @param ccs: compiled circuit constraint system
  * @param provingKey: proving key used for proof encryption
  * @param pubKey: a set of public keys used for key share encryption
  * @param rs: a set of the integer format of random numbers
@@ -34,22 +34,33 @@ import (
  * @return witness: witness of zk proof
  * @return err:
  */
-func ProveMultipleKeyShareEncryption(outerCss constraint.ConstraintSystem, outerProvingKey plonk.ProvingKey, innerCcss constraint.ConstraintSystem, innerPKs plonk.ProvingKey, innerVKs plonk.VerifyingKey, pubKey []*ecies.PublicKey, rs []*big.Int, bigRs []*secp256k1.G1Affine, fisBytes [][]byte, fisInts []*big.Int, bigFis []*bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) (plonk.Proof, witness.Witness, error) {
+func ProveMultipleKeyShareEncryption(outerCCS constraint.ConstraintSystem, outerProvingKey plonk.ProvingKey, vks []plonk.VerifyingKey, innerCCS constraint.ConstraintSystem, innerPK plonk.ProvingKey, innerVK plonk.VerifyingKey, pubKey []*ecies.PublicKey, rs []*big.Int, bigRs []*secp256k1.G1Affine, fisInts []*big.Int, bigFis []*bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) (plonk.Proof, witness.Witness, error) {
 	batch := len(pubKey)
-	innerAssignment, sumHash := circuit.ComputeMultipleKeyShareEncryptionAssignment(batch, pubKey, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
+	innerAssignment, sumHash := circuit.ComputeMultipleKeyShareEncryptionAssignment(batch, pubKey, rs, bigRs, fisInts, bigFis, encryptedFis, nonces)
 	rawSumHash := make([]frontend.Variable, len(sumHash))
 	for i := 0; i < len(sumHash); i++ {
 		rawSumHash[i] = sumHash[i]
 	}
-	outerAssignment, err := circuit.ComputeRecursionEncryptionAssignment(ecc.BN254.ScalarField(), ecc.BN254.ScalarField(), batch, innerCcss, innerPKs, innerVKs, innerAssignment, rawSumHash)
+	supportedBatches := []int{1, 2, 7}
+	vkIndex := -1
+	for i := 0; i < len(supportedBatches); i++ {
+		if supportedBatches[i] == batch {
+			vkIndex = i
+			break
+		}
+	}
+	if vkIndex == -1 {
+		return nil, nil, fmt.Errorf("unsupported batch size: %d", batch)
+	}
+	outerAssignment, err := circuit.ComputeRecursionEncryptionAssignment(ecc.BN254.ScalarField(), ecc.BN254.ScalarField(), vkIndex, vks, innerCCS, innerPK, innerVK, innerAssignment, rawSumHash)
 	if err != nil {
 		return nil, nil, err
 	}
-	proof, witness, err := helper.ComputeProof(outerCss, outerProvingKey, outerAssignment)
+	proof, witness, err := helper.ComputeProof(outerCCS, outerProvingKey, outerAssignment)
 	if err != nil {
 		return nil, nil, err
 	}
-	var temp = ""
+	var temp = fmt.Sprintf("\"%d\",", vkIndex)
 	for k := 0; k < len(sumHash); k++ {
 		temp = temp + "\"" + strconv.Itoa(int(sumHash[k])) + "\"" + ","
 	}

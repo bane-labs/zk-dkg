@@ -29,10 +29,10 @@ const (
 	DefaultSRSFilePrefix    = "srs_"
 	DefaultInnerFilePrefix  = "inner_"
 	DefaultOuterFilePrefix  = "outer_"
-	DefaultCSSFilesPrefix   = "css_"
+	DefaultCCSFilesPrefix   = "ccs_"
 	DefaultPKFilePrefix     = "pk_"
 	DefaultVKFilePrefix     = "vk_"
-	DefaultCSSFileName      = "css"
+	DefaultCCSFileName      = "ccs"
 	DefaultSRSFileName      = "srs"
 	DefaultPKFileName       = "pk"
 	DefaultVKFileName       = "vk"
@@ -58,13 +58,13 @@ var (
 		Name:  "srs",
 		Usage: "The file path of a SRS",
 	}
-	innerCSSFileFlag = &cli.PathFlag{
-		Name:  "inner-css",
-		Usage: "The file path of a css of inner circuit",
+	innerCCSFileFlag = &cli.PathFlag{
+		Name:  "inner-ccs",
+		Usage: "The file path of a ccs of inner circuit",
 	}
-	outerCSSFileFlag = &cli.PathFlag{
-		Name:  "outer-css",
-		Usage: "The file path of a css of outer circuit",
+	outerCCSFileFlag = &cli.PathFlag{
+		Name:  "outer-ccs",
+		Usage: "The file path of a ccs of outer circuit",
 	}
 	// Flags for parameter export
 	innerPkFileFlag = &cli.PathFlag{
@@ -104,11 +104,11 @@ This batch of commands deal with the Plonk MPC setup for the common SRS.`,
 						Usage:  "Init common SRS file for MPC",
 						Action: initPlonkSRS,
 						Flags: []cli.Flag{
-							innerCSSFileFlag,
+							innerCCSFileFlag,
 							srsFileFlag,
 						},
 						Description: `
-	CommonSRS init --inner-css <filepath> --srs <filepath>
+	CommonSRS init --inner-ccs <filepath> --srs <filepath>
 
 will generate a srs file without any input, should be used by
 the first participant to generate the first file. The SRS file is
@@ -119,14 +119,14 @@ generated based on the maximum size of the inner circuit we may use.`,
 						Usage:  "Verify the initialization of an common SRS file",
 						Action: verifyInitPlonkSRS,
 						Flags: []cli.Flag{
-							innerCSSFileFlag,
+							innerCCSFileFlag,
 							srsFileFlag,
 						},
 						Description: `
-	CommonSRS checkInit --inner-css <filepath> --srs <filepath>
+	CommonSRS checkInit --inner-ccs <filepath> --srs <filepath>
 
 will verify the initialization that takes place on the inner
-css file to the srs file, should be used before any further
+ccs file to the srs file, should be used before any further
 contribution to the unverified output file.`,
 					},
 					{
@@ -134,12 +134,12 @@ contribution to the unverified output file.`,
 						Usage:  "Verify the common SRS file step forward",
 						Action: verifyPlonkSRS,
 						Flags: []cli.Flag{
-							innerCSSFileFlag,
+							innerCCSFileFlag,
 							inputFileFlag,
 							outputFileFlag,
 						},
 						Description: `
-	CommonSRS verify --inner-css <filepath> --input <filepath> --output <filepath>
+	CommonSRS verify --inner-ccs <filepath> --input <filepath> --output <filepath>
 
 will verify the contribute operation that takes place on the
 input file to the output file, should be used before any further
@@ -150,12 +150,12 @@ contribution to the unverified output file.`,
 						Usage:  "Contribute to the common SRS MPC",
 						Action: contributePlonkSRS,
 						Flags: []cli.Flag{
-							innerCSSFileFlag,
+							innerCCSFileFlag,
 							inputFileFlag,
 							outputFileFlag,
 						},
 						Description: `
-	CommonSRS contribute --inner-css <filepath> --input <filepath> --output <filepath>
+	CommonSRS contribute --inner-ccs <filepath> --input <filepath> --output <filepath>
 
 will generate a new srs file based on the input one, every
 participant should do this only once and one by one, so that a
@@ -174,10 +174,10 @@ This batch of commands deal with the Plonk MPC setup for the common SRS.`,
 						Usage:  "Export inner circuit ccs files",
 						Action: exportInnerCircuit,
 						Flags: []cli.Flag{
-							innerCSSFileFlag,
+							innerCCSFileFlag,
 						},
 						Description: `
-	export innerCircuit --inner-css <filesprefix>
+	export innerCircuit --inner-ccs <filesprefix>
 
 will export inner circuit data to a batch of ccs files, each participant can execute
 this operation locally to verify that the correct circuit is used.`,
@@ -188,12 +188,12 @@ this operation locally to verify that the correct circuit is used.`,
 						Action: exportInnerSeal,
 						Flags: []cli.Flag{
 							srsFileFlag,
-							innerCSSFileFlag,
+							innerCCSFileFlag,
 							innerPkFileFlag,
 							innerVkFileFlag,
 						},
 						Description: `
-	export innerSeal --srs <filepath> --inner-css <filesprefix> --inner-pk <outputpath> --inner-vk <outputpath>
+	export innerSeal --srs <filepath> --inner-ccs <filesprefix> --inner-pk <outputpath> --inner-vk <outputpath>
 
 will export inner circuit data to a batch of proving keys, verifying keys, each participant can execute
 this operation locally to verify that the correct circuit pk and vk is used.`,
@@ -204,16 +204,16 @@ this operation locally to verify that the correct circuit pk and vk is used.`,
 						Action: exportOuterSeal,
 						Flags: []cli.Flag{
 							srsFileFlag,
-							innerCSSFileFlag,
+							innerCCSFileFlag,
 							innerPkFileFlag,
 							innerVkFileFlag,
-							outerCSSFileFlag,
+							outerCCSFileFlag,
 							outerPkFileFlag,
 							outerVkFileFlag,
 							contractFileFlag,
 						},
 						Description: `
-	export outerSeal --srs <filepath> --inner-css <filesprefix> --inner-pk <filesprefix> --inner-vk <filesprefix> --outer-css <outputpath> --outer-pk <outputpath> --outer-vk <outputpath> --contract <outputpath>
+	export outerSeal --srs <filepath> --inner-ccs <filesprefix> --inner-pk <filesprefix> --inner-vk <filesprefix> --outer-ccs <outputpath> --outer-pk <outputpath> --outer-vk <outputpath> --contract <outputpath>
 
 will export MPC data to a batch of proving keys, verifying keys
 and Solidity verifier contracts, each participant can execute
@@ -235,20 +235,20 @@ string is used.`,
 }
 
 func initPlonkSRS(ctx *cli.Context) error {
-	MaxSizeCSSPath := ctx.Path(innerCSSFileFlag.Name)
-	if MaxSizeCSSPath == "" {
-		return errors.New("invalid css path")
+	MaxSizeCCSPath := ctx.Path(innerCCSFileFlag.Name)
+	if MaxSizeCCSPath == "" {
+		return errors.New("invalid ccs path")
 	}
 
 	srsPath := ctx.Path(srsFileFlag.Name)
 	if srsPath == "" {
 		srsPath = DefaultSRSFilePrefix + strconv.Itoa(1)
 	}
-	MaxSizeCSS, err := helper.ReadCSS(MaxSizeCSSPath)
+	MaxSizeCCS, err := helper.ReadCCS(MaxSizeCCSPath)
 	if err != nil {
 		return err
 	}
-	r1CS := MaxSizeCSS.(*cs.SparseR1CS)
+	r1CS := MaxSizeCCS.(*cs.SparseR1CS)
 	srsSize, _ := plonk.SRSSize(r1CS)
 	p, err := mpc.InitPlonkSRS(srsPath, srsSize)
 	if err != nil {
@@ -266,19 +266,19 @@ func initPlonkSRS(ctx *cli.Context) error {
 // SRS file is based on the correct SRS size of the outer circuit.
 // The R1CS file for maximum batch size is used for verification.
 func verifyInitPlonkSRS(ctx *cli.Context) error {
-	MaxSizeCSSPath := ctx.Path(innerCSSFileFlag.Name)
-	if MaxSizeCSSPath == "" {
-		return errors.New("invalid css path")
+	MaxSizeCCSPath := ctx.Path(innerCCSFileFlag.Name)
+	if MaxSizeCCSPath == "" {
+		return errors.New("invalid ccs path")
 	}
 	srsPath := ctx.Path(srsFileFlag.Name)
 	if srsPath == "" {
 		return errors.New("invalid outer SRS path")
 	}
-	css, err := helper.ReadCSS(MaxSizeCSSPath)
+	ccs, err := helper.ReadCCS(MaxSizeCCSPath)
 	if err != nil {
 		return err
 	}
-	r1CS := css.(*cs.SparseR1CS)
+	r1CS := ccs.(*cs.SparseR1CS)
 	srsSize, _ := plonk.SRSSize(r1CS)
 	err = mpc.VerifyPlonkSRSInitialization(srsPath, srsSize)
 	if err != nil {
@@ -293,8 +293,8 @@ func verifyInitPlonkSRS(ctx *cli.Context) error {
 // specified previous outer SRS file.
 // The R1CS file for maximum batch size is used for verification.
 func verifyPlonkSRS(ctx *cli.Context) error {
-	MaxSizeCSSPath := ctx.Path(innerCSSFileFlag.Name)
-	if MaxSizeCSSPath == "" {
+	MaxSizeCCSPath := ctx.Path(innerCCSFileFlag.Name)
+	if MaxSizeCCSPath == "" {
 		return errors.New("invalid inner R1CS path")
 	}
 	prePath := ctx.Path(inputFileFlag.Name)
@@ -305,11 +305,11 @@ func verifyPlonkSRS(ctx *cli.Context) error {
 	if curPath == "" {
 		return errors.New("invalid current outer SRS path")
 	}
-	css, err := helper.ReadCSS(MaxSizeCSSPath)
+	ccs, err := helper.ReadCCS(MaxSizeCCSPath)
 	if err != nil {
 		return err
 	}
-	r1CS := css.(*cs.SparseR1CS)
+	r1CS := ccs.(*cs.SparseR1CS)
 	srsSize, _ := plonk.SRSSize(r1CS)
 	err = mpc.VerifyPlonkSRS(prePath, curPath, srsSize)
 	if err != nil {
@@ -322,8 +322,8 @@ func verifyPlonkSRS(ctx *cli.Context) error {
 // contributeOuterSRS contributes to the outer SRS MPC.
 // The R1CS file for maximum batch size is used for contribution.
 func contributePlonkSRS(ctx *cli.Context) error {
-	MaxSizeCSSPath := ctx.Path(innerCSSFileFlag.Name)
-	if MaxSizeCSSPath == "" {
+	MaxSizeCCSPath := ctx.Path(innerCCSFileFlag.Name)
+	if MaxSizeCCSPath == "" {
 		return errors.New("invalid inner R1CS path")
 	}
 	inputPath := ctx.Path(inputFileFlag.Name)
@@ -334,11 +334,11 @@ func contributePlonkSRS(ctx *cli.Context) error {
 	if outputPath == "" {
 		outputPath = DefaultOuterFilePrefix + DefaultSRSFileName + "_new"
 	}
-	css, err := helper.ReadCSS(MaxSizeCSSPath)
+	ccs, err := helper.ReadCCS(MaxSizeCCSPath)
 	if err != nil {
 		return err
 	}
-	r1CS := css.(*cs.SparseR1CS)
+	r1CS := ccs.(*cs.SparseR1CS)
 	srsSize, _ := plonk.SRSSize(r1CS)
 
 	p, err := mpc.ContributePlonkSRS(inputPath, outputPath, srsSize)
@@ -355,9 +355,9 @@ func contributePlonkSRS(ctx *cli.Context) error {
 }
 
 func exportInnerCircuit(ctx *cli.Context) error {
-	innerCSSPath := ctx.Path(innerCSSFileFlag.Name)
-	if innerCSSPath == "" {
-		innerCSSPath = DefaultInnerFilePrefix + DefaultCSSFilesPrefix
+	innerCCSPath := ctx.Path(innerCCSFileFlag.Name)
+	if innerCCSPath == "" {
+		innerCCSPath = DefaultInnerFilePrefix + DefaultCCSFilesPrefix
 	}
 	for index := 0; index < len(InnerVKIDs); index++ {
 		batch := InnerVKIDs[index]
@@ -377,16 +377,16 @@ func exportInnerCircuit(ctx *cli.Context) error {
 			}
 			fis[i] = fi
 		}
-		fisBytes, _, _, _, encryptedFis, _, _, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
+		_, _, _, encryptedFis, _, _, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
 		if err != nil {
 			return err
 		}
-		innerCircuit := circuit.GetBatchEncryptionCircuit(fisBytes, encryptedFis)
-		innerCss, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, innerCircuit)
+		innerCircuit := circuit.GetBatchEncryptionCircuit(encryptedFis)
+		innerCCS, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, innerCircuit)
 		if err != nil {
 			return err
 		}
-		err = helper.ExportCSS(innerCss, innerCSSPath+strconv.Itoa(batch))
+		err = helper.ExportCCS(innerCCS, innerCCSPath+strconv.Itoa(batch))
 		if err != nil {
 			return err
 		}
@@ -400,8 +400,8 @@ func exportInnerSeal(ctx *cli.Context) error {
 	if srsPath == "" {
 		return errors.New("invalid inner phase1 SRS path")
 	}
-	innerCSSPath := ctx.Path(innerCSSFileFlag.Name)
-	if innerCSSPath == "" {
+	innerCCSPath := ctx.Path(innerCCSFileFlag.Name)
+	if innerCCSPath == "" {
 		return errors.New("invalid R1CS path")
 	}
 	innerPKPath := ctx.Path(innerPkFileFlag.Name)
@@ -414,11 +414,11 @@ func exportInnerSeal(ctx *cli.Context) error {
 	}
 
 	for i := 0; i < len(InnerVKIDs); i++ {
-		innerCss, err := helper.ReadCSS(innerCSSPath + strconv.Itoa(InnerVKIDs[i]))
+		innerCCS, err := helper.ReadCCS(innerCCSPath + strconv.Itoa(InnerVKIDs[i]))
 		if err != nil {
 			return err
 		}
-		pk, vk, err := helper.GetKeysFromExistedPlonkSetUp(innerCss, srsPath)
+		pk, vk, err := helper.GetKeysFromExistedPlonkSetUp(innerCCS, srsPath)
 		if err != nil {
 			return err
 		}
@@ -441,9 +441,9 @@ func exportOuterSeal(ctx *cli.Context) error {
 	if srsPath == "" {
 		return errors.New("invalid common SRS path")
 	}
-	innerCSSPath := ctx.Path(innerCSSFileFlag.Name)
-	if innerCSSPath == "" {
-		return errors.New("invalid inner CSS prefix")
+	innerCCSPath := ctx.Path(innerCCSFileFlag.Name)
+	if innerCCSPath == "" {
+		return errors.New("invalid inner CCS prefix")
 	}
 	innerPKPath := ctx.Path(innerPkFileFlag.Name)
 	if innerPKPath == "" {
@@ -454,9 +454,9 @@ func exportOuterSeal(ctx *cli.Context) error {
 		return errors.New("invalid inner vk prefix")
 	}
 
-	outerCSSPath := ctx.Path(outerCSSFileFlag.Name)
-	if outerCSSPath == "" {
-		outerCSSPath = DefaultOuterFilePrefix + DefaultCSSFileName
+	outerCCSPath := ctx.Path(outerCCSFileFlag.Name)
+	if outerCCSPath == "" {
+		outerCCSPath = DefaultOuterFilePrefix + DefaultCCSFileName
 	}
 	outerPKPath := ctx.Path(outerPkFileFlag.Name)
 	if outerPKPath == "" {
@@ -472,11 +472,11 @@ func exportOuterSeal(ctx *cli.Context) error {
 		contractPath = DefaultOuterFilePrefix + DefaultContractFileName
 	}
 
-	innerCSSs := make([]constraint.ConstraintSystem, len(InnerVKIDs))
+	innerCCSs := make([]constraint.ConstraintSystem, len(InnerVKIDs))
 	innerPKs := make([]plonk.ProvingKey, len(InnerVKIDs))
 	innerVKs := make([]plonk.VerifyingKey, len(InnerVKIDs))
 	for i := 0; i < len(InnerVKIDs); i++ {
-		innerCSS, err := helper.ReadCSS(innerCSSPath + strconv.Itoa(InnerVKIDs[i]))
+		innerCCS, err := helper.ReadCCS(innerCCSPath + strconv.Itoa(InnerVKIDs[i]))
 		if err != nil {
 			return err
 		}
@@ -488,23 +488,29 @@ func exportOuterSeal(ctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		innerCSSs[i] = innerCSS
+		innerCCSs[i] = innerCCS
 		innerPKs[i] = innerPK
 		innerVKs[i] = innerVK
 	}
-	outerCircuit, err := circuit.GetRecursionEncryptionCircuit(innerCSSs[0], innerVKs, InnerVKIDs)
+	nbPublic, nbCommitment := innerCCSs[0].GetNbPublicVariables(), len(innerCCSs[0].GetCommitments().CommitmentIndexes())
+	for i := 0; i < len(innerCCSs); i++ {
+		if innerCCSs[i].GetNbPublicVariables() != nbPublic || len(innerCCSs[i].GetCommitments().CommitmentIndexes()) != nbCommitment {
+			return fmt.Errorf("all inner ccs should have the same len(public) and len(commitments)")
+		}
+	}
+	outerCircuit, err := circuit.GetRecursionEncryptionCircuit(nbPublic, nbCommitment, innerVKs)
 	if err != nil {
 		return err
 	}
-	outerCSS, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, outerCircuit)
+	outerCCS, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, outerCircuit)
 	if err != nil {
 		return err
 	}
-	pk, vk, err := helper.GetKeysFromExistedPlonkSetUp(outerCSS, srsPath)
+	pk, vk, err := helper.GetKeysFromExistedPlonkSetUp(outerCCS, srsPath)
 	if err != nil {
 		return err
 	}
-	err = helper.ExportCSS(outerCSS, outerCSSPath)
+	err = helper.ExportCCS(outerCCS, outerCCSPath)
 	if err != nil {
 		return err
 	}

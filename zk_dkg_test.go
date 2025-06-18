@@ -24,7 +24,12 @@ import (
 func TestBatchEncryptionWithMPC(t *testing.T) {
 	assert := test.NewAssert(t)
 	// To demo send N fragements to N nodes, N=batch
-	var batch = 7
+	batches := []int{1, 2, 7}
+	testIndex := 2
+	batch := batches[testIndex]
+	rootDir, err := helper.FindProjectRoot()
+	assert.NoError(err)
+	testDir := fmt.Sprintf("%s/%s/", rootDir, "cmd")
 	// Generate node private key
 	source := rand.NewSource(time.Now().UnixNano())
 	rand := rand.New(source)
@@ -43,27 +48,33 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 		fis[i] = fi
 	}
 	// Generate fragements and assigment and proof
-	fisBytes, fisInts, bigFis, nonces, encryptedFis, rs, bigRs, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
+	fisInts, bigFis, nonces, encryptedFis, rs, bigRs, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
 	assert.NoError(err)
 	messages := encodeMessages(encryptedFis, bigRs, nonces)
 	for i := 0; i < batch; i++ {
 		t.Logf("Share message: %s", hex.EncodeToString(messages[i]))
 	}
+	vks := make([]plonk.VerifyingKey, len(batches))
+	for i, b := range batches {
+		VKPath := testDir + "inner_vk_" + strconv.Itoa(b)
+		vk, err := helper.ReadPlonkVerifyingKey(VKPath, ecc.BN254)
+		assert.NoError(err)
+		vks[i] = vk
+	}
+
 	// Read files
-	innerCSSPath := "inner_ccs_" + strconv.Itoa(batch)
-	innerPKPath := "inner_pk_" + strconv.Itoa(batch)
-	innerVKPath := "inner_vk_" + strconv.Itoa(batch)
-	innerCSS, err := helper.ReadCSS(innerCSSPath)
+	innerCCSPath := testDir + "inner_ccs_" + strconv.Itoa(batch)
+	innerPKPath := testDir + "inner_pk_" + strconv.Itoa(batch)
+	innerCCS, err := helper.ReadCCS(innerCCSPath)
 	assert.NoError(err)
 	innerPK, err := helper.ReadPlonkProvingKey(innerPKPath, ecc.BN254)
 	assert.NoError(err)
-	innerVK, err := helper.ReadPlonkVerifyingKey(innerVKPath, ecc.BN254)
-	assert.NoError(err)
+	innerVK := vks[testIndex]
 
-	outerCSSPath := "outer_ccs"
-	outerPKPath := "outer_pk"
-	outerVKPath := "outer_vk"
-	outerCSS, err := helper.ReadCSS(outerCSSPath)
+	outerCCSPath := testDir + "outer_ccs"
+	outerPKPath := testDir + "outer_pk"
+	outerVKPath := testDir + "outer_vk"
+	outerCCS, err := helper.ReadCCS(outerCCSPath)
 	assert.NoError(err)
 	outerPK, err := helper.ReadPlonkProvingKey(outerPKPath, ecc.BN254)
 	assert.NoError(err)
@@ -71,7 +82,7 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 	assert.NoError(err)
 
 	// Compute proof
-	proof, witness, err := ProveMultipleKeyShareEncryption(outerCSS, outerPK, innerCSS, innerPK, innerVK, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
+	proof, witness, err := ProveMultipleKeyShareEncryption(outerCCS, outerPK, vks, innerCCS, innerPK, innerVK, pubKeys, rs, bigRs, fisInts, bigFis, encryptedFis, nonces)
 	assert.NoError(err)
 	// Verify proof
 	publicWitness, err := witness.Public()
@@ -85,7 +96,11 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 func TestTwoRecoverMessageGeneration(t *testing.T) {
 	assert := test.NewAssert(t)
 	// Generate node private key
-	var batch = 2
+	batches := []int{1, 2, 7}
+	batch := 2
+	rootDir, err := helper.FindProjectRoot()
+	assert.NoError(err)
+	testDir := fmt.Sprintf("%s/%s/", rootDir, "cmd")
 	source := rand.NewSource(time.Now().UnixNano())
 	rand := rand.New(source)
 	// Compute public key
@@ -107,27 +122,31 @@ func TestTwoRecoverMessageGeneration(t *testing.T) {
 	fis[1] = new(fr_bls12381.Element).SetBigInt(f2.evaluate(big.NewInt(int64(1))))
 
 	// Generate fragements and assigment and proof
-	fisBytes, fisInts, bigFis, nonces, encryptedFis, rs, bigRs, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
+	fisInts, bigFis, nonces, encryptedFis, rs, bigRs, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
 	assert.NoError(err)
 	messages := encodeMessages(encryptedFis, bigRs, nonces)
 	for i := 0; i < batch; i++ {
 		t.Logf("Share message: %s", hex.EncodeToString(messages[i]))
 	}
+	vks := make([]plonk.VerifyingKey, len(batches))
+	for i, b := range batches {
+		VKPath := testDir + "inner_vk_" + strconv.Itoa(b)
+		vk, err := helper.ReadPlonkVerifyingKey(VKPath, ecc.BN254)
+		assert.NoError(err)
+		vks[i] = vk
+	}
 	// Read files
-	innerCSSPath := "inner_ccs_" + strconv.Itoa(batch)
-	innerPKPath := "inner_pk_" + strconv.Itoa(batch)
-	innerVKPath := "inner_vk_" + strconv.Itoa(batch)
-	innerCSS, err := helper.ReadCSS(innerCSSPath)
+	innerCCSPath := testDir + "inner_ccs_" + strconv.Itoa(batch)
+	innerPKPath := testDir + "inner_pk_" + strconv.Itoa(batch)
+	innerCCS, err := helper.ReadCCS(innerCCSPath)
 	assert.NoError(err)
 	innerPK, err := helper.ReadPlonkProvingKey(innerPKPath, ecc.BN254)
 	assert.NoError(err)
-	innerVK, err := helper.ReadPlonkVerifyingKey(innerVKPath, ecc.BN254)
-	assert.NoError(err)
-
-	outerCSSPath := "outer_ccs"
-	outerPKPath := "outer_pk"
-	outerVKPath := "outer_vk"
-	outerCSS, err := helper.ReadCSS(outerCSSPath)
+	innerVK := vks[1]
+	outerCCSPath := testDir + "outer_ccs"
+	outerPKPath := testDir + "outer_pk"
+	outerVKPath := testDir + "outer_vk"
+	outerCCS, err := helper.ReadCCS(outerCCSPath)
 	assert.NoError(err)
 	outerPK, err := helper.ReadPlonkProvingKey(outerPKPath, ecc.BN254)
 	assert.NoError(err)
@@ -135,7 +154,7 @@ func TestTwoRecoverMessageGeneration(t *testing.T) {
 	assert.NoError(err)
 
 	// Compute proof
-	proof, witness, err := ProveMultipleKeyShareEncryption(outerCSS, outerPK, innerCSS, innerPK, innerVK, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
+	proof, witness, err := ProveMultipleKeyShareEncryption(outerCCS, outerPK, vks, innerCCS, innerPK, innerVK, pubKeys, rs, bigRs, fisInts, bigFis, encryptedFis, nonces)
 	assert.NoError(err)
 	// Verify proof
 	publicWitness, err := witness.Public()

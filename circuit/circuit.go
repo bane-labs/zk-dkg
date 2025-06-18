@@ -17,6 +17,7 @@ import (
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_bn254"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
+	"github.com/consensys/gnark/std/commitments/kzg"
 	"github.com/consensys/gnark/std/math/emulated"
 	stdplonk "github.com/consensys/gnark/std/recursion/plonk"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
@@ -27,7 +28,6 @@ import (
  * @Description: encrypt a batch of key shares and return related data
  * @param pubs: a set of public keys required for ecies encryption
  * @param fis: a set of key shares to be encrypted
- * @return fisBytes: a set of key shares, each in a byte array
  * @return fisInts: the key shares in integers
  * @return bigFis: the bls12381 commitments of the key shares
  * @return nonces: a set of salts
@@ -36,7 +36,7 @@ import (
  * @return bigRs: a set of the corresponding bls12381 commitment of random number
  * @return err: error
  */
-func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []*fr_bls12381.Element) ([][]byte, []*big.Int, []*bls12381.G1Affine, [][]byte, [][]byte, []*big.Int, []*secp256k1.G1Affine, error) {
+func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []*fr_bls12381.Element) ([]*big.Int, []*bls12381.G1Affine, [][]byte, [][]byte, []*big.Int, []*secp256k1.G1Affine, error) {
 	amount := len(pubs)
 	fisBytes := make([][]byte, amount)
 	fisInts := make([]*big.Int, amount)
@@ -50,10 +50,10 @@ func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []*fr_bls12381.Eleme
 		fisBytes[i], fisInts[i], bigFis[i] = transformKeyShare(fis[i])
 		nonces[i], encryptedFis[i], rs[i], bigRs[i], err = encryptKeyShare(pubs[i], fisBytes[i])
 		if err != nil {
-			return nil, nil, nil, nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, nil, err
 		}
 	}
-	return fisBytes, fisInts, bigFis, nonces, encryptedFis, rs, bigRs, nil
+	return fisInts, bigFis, nonces, encryptedFis, rs, bigRs, nil
 }
 
 /**
@@ -62,7 +62,6 @@ func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []*fr_bls12381.Eleme
  * @param pubKey: public key used for key share encryption
  * @param r: the integer format of random number
  * @param bigR: the corresponding elliptic curve point of random number
- * @param fiBytes: the key share in a byte array
  * @param fiInt: the integer format of the key share
  * @param bigFi: the bls12381 commitment of the key share
  * @param encryptedFi: the encrypted key
@@ -72,12 +71,8 @@ func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []*fr_bls12381.Eleme
  * @return assignment: input data collection
  * @return err: error
  */
-func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r *big.Int, bigR *secp256k1.G1Affine, fiBytes []byte, fiInt *big.Int, bigFi *bls12381.G1Affine, encryptedFi []byte, nonce []byte) (ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte) {
+func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r *big.Int, bigR *secp256k1.G1Affine, fiInt *big.Int, bigFi *bls12381.G1Affine, encryptedFi []byte, nonce []byte) (ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte) {
 	// Format data
-	plainChunksBytes := make([]frontend.Variable, len(fiBytes))
-	for i := 0; i < len(fiBytes); i++ {
-		plainChunksBytes[i] = fiBytes[i]
-	}
 	ciphertextBytes := make([]frontend.Variable, len(encryptedFi))
 	for i := 0; i < len(encryptedFi); i++ {
 		ciphertextBytes[i] = encryptedFi[i]
@@ -113,7 +108,6 @@ func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r *big.I
 			X: emulated.ValueOf[emulated.Secp256k1Fp](rPub.X),
 			Y: emulated.ValueOf[emulated.Secp256k1Fp](rPub.Y),
 		},
-		PlainChunks:  plainChunksBytes,
 		Iv:           nonceBytes,
 		ChunkIndex:   2,
 		CipherChunks: ciphertextBytes,
@@ -129,11 +123,11 @@ func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r *big.I
 
 // ComputeMultipleKeyShareEncryptionAssignment loops and computes an assignment array for several key share
 // encryption jobs. And it also returns the sum hash of all assignments.
-func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.PublicKey, rs []*big.Int, bigRs []*secp256k1.G1Affine, fisBytes [][]byte, fisInts []*big.Int, bigFis []*bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) (*BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte) {
+func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.PublicKey, rs []*big.Int, bigRs []*secp256k1.G1Affine, fisInts []*big.Int, bigFis []*bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) (*BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte) {
 	Parameters := make([]ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], batch)
 	innerhashes := make([][]byte, batch)
 	for i := 0; i < batch; i++ {
-		Parameters[i], innerhashes[i] = ComputeSingleKeyShareEncryptionAssignment(pubKey[i], rs[i], bigRs[i], fisBytes[i], fisInts[i], bigFis[i], encryptedFis[i], nonces[i])
+		Parameters[i], innerhashes[i] = ComputeSingleKeyShareEncryptionAssignment(pubKey[i], rs[i], bigRs[i], fisInts[i], bigFis[i], encryptedFis[i], nonces[i])
 	}
 	// Compute sum hash
 	sumhash := make([]byte, 0)
@@ -154,7 +148,7 @@ func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.Publ
 }
 
 // ComputeRecursionEncryptionAssignment computes the assignment for verification recursion.
-func ComputeRecursionEncryptionAssignment(field, outer *big.Int, batch int, innerCcs constraint.ConstraintSystem, innerPK native_plonk.ProvingKey, innerVK native_plonk.VerifyingKey, innerAssignments *BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], sumHash []frontend.Variable) (*RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl], error) {
+func ComputeRecursionEncryptionAssignment(field, outer *big.Int, vkIndex int, vks []native_plonk.VerifyingKey, innerCcs constraint.ConstraintSystem, innerPK native_plonk.ProvingKey, innerVK native_plonk.VerifyingKey, innerAssignments *BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], sumHash []frontend.Variable) (*RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl], error) {
 	innerProofs, innerWitness, err := ComputeInnerProof(field, outer, innerCcs, innerPK, innerVK, innerAssignments)
 	if err != nil {
 		return nil, err
@@ -168,11 +162,26 @@ func ComputeRecursionEncryptionAssignment(field, outer *big.Int, batch int, inne
 		return nil, err
 	}
 
+	circuitVks := make([]stdplonk.CircuitVerifyingKey[sw_bn254.ScalarField, sw_bn254.G1Affine], len(vks))
+	var baseVk stdplonk.BaseVerifyingKey[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine]
+	for i, vk := range vks {
+		pvk, err := stdplonk.ValueOfVerifyingKey[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine](vk)
+		if err != nil {
+			return nil, err
+		}
+		if i == 0 {
+			baseVk = pvk.BaseVerifyingKey
+		}
+		circuitVks[i] = pvk.CircuitVerifyingKey
+	}
+
 	outerAssignment := &RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl]{
-		InnerWitness: circuitWitness,
-		Proof:        circuitProof,
-		SumHash:      sumHash,
-		Batch:        batch,
+		InnerWitness:         [32]emulated.Element[sw_bn254.ScalarField](circuitWitness.Public),
+		Proof:                circuitProof,
+		SumHash:              [32]frontend.Variable(sumHash),
+		VerifyingKeyIndex:    vkIndex,
+		BaseVerifyingKey:     baseVk,
+		CircuitVerifyingKeys: circuitVks,
 	}
 	return outerAssignment, nil
 }
@@ -198,46 +207,50 @@ func ComputeInnerProof(field, outer *big.Int, innerCcs constraint.ConstraintSyst
 	if err != nil {
 		return nil, nil, err
 	}
-
 	return innerProof, innerPubWitness, nil
 }
 
 // GetBatchEncryptionCircuit returns a circuit for a single key share encryption.
-func GetBatchEncryptionCircuit(fisBytes [][]byte, encryptedFis [][]byte) *BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr] {
-	batch := len(fisBytes)
+func GetBatchEncryptionCircuit(encryptedFis [][]byte) *BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr] {
+	batch := len(encryptedFis)
 	circuit := &BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
 		Parameters: make([]ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], batch),
 		SumHash:    make([]frontend.Variable, 32),
 	}
 	for i := 0; i < batch; i++ {
-		circuit.Parameters[i].PlainChunks = make([]frontend.Variable, len(fisBytes[i]))
 		circuit.Parameters[i].CipherChunks = make([]frontend.Variable, len(encryptedFis[i]))
 	}
 	return circuit
 }
 
 // GetRecursionEncryptionCircuit returns a circuit for proving the verification of a batch of key share encryptions.
-func GetRecursionEncryptionCircuit(innerCcs constraint.ConstraintSystem, innerVKs []native_plonk.VerifyingKey, innerVKIDs []int) (*RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl], error) {
-	size := len(innerVKs)
-	circuitVk := make([]stdplonk.VerifyingKey[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine], size)
-	circuitVkID := make([]frontend.Variable, size)
-	for i := 0; i < size; i++ {
-		// initialize the witness elements
-		var err error
-		circuitVk[i], err = stdplonk.ValueOfVerifyingKey[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine](innerVKs[i])
+func GetRecursionEncryptionCircuit(nbPublic int, nbCommitments int, vks []native_plonk.VerifyingKey) (*RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl], error) {
+	circuitVks := make([]stdplonk.CircuitVerifyingKey[sw_bn254.ScalarField, sw_bn254.G1Affine], len(vks))
+	var baseVk stdplonk.BaseVerifyingKey[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine]
+	for i, vk := range vks {
+		pvk, err := stdplonk.ValueOfVerifyingKey[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine](vk)
 		if err != nil {
 			return nil, err
 		}
-		circuitVkID[i] = innerVKIDs[i]
+		if i == 0 {
+			baseVk = pvk.BaseVerifyingKey
+		}
+		circuitVks[i] = pvk.CircuitVerifyingKey
 	}
-	circuitWitness := stdplonk.PlaceholderWitness[sw_bn254.ScalarField](innerCcs)
-	circuitProof := stdplonk.PlaceholderProof[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine](innerCcs)
-	outerCircuit := &RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl]{
-		InnerWitness: circuitWitness,
-		VerifyingKey: circuitVk,
-		VerifyingID:  circuitVkID,
-		Proof:        circuitProof,
-		SumHash:      make([]frontend.Variable, 32),
+
+	circuitWitness := stdplonk.Witness[sw_bn254.ScalarField]{
+		Public: make([]emulated.Element[sw_bn254.ScalarField], nbPublic),
 	}
-	return outerCircuit, nil
+	circuitProof := stdplonk.Proof[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine]{
+		BatchedProof: kzg.BatchOpeningProof[sw_bn254.ScalarField, sw_bn254.G1Affine]{
+			ClaimedValues: make([]emulated.Element[sw_bn254.ScalarField], 6+nbCommitments),
+		},
+		Bsb22Commitments: make([]kzg.Commitment[sw_bn254.G1Affine], nbCommitments),
+	}
+	return &RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl]{
+		InnerWitness:         [32]emulated.Element[sw_bn254.ScalarField](circuitWitness.Public),
+		BaseVerifyingKey:     baseVk,
+		CircuitVerifyingKeys: circuitVks,
+		Proof:                circuitProof,
+	}, nil
 }

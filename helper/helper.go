@@ -2,12 +2,14 @@ package helper
 
 import (
 	"crypto/sha256"
+	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/bane-labs/zk-dkg/mpc"
 	"github.com/consensys/gnark-crypto/ecc"
 	kzg_bn254 "github.com/consensys/gnark-crypto/ecc/bn254/kzg"
-	"github.com/consensys/gnark/backend"
 	"github.com/consensys/gnark/backend/plonk"
 	plonk_bn254 "github.com/consensys/gnark/backend/plonk/bn254"
 	"github.com/consensys/gnark/backend/witness"
@@ -19,7 +21,7 @@ import (
 /**
  * Function: ComputeProof
  * @Description: a general zk proof calculation method
- * @param css: circuit constraints
+ * @param ccs: circuit constraints
  * @param pk: proving key
  * @param assignment: input data collection
  * @return proof: zk proof
@@ -33,7 +35,7 @@ func ComputeProof(ccs constraint.ConstraintSystem, pk plonk.ProvingKey, assignme
 		return nil, nil, err
 	}
 	// Compute proof
-	proof, err := plonk.Prove(ccs.(*cs.R1CS), pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
+	proof, err := plonk.Prove(ccs, pk, witness) // no need to set hashToField Option. If this option is set, then the verification outside should have the corresponding option.
 	if err != nil {
 		return nil, nil, err
 	}
@@ -145,34 +147,34 @@ func ExportPlonkVerifyingKey(vk plonk.VerifyingKey, path string) error {
 }
 
 /**
- * Function: ReadCSS
+ * Function: ReadCCS
  * @Description: import r1cs file
  * @param path: r1cs file path
  */
-func ReadCSS(path string) (constraint.ConstraintSystem, error) {
-	css := new(cs.SparseR1CS)
+func ReadCCS(path string) (constraint.ConstraintSystem, error) {
+	ccs := new(cs.SparseR1CS)
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	_, err = css.ReadFrom(file)
+	_, err = ccs.ReadFrom(file)
 	if err != nil {
 		return nil, err
 	}
-	return css, nil
+	return ccs, nil
 }
 
 /**
- * Function: ExportCSS
+ * Function: ExportCCS
  * @Description: export r1cs file
- * @param css: r1cs
+ * @param ccs: r1cs
  */
-func ExportCSS(css constraint.ConstraintSystem, path string) error {
+func ExportCCS(ccs constraint.ConstraintSystem, path string) error {
 	file, err := os.Create(path)
 	if err != nil {
 		return err
 	}
-	_, err = css.WriteTo(file)
+	_, err = ccs.WriteTo(file)
 	if err != nil {
 		return err
 	}
@@ -220,4 +222,29 @@ func GetContractInput(proof plonk.Proof) []byte {
 	plonk_proof := proof.(*plonk_bn254.Proof)
 	input := plonk_proof.MarshalSolidity()
 	return input
+}
+
+// FindProjectRoot Find project's root Directory(by go.mod)
+func FindProjectRoot() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", errors.New(fmt.Sprintf("get dir error: %v", err))
+	}
+	for {
+		// 检查当前目录下是否存在 go.mod
+		goModPath := filepath.Join(dir, "go.mod")
+		if _, err := os.Stat(goModPath); err == nil {
+			// 找到了 go.mod，当前目录就是项目根目录
+			return dir, nil
+		}
+
+		// 向上移动一个目录
+		parentDir := filepath.Dir(dir)
+		if parentDir == dir {
+			// 到达了文件系统的根目录 (e.g., "/" or "C:\")，仍然没找到
+			break
+		}
+		dir = parentDir
+	}
+	return "", errors.New("can not find go.mod")
 }
