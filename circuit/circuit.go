@@ -1,10 +1,6 @@
 package circuit
 
 import (
-	"github.com/consensys/gnark/std/commitments/kzg"
-	"math/big"
-	"runtime"
-
 	"github.com/bane-labs/zk-dkg/helper"
 	bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381"
 	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
@@ -19,9 +15,11 @@ import (
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_bn254"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
+	"github.com/consensys/gnark/std/commitments/kzg"
 	"github.com/consensys/gnark/std/math/emulated"
 	stdplonk "github.com/consensys/gnark/std/recursion/plonk"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
+	"math/big"
 )
 
 /**
@@ -165,7 +163,6 @@ func ComputeRecursionEncryptionAssignment(field, outer *big.Int, vkIndex int, vk
 	}
 
 	circuitVks := make([]stdplonk.CircuitVerifyingKey[sw_bn254.ScalarField, sw_bn254.G1Affine], len(vks))
-	//supportedBatches := make([]frontend.Variable, len(batches))
 	var baseVk stdplonk.BaseVerifyingKey[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine]
 	for i, vk := range vks {
 		pvk, err := stdplonk.ValueOfVerifyingKey[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine](vk)
@@ -176,7 +173,6 @@ func ComputeRecursionEncryptionAssignment(field, outer *big.Int, vkIndex int, vk
 			baseVk = pvk.BaseVerifyingKey
 		}
 		circuitVks[i] = pvk.CircuitVerifyingKey
-		//supportedBatches[i] = batch
 	}
 
 	outerAssignment := &RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl]{
@@ -211,7 +207,6 @@ func ComputeInnerProof(field, outer *big.Int, innerCcs constraint.ConstraintSyst
 	if err != nil {
 		return nil, nil, err
 	}
-	runtime.GC()
 	return innerProof, innerPubWitness, nil
 }
 
@@ -228,6 +223,7 @@ func GetBatchEncryptionCircuit(encryptedFis [][]byte) *BatchEncryptionWrapper[em
 	return circuit
 }
 
+// GetRecursionEncryptionCircuit returns a circuit for proving the verification of a batch of key share encryptions.
 func GetRecursionEncryptionCircuit(nbPublic int, nbCommitments int, vks []native_plonk.VerifyingKey) (*RecursionEncryptionWrapper[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine, sw_bn254.GTEl], error) {
 	circuitVks := make([]stdplonk.CircuitVerifyingKey[sw_bn254.ScalarField, sw_bn254.G1Affine], len(vks))
 	var baseVk stdplonk.BaseVerifyingKey[sw_bn254.ScalarField, sw_bn254.G1Affine, sw_bn254.G2Affine]

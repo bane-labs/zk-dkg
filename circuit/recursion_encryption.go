@@ -20,6 +20,7 @@ type RecursionEncryptionWrapper[Fr emulated.FieldParams, G1 algebra.G1ElementT, 
 	SumHash              [32]frontend.Variable                  `gnark:",public"`        // hash of public inputs
 }
 
+// Define declares the circuit's constraints
 func (c *RecursionEncryptionWrapper[Fr, G1, G2, GT]) Define(api frontend.API) error {
 	field, err := emulated.NewField[Fr](api)
 	if err != nil {

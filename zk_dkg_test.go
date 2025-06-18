@@ -27,6 +27,9 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 	batches := []int{1, 2, 7}
 	testIndex := 2
 	batch := batches[testIndex]
+	rootDir, err := helper.FindProjectRoot()
+	assert.NoError(err)
+	testDir := fmt.Sprintf("%s/%s/", rootDir, "cmd")
 	// Generate node private key
 	source := rand.NewSource(time.Now().UnixNano())
 	rand := rand.New(source)
@@ -53,24 +56,24 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 	}
 	vks := make([]plonk.VerifyingKey, len(batches))
 	for i, b := range batches {
-		VKPath := "inner_vk_" + strconv.Itoa(b)
+		VKPath := testDir + "inner_vk_" + strconv.Itoa(b)
 		vk, err := helper.ReadPlonkVerifyingKey(VKPath, ecc.BN254)
 		assert.NoError(err)
 		vks[i] = vk
 	}
 
 	// Read files
-	innerCCSPath := "inner_ccs_" + strconv.Itoa(batch)
-	innerPKPath := "inner_pk_" + strconv.Itoa(batch)
+	innerCCSPath := testDir + "inner_ccs_" + strconv.Itoa(batch)
+	innerPKPath := testDir + "inner_pk_" + strconv.Itoa(batch)
 	innerCCS, err := helper.ReadCCS(innerCCSPath)
 	assert.NoError(err)
 	innerPK, err := helper.ReadPlonkProvingKey(innerPKPath, ecc.BN254)
 	assert.NoError(err)
 	innerVK := vks[testIndex]
 
-	outerCCSPath := "outer_ccs"
-	outerPKPath := "outer_pk"
-	outerVKPath := "outer_vk"
+	outerCCSPath := testDir + "outer_ccs"
+	outerPKPath := testDir + "outer_pk"
+	outerVKPath := testDir + "outer_vk"
 	outerCCS, err := helper.ReadCCS(outerCCSPath)
 	assert.NoError(err)
 	outerPK, err := helper.ReadPlonkProvingKey(outerPKPath, ecc.BN254)
@@ -94,8 +97,10 @@ func TestTwoRecoverMessageGeneration(t *testing.T) {
 	assert := test.NewAssert(t)
 	// Generate node private key
 	batches := []int{1, 2, 7}
-	testIndex := 2
-	batch := batches[testIndex]
+	batch := 2
+	rootDir, err := helper.FindProjectRoot()
+	assert.NoError(err)
+	testDir := fmt.Sprintf("%s/%s/", rootDir, "cmd")
 	source := rand.NewSource(time.Now().UnixNano())
 	rand := rand.New(source)
 	// Compute public key
@@ -125,22 +130,22 @@ func TestTwoRecoverMessageGeneration(t *testing.T) {
 	}
 	vks := make([]plonk.VerifyingKey, len(batches))
 	for i, b := range batches {
-		VKPath := "inner_vk_" + strconv.Itoa(b)
+		VKPath := testDir + "inner_vk_" + strconv.Itoa(b)
 		vk, err := helper.ReadPlonkVerifyingKey(VKPath, ecc.BN254)
 		assert.NoError(err)
 		vks[i] = vk
 	}
 	// Read files
-	innerCCSPath := "inner_ccs_" + strconv.Itoa(batch)
-	innerPKPath := "inner_pk_" + strconv.Itoa(batch)
+	innerCCSPath := testDir + "inner_ccs_" + strconv.Itoa(batch)
+	innerPKPath := testDir + "inner_pk_" + strconv.Itoa(batch)
 	innerCCS, err := helper.ReadCCS(innerCCSPath)
 	assert.NoError(err)
 	innerPK, err := helper.ReadPlonkProvingKey(innerPKPath, ecc.BN254)
 	assert.NoError(err)
-	innerVK := vks[testIndex]
-	outerCCSPath := "outer_ccs"
-	outerPKPath := "outer_pk"
-	outerVKPath := "outer_vk"
+	innerVK := vks[1]
+	outerCCSPath := testDir + "outer_ccs"
+	outerPKPath := testDir + "outer_pk"
+	outerVKPath := testDir + "outer_vk"
 	outerCCS, err := helper.ReadCCS(outerCCSPath)
 	assert.NoError(err)
 	outerPK, err := helper.ReadPlonkProvingKey(outerPKPath, ecc.BN254)

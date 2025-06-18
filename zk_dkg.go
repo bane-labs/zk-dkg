@@ -60,7 +60,7 @@ func ProveMultipleKeyShareEncryption(outerCCS constraint.ConstraintSystem, outer
 	if err != nil {
 		return nil, nil, err
 	}
-	var temp = ""
+	var temp = fmt.Sprintf("\"%d\",", vkIndex)
 	for k := 0; k < len(sumHash); k++ {
 		temp = temp + "\"" + strconv.Itoa(int(sumHash[k])) + "\"" + ","
 	}
