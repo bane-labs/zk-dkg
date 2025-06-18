@@ -63,12 +63,12 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 	innerCCSs := make([]constraint.ConstraintSystem, len(innerVKIDs))
 	innerPKs := make([]plonk.ProvingKey, len(innerVKIDs))
 	innerVKs := make([]plonk.VerifyingKey, len(innerVKIDs))
-	SRSCFlag := false
+	srscFlag := false
 	var srsc kzg_bn254.SRS
 	// if pk/vk pairs has been generated, we don't need to load or generate srs/srsc
 	checkSRSC := func() {
 		srscPath := testDir + "srs_2_canonical" // not kzg.mpcsetup, is kzg.srs(canonical), points on curve
-		if !SRSCFlag {
+		if !srscFlag {
 			// if srsc has not been generated
 			if _, err := os.Stat(srscPath); err != nil {
 				circuit := GetBatchEncryptionCircuit(td[maxBatchIDIndex].data5)
@@ -94,7 +94,7 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 					require.NoError(t, err)
 				}
 			}
-			SRSCFlag = true
+			srscFlag = true
 			file, err := os.Open(srscPath)
 			require.NoError(t, err)
 			_, err = srsc.ReadFrom(file)

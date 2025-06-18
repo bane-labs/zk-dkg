@@ -1,6 +1,8 @@
 package circuit
 
 import (
+	"math/big"
+
 	"github.com/bane-labs/zk-dkg/helper"
 	bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381"
 	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
@@ -19,7 +21,6 @@ import (
 	"github.com/consensys/gnark/std/math/emulated"
 	stdplonk "github.com/consensys/gnark/std/recursion/plonk"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
-	"math/big"
 )
 
 /**
@@ -72,7 +73,6 @@ func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []*fr_bls12381.Eleme
  */
 func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r *big.Int, bigR *secp256k1.G1Affine, fiInt *big.Int, bigFi *bls12381.G1Affine, encryptedFi []byte, nonce []byte) (ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte) {
 	// Format data
-
 	ciphertextBytes := make([]frontend.Variable, len(encryptedFi))
 	for i := 0; i < len(encryptedFi); i++ {
 		ciphertextBytes[i] = encryptedFi[i]
