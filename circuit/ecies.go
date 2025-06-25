@@ -2,7 +2,6 @@ package circuit
 
 import (
 	"fmt"
-
 	fp_bls "github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 	fp_secp "github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	"github.com/consensys/gnark/frontend"
@@ -11,6 +10,7 @@ import (
 	"github.com/consensys/gnark/std/hash/sha3"
 	"github.com/consensys/gnark/std/math/emulated"
 	"github.com/consensys/gnark/std/math/uints"
+	"slices"
 )
 
 // ECIESWrapper is the circuit for ECIES encryption
@@ -51,11 +51,28 @@ func (c *ECIESWrapper[T1, S1, T2, S2]) Define(api frontend.API) error {
 	return nil
 }
 
-func variableToU8s(in []frontend.Variable, nbBits int) []uints.U8 {
-	out := make([]uints.U8, 2*nbBits)
-	for i := 0; i < len(out); i++ {
-		out[i] = uints.U8{Val: in[i]}
+func variableToU8s(api frontend.API, in []frontend.Variable, nbBits int) []uints.U8 {
+	//out := make([]uints.U8, 2*nbBits)
+	//for i := 0; i < len(out); i++ {
+	//	out[i] = uints.U8{Val: in[i]}
+	//}
+	fixedBits := make([]frontend.Variable, 2*nbBits) // fixed with 0
+	if len(fixedBits)%8 != 0 {
+		panic(fmt.Errorf("invalid nbBits"))
 	}
+	for i := 0; i < len(fixedBits); i++ {
+		if i < len(in) {
+			fixedBits[len(in)-1-i] = in[i]
+		} else {
+			fixedBits[i] = 0
+		}
+	}
+	out := make([]uints.U8, len(fixedBits)/8)
+	// transform bits to bytes
+	for i := 0; i < len(out); i++ {
+		out[i] = uints.U8{Val: api.FromBinary(fixedBits[i*8 : (i+1)*8]...)}
+	}
+	slices.Reverse(out)
 	return out
 }
 
@@ -140,11 +157,10 @@ func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(cipherChunks []frontend.Variable, iv
 	rawBigFi := cr2.MarshalG1(bigFi)
 	nbBits1 := 8 * ((fp_secp.Modulus().BitLen() + 7) / 8)
 	nbBits2 := 8 * ((fp_bls.Modulus().BitLen() + 7) / 8)
-	bigRU8s := variableToU8s(rawBigR, nbBits1)
-	pubU8s := variableToU8s(rawPub, nbBits1)
-	bigFiU8s := variableToU8s(rawBigFi, nbBits2)
+	bigRU8s := variableToU8s(api, rawBigR, nbBits1)
+	pubU8s := variableToU8s(api, rawPub, nbBits1)
+	bigFiU8s := variableToU8s(api, rawBigFi, nbBits2)
 	length := len(bigRU8s) + len(pubU8s) + len(bigFiU8s) + len(iv) + 1 + len(cipherChunks)
-
 	pubInputs := make([]uints.U8, length)
 	for i := range bigRU8s {
 		pubInputs[i] = bigRU8s[i]

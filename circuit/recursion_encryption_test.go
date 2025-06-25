@@ -34,9 +34,9 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 	innerVKIDs := []int{1, 2, 7}
 	rootDir, err := helper.FindProjectRoot()
 	assert.NoError(err)
-	testDir := fmt.Sprintf("%s/%s/", rootDir, "cmd") // change the path, "cmd"(from mpccmd.go) or ""(mock)
-	maxBatchIDIndex := len(innerVKIDs) - 1           // max ccs's index
-	testBatchIndex := 2                              // index for test
+	testDir := fmt.Sprintf("%s/%s/", rootDir, "circuit") // change the path, "cmd"(from mpccmd.go) or "circuit"(mock)
+	maxBatchIDIndex := len(innerVKIDs) - 1               // max ccs's index
+	testBatchIndex := 2                                  // index for test
 	td := make([]Tempdata, len(innerVKIDs))
 	for j := 0; j < len(innerVKIDs); j++ {
 		batch := innerVKIDs[j]
