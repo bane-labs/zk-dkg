@@ -2,6 +2,8 @@ package circuit
 
 import (
 	"fmt"
+	"slices"
+
 	fp_bls "github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 	fp_secp "github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	"github.com/consensys/gnark/frontend"
@@ -10,7 +12,6 @@ import (
 	"github.com/consensys/gnark/std/hash/sha3"
 	"github.com/consensys/gnark/std/math/emulated"
 	"github.com/consensys/gnark/std/math/uints"
-	"slices"
 )
 
 // ECIESWrapper is the circuit for ECIES encryption
@@ -52,11 +53,7 @@ func (c *ECIESWrapper[T1, S1, T2, S2]) Define(api frontend.API) error {
 }
 
 func variableToU8s(api frontend.API, in []frontend.Variable, nbBits int) []uints.U8 {
-	//out := make([]uints.U8, 2*nbBits)
-	//for i := 0; i < len(out); i++ {
-	//	out[i] = uints.U8{Val: in[i]}
-	//}
-	fixedBits := make([]frontend.Variable, 2*nbBits) // fixed with 0
+	fixedBits := make([]frontend.Variable, 2*nbBits)
 	if len(fixedBits)%8 != 0 {
 		panic(fmt.Errorf("invalid nbBits"))
 	}
@@ -68,7 +65,7 @@ func variableToU8s(api frontend.API, in []frontend.Variable, nbBits int) []uints
 		}
 	}
 	out := make([]uints.U8, len(fixedBits)/8)
-	// transform bits to bytes
+	// Transform bits to bytes
 	for i := 0; i < len(out); i++ {
 		out[i] = uints.U8{Val: api.FromBinary(fixedBits[i*8 : (i+1)*8]...)}
 	}
@@ -91,9 +88,9 @@ func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(cipherChunks []frontend.Variable, iv
 	if err != nil {
 		return nil, err
 	}
-	shareBits := f.ToBits(&fi) // little-endian, in reverse
+	shareBits := f.ToBits(&fi) // Little-endian, in reverse
 	for len(shareBits)%8 != 0 {
-		shareBits = append(shareBits, 0) // fill in 0
+		shareBits = append(shareBits, 0) // Fill in 0
 	}
 	pBytes := make([]uints.U8, 0)
 	for i := 0; i < len(shareBits)/8; i++ {
