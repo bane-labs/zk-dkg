@@ -57,25 +57,19 @@ func computeSumHash(pub *secp256k1.G1Affine, bigR *secp256k1.G1Affine, bigFi *bl
 	secp256k1G1ByteLength := secp256k1.SizeOfG1AffineUncompressed
 	bls12381G1ByteLength := bls12381.SizeOfG1AffineUncompressed
 	bigRBytes := bigR.RawBytes()
-	rawBigR := make([]byte, secp256k1G1ByteLength*8)
+	rawBigR := make([]byte, secp256k1G1ByteLength)
 	for i := 0; i < secp256k1G1ByteLength; i++ {
-		for j := 0; j < 8; j++ {
-			rawBigR[i*8+j] = (bigRBytes[i] >> (7 - j)) & 1
-		}
+		rawBigR[i] = bigRBytes[i] // bytes
 	}
 	pubBytes := pub.RawBytes()
-	rawPub := make([]byte, secp256k1G1ByteLength*8)
+	rawPub := make([]byte, secp256k1G1ByteLength)
 	for i := 0; i < secp256k1G1ByteLength; i++ {
-		for j := 0; j < 8; j++ {
-			rawPub[i*8+j] = (pubBytes[i] >> (7 - j)) & 1
-		}
+		rawPub[i] = pubBytes[i] // bytes
 	}
 	bigFiBytes := bigFi.RawBytes()
-	rawBigFi := make([]byte, bls12381G1ByteLength*8)
+	rawBigFi := make([]byte, bls12381G1ByteLength)
 	for i := 0; i < bls12381G1ByteLength; i++ {
-		for j := 0; j < 8; j++ {
-			rawBigFi[i*8+j] = (bigFiBytes[i] >> (7 - j)) & 1
-		}
+		rawBigFi[i] = bigFiBytes[i] // bytes
 	}
 	data := append(append(append(append(append(rawBigR, rawPub...), rawBigFi...), nonce...), 2), encryptedFi...)
 	return helper.GetHash(data)
