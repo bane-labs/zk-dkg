@@ -2,10 +2,7 @@ package helper
 
 import (
 	"crypto/sha256"
-	"errors"
-	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/bane-labs/zk-dkg/mpc"
 	"github.com/consensys/gnark-crypto/ecc"
@@ -222,29 +219,4 @@ func GetContractInput(proof plonk.Proof) []byte {
 	plonk_proof := proof.(*plonk_bn254.Proof)
 	input := plonk_proof.MarshalSolidity()
 	return input
-}
-
-// FindProjectRoot Find project's root Directory(by go.mod)
-func FindProjectRoot() (string, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", errors.New(fmt.Sprintf("get dir error: %v", err))
-	}
-	for {
-		// 检查当前目录下是否存在 go.mod
-		goModPath := filepath.Join(dir, "go.mod")
-		if _, err := os.Stat(goModPath); err == nil {
-			// 找到了 go.mod，当前目录就是项目根目录
-			return dir, nil
-		}
-
-		// 向上移动一个目录
-		parentDir := filepath.Dir(dir)
-		if parentDir == dir {
-			// 到达了文件系统的根目录 (e.g., "/" or "C:\")，仍然没找到
-			break
-		}
-		dir = parentDir
-	}
-	return "", errors.New("can not find go.mod")
 }

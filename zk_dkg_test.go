@@ -3,9 +3,12 @@ package zkdkg
 import (
 	crypto_rand "crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -27,7 +30,7 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 	batches := []int{1, 2, 7}
 	testIndex := 2
 	batch := batches[testIndex]
-	rootDir, err := helper.FindProjectRoot()
+	rootDir, err := findProjectRoot()
 	assert.NoError(err)
 	testDir := fmt.Sprintf("%s/%s/", rootDir, "cmd")
 	// Generate node private key
@@ -98,7 +101,7 @@ func TestTwoRecoverMessageGeneration(t *testing.T) {
 	// Generate node private key
 	batches := []int{1, 2, 7}
 	batch := 2
-	rootDir, err := helper.FindProjectRoot()
+	rootDir, err := findProjectRoot()
 	assert.NoError(err)
 	testDir := fmt.Sprintf("%s/%s/", rootDir, "cmd")
 	source := rand.NewSource(time.Now().UnixNano())
@@ -205,4 +208,26 @@ func encodeMessages(encryptedFis [][]byte, bigRs []*secp256k1.G1Affine, nonces [
 		result = append(result, append(prefix, encryptedFis[i]...))
 	}
 	return result
+}
+
+func findProjectRoot() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("get dir error: %v", err)
+	}
+	for {
+		// Check if there is a go mod file
+		goModPath := filepath.Join(dir, "go.mod")
+		if _, err := os.Stat(goModPath); err == nil {
+			return dir, nil
+		}
+		// If not, search in the parent directory
+		parentDir := filepath.Dir(dir)
+		if parentDir == dir {
+			// break if we reach the root directory
+			break
+		}
+		dir = parentDir
+	}
+	return "", errors.New("can not find go.mod")
 }

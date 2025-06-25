@@ -2,10 +2,12 @@ package circuit
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -32,7 +34,7 @@ import (
 func TestRecursionEncryptionCircuit(t *testing.T) {
 	assert := test.NewAssert(t)
 	innerVKIDs := []int{1, 2, 7}
-	rootDir, err := helper.FindProjectRoot()
+	rootDir, err := findProjectRoot()
 	assert.NoError(err)
 	testDir := fmt.Sprintf("%s/%s/", rootDir, "circuit") // change the path, "cmd"(from mpccmd.go) or "circuit"(mock)
 	maxBatchIDIndex := len(innerVKIDs) - 1               // max ccs's index
@@ -287,4 +289,26 @@ func mockSeal(prefix string, ccs constraint.ConstraintSystem, srs kzg.SRS, inner
 		return nil, nil, err
 	}
 	return pk, vk, nil
+}
+
+func findProjectRoot() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("get dir error: %v", err)
+	}
+	for {
+		// Check if there is a go mod file
+		goModPath := filepath.Join(dir, "go.mod")
+		if _, err := os.Stat(goModPath); err == nil {
+			return dir, nil
+		}
+		// If not, search in the parent directory
+		parentDir := filepath.Dir(dir)
+		if parentDir == dir {
+			// break if we reach the root directory
+			break
+		}
+		dir = parentDir
+	}
+	return "", errors.New("can not find go.mod")
 }
