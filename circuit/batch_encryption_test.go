@@ -22,18 +22,19 @@ func TestBatchEncryptionCircuit(t *testing.T) {
 	source := rand.NewSource(time.Now().UnixNano())
 	rand := rand.New(source)
 	// Computing public key
-	fis := make([]fr_bls12381.Element, batch)
+	fis := make([]*fr_bls12381.Element, batch)
 	pubKeys := make([]*ecies.PublicKey, batch)
 	for i := 0; i < batch; i++ {
 		key, err := ecies.GenerateKey(rand, crypto.S256(), nil)
 		assert.NoError(err)
 		pubKeys[i] = &key.PublicKey
-		var fi fr_bls12381.Element
-		fi.SetRandom()
+		fi, err := new(fr_bls12381.Element).SetRandom()
+		assert.NoError(err)
 		fis[i] = fi
 	}
 	// Generate fragements and assigment
-	fisBytes, fisInts, bigFis, nonces, encryptedFis, rs, bigRs := PrepareEncryptedKeyShares(pubKeys, fis)
+	fisBytes, fisInts, bigFis, nonces, encryptedFis, rs, bigRs, err := PrepareEncryptedKeyShares(pubKeys, fis)
+	assert.NoError(err)
 	circuit := BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
 		Account:      make([]AccountConstraints[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], batch),
 		CommentsHash: make([]frontend.Variable, 32),
@@ -43,6 +44,6 @@ func TestBatchEncryptionCircuit(t *testing.T) {
 		circuit.Account[i].CipherChunks = make([]frontend.Variable, len(encryptedFis[i]))
 	}
 	assignment := ComputeMultipleKeyShareEncryptionAssignment(batch, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
-	err := test.IsSolved(&circuit, assignment, ecc.BN254.ScalarField())
+	err = test.IsSolved(&circuit, assignment, ecc.BN254.ScalarField())
 	assert.NoError(err)
 }

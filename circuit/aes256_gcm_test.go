@@ -8,7 +8,6 @@ import (
 	"github.com/bane-labs/zk-dkg/encryption"
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1"
-	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	"github.com/consensys/gnark/std/math/uints"
 	"github.com/consensys/gnark/test"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -25,14 +24,10 @@ func TestAESGCM256Circuit(t *testing.T) {
 	privKey, err := ecies.GenerateKey(rand, crypto.S256(), nil)
 	assert.NoError(err)
 	// Get corresponding pub key bytes for AES
-	var px fp.Element
-	px.SetInterface(privKey.PublicKey.X)
-	var py fp.Element
-	py.SetInterface(privKey.PublicKey.Y)
-	pubKey := secp256k1.G1Affine{
-		X: px,
-		Y: py,
-	}
+	pubKey := new(secp256k1.G1Affine)
+	pubKey.X.SetBigInt(privKey.PublicKey.X)
+	pubKey.Y.SetBigInt(privKey.PublicKey.Y)
+	// Convert pub key to bytes
 	pubKeyBytes := pubKey.RawBytes()
 	m := pubKeyBytes[:]
 	mBytes := make([]uints.U8, len(m))
@@ -48,7 +43,8 @@ func TestAESGCM256Circuit(t *testing.T) {
 		keyBytes[i] = uints.U8{Val: expected[i]}
 	}
 	// Prepare circuit and witness
-	ciphertext, nonce := encryption.AESGCMEncrypt(expected[:], m)
+	ciphertext, nonce, err := encryption.AESGCMEncrypt(expected[:], m)
+	assert.NoError(err)
 	cBytes := make([]uints.U8, len(ciphertext))
 	for i := 0; i < len(ciphertext); i++ {
 		cBytes[i] = uints.U8{Val: ciphertext[i]}

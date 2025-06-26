@@ -34,10 +34,11 @@ func TestECIESCircuit(t *testing.T) {
 	privKey, err := ecies.GenerateKey(rand, crypto.S256(), nil)
 	assert.NoError(err)
 	// Generate an encrypt fragement key
-	var fi fr_bls12381.Element
-	fi.SetRandom()
+	fi, err := new(fr_bls12381.Element).SetRandom()
+	assert.NoError(err)
 	fiBytes, fiInt, bigFi := transformKeyShare(fi)
-	nonce, encryptedFi, r, bigR := encryptKeyShare(&privKey.PublicKey, fiBytes)
+	nonce, encryptedFi, r, bigR, err := encryptKeyShare(&privKey.PublicKey, fiBytes)
+	assert.NoError(err)
 	// Verify circuit
 	circuit := ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
 		PlainChunks:  make([]frontend.Variable, len(fiBytes)),
@@ -57,10 +58,11 @@ func TestECIESWithMPC(t *testing.T) {
 	privKey, err := ecies.GenerateKey(rand, crypto.S256(), nil)
 	assert.NoError(err)
 	// Generate a encrypt fragement key
-	var fi fr_bls12381.Element
-	fi.SetRandom()
+	fi, err := new(fr_bls12381.Element).SetRandom()
+	assert.NoError(err)
 	fiBytes, fiInt, bigFi := transformKeyShare(fi)
-	nonce, encryptedFi, r, bigR := encryptKeyShare(&privKey.PublicKey, fiBytes)
+	nonce, encryptedFi, r, bigR, err := encryptKeyShare(&privKey.PublicKey, fiBytes)
+	assert.NoError(err)
 	// Compute proof
 	circuit := ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
 		PlainChunks:  make([]frontend.Variable, len(fiBytes)),

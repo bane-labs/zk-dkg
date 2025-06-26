@@ -6,7 +6,6 @@ import (
 	"github.com/bane-labs/zk-dkg/helper"
 	bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1"
-	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
 	"github.com/consensys/gnark/std/math/emulated"
@@ -29,7 +28,7 @@ import (
  * @return assignment: input data collection
  * @return err: error
  */
-func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r big.Int, bigR secp256k1.G1Affine, fiBytes []byte, fiInt big.Int, bigFi bls12381.G1Affine, encryptedFi []byte, nonce []byte) *ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr] {
+func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r *big.Int, bigR *secp256k1.G1Affine, fiBytes []byte, fiInt *big.Int, bigFi *bls12381.G1Affine, encryptedFi []byte, nonce []byte) *ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr] {
 	// Format data
 	plainChunksBytes := make([]frontend.Variable, len(fiBytes))
 	for i := 0; i < len(fiBytes); i++ {
@@ -43,17 +42,11 @@ func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r big.In
 	for i := 0; i < len(nonce); i++ {
 		nonceBytes[i] = nonce[i]
 	}
-	var px fp.Element
-	px.SetBigInt(pubKey.X)
-	var py fp.Element
-	py.SetBigInt(pubKey.Y)
-	pub := secp256k1.G1Affine{
-		X: px,
-		Y: py,
-	}
+	pub := new(secp256k1.G1Affine)
+	pub.X.SetBigInt(pubKey.X)
+	pub.Y.SetBigInt(pubKey.Y)
 	// Compute RPub
-	var rPub secp256k1.G1Affine
-	rPub.ScalarMultiplication(&pub, &r)
+	rPub := new(secp256k1.G1Affine).ScalarMultiplication(pub, r)
 	// Compute allHash
 	secp256k1G1ByteLength := secp256k1.SizeOfG1AffineUncompressed
 	bls12381G1ByteLength := bls12381.SizeOfG1AffineUncompressed
@@ -129,7 +122,7 @@ func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r big.In
  * @return assignment: input data collection
  * @return err: error
  */
-func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.PublicKey, rs []big.Int, bigRs []secp256k1.G1Affine, fisBytes [][]byte, fisInts []big.Int, bigFis []bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) *BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr] {
+func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.PublicKey, rs []*big.Int, bigRs []*secp256k1.G1Affine, fisBytes [][]byte, fisInts []*big.Int, bigFis []*bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) *BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr] {
 	accounts := make([]AccountConstraints[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], batch)
 	rawPubInputs := make([]byte, 0)
 	for index := 0; index < batch; index++ {
@@ -146,17 +139,11 @@ func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.Publ
 		for i := 0; i < len(nonces[index]); i++ {
 			noncesBytes[i] = nonces[index][i]
 		}
-		var px fp.Element
-		px.SetBigInt(pubKey[index].X)
-		var py fp.Element
-		py.SetBigInt(pubKey[index].Y)
-		pub := secp256k1.G1Affine{
-			X: px,
-			Y: py,
-		}
+		pub := new(secp256k1.G1Affine)
+		pub.X.SetBigInt(pubKey[index].X)
+		pub.Y.SetBigInt(pubKey[index].Y)
 		// Compute RPub
-		var rPub secp256k1.G1Affine
-		rPub.ScalarMultiplication(&pub, &rs[index])
+		rPub := new(secp256k1.G1Affine).ScalarMultiplication(pub, rs[index])
 		// Compute allHash
 		secp256k1G1ByteLength := secp256k1.SizeOfG1AffineUncompressed
 		bls12381G1ByteLength := bls12381.SizeOfG1AffineUncompressed

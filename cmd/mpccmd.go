@@ -266,16 +266,21 @@ func exportSeal(ctx *cli.Context) error {
 	source := rand.NewSource(time.Now().UnixNano())
 	rand := rand.New(source)
 	// Computing public key
-	fis := make([]fr_bls12381.Element, size)
+	fis := make([]*fr_bls12381.Element, size)
 	pubKeys := make([]*ecies.PublicKey, size)
 	for i := 0; i < size; i++ {
 		key, _ := ecies.GenerateKey(rand, crypto.S256(), nil)
 		pubKeys[i] = &key.PublicKey
-		var fi fr_bls12381.Element
-		fi.SetRandom()
+		fi, err := new(fr_bls12381.Element).SetRandom()
+		if err != nil {
+			return err
+		}
 		fis[i] = fi
 	}
-	fisBytes, _, _, _, encryptedFis, _, _ := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
+	fisBytes, _, _, _, encryptedFis, _, _, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
+	if err != nil {
+		return err
+	}
 	c := circuit.BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
 		Account:      make([]circuit.AccountConstraints[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], size),
 		CommentsHash: make([]frontend.Variable, 32),
@@ -388,16 +393,21 @@ func initPhase2(ctx *cli.Context) error {
 	source := rand.NewSource(time.Now().UnixNano())
 	rand := rand.New(source)
 	// Computing public key
-	fis := make([]fr_bls12381.Element, size)
+	fis := make([]*fr_bls12381.Element, size)
 	pubKeys := make([]*ecies.PublicKey, size)
 	for i := 0; i < size; i++ {
 		key, _ := ecies.GenerateKey(rand, crypto.S256(), nil)
 		pubKeys[i] = &key.PublicKey
-		var fi fr_bls12381.Element
-		fi.SetRandom()
+		fi, err := new(fr_bls12381.Element).SetRandom()
+		if err != nil {
+			return err
+		}
 		fis[i] = fi
 	}
-	fisBytes, _, _, _, encryptedFis, _, _ := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
+	fisBytes, _, _, _, encryptedFis, _, _, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
+	if err != nil {
+		return err
+	}
 	c := circuit.BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
 		Account:      make([]circuit.AccountConstraints[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], size),
 		CommentsHash: make([]frontend.Variable, 32),
