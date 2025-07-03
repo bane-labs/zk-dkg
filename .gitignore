@@ -1,0 +1,10 @@
+*/*.pk
+*/*.vk
+*/*.sol
+*/*.ccs
+cmd/Phase1*
+cmd/Phase2*
+cmd/srs*
+circuit/Phase1*
+circuit/Phase2*
+circuit/srs*

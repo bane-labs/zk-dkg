@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/bane-labs/zk-dkg/encryption"
+	"github.com/bane-labs/zk-dkg/helper"
 	bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381"
 	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1"
@@ -22,8 +23,8 @@ func transformKeyShare(fi *fr_bls12381.Element) ([]byte, *big.Int, *bls12381.G1A
 	fiInt := fi.BigInt(new(big.Int))
 	fiBytes := make([]byte, 32)
 	fiInt.FillBytes(fiBytes)
-	_, _, g1, _ := bls12381.Generators()
-	bigFi := new(bls12381.G1Affine).ScalarMultiplication(&g1, fiInt)
+	_, _, g12381, _ := bls12381.Generators()
+	bigFi := new(bls12381.G1Affine).ScalarMultiplication(&g12381, fiInt)
 	return fiBytes, fiInt, bigFi
 }
 
@@ -36,40 +37,40 @@ func transformKeyShare(fi *fr_bls12381.Element) ([]byte, *big.Int, *bls12381.G1A
  * @return encryptedFi: the encrypted key share
  * @return r: the random number generated and used ecies
  * @return bigR: the bls12381 commitment of the random number
+ * @return err: error
  */
 func encryptKeyShare(pub *ecies.PublicKey, fiBytes []byte) ([]byte, []byte, *big.Int, *secp256k1.G1Affine, error) {
 	return encryption.ECIESEncrypt(pub, fiBytes)
 }
 
 /**
- * Function: PrepareEncryptedKeyShares
- * @Description: encrypt a batch of key shares and return related data
- * @param pubs: a set of public keys required for ecies encryption
- * @param fis: a set of key shares to be encrypted
- * @return fisBytes: a set of key shares, each in a byte array
- * @return fisInts: the key shares in integers
- * @return bigFis: the bls12381 commitments of the key shares
- * @return nonces: a set of salts
- * @return encryptedFis: a set of a encrypted key shares
- * @return rs: a set of the integer format of random number
- * @return bigRs: a set of the corresponding bls12381 commitment of random number
+ * Function: computeSumHash
+ * @Description: computes a sum hash for the public inputs of an ECIES circuit
+ * @param pub: a public key required for ecies encryption
+ * @param bigR: the corresponding elliptic curve point of random number
+ * @param bigFi: the corresponding elliptic curve point of key share
+ * @param encryptedFi: the encrypted key share
+ * @param nonce: the salt
+ * @return []byte: the hash of the public inputs
  */
-func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []*fr_bls12381.Element) ([][]byte, []*big.Int, []*bls12381.G1Affine, [][]byte, [][]byte, []*big.Int, []*secp256k1.G1Affine, error) {
-	amount := len(pubs)
-	fisBytes := make([][]byte, amount)
-	fisInts := make([]*big.Int, amount)
-	bigFis := make([]*bls12381.G1Affine, amount)
-	nonces := make([][]byte, amount)
-	encryptedFis := make([][]byte, amount)
-	rs := make([]*big.Int, amount)
-	bigRs := make([]*secp256k1.G1Affine, amount)
-	var err error
-	for i := 0; i < amount; i++ {
-		fisBytes[i], fisInts[i], bigFis[i] = transformKeyShare(fis[i])
-		nonces[i], encryptedFis[i], rs[i], bigRs[i], err = encryptKeyShare(pubs[i], fisBytes[i])
-		if err != nil {
-			return nil, nil, nil, nil, nil, nil, nil, err
-		}
+func computeSumHash(pub *secp256k1.G1Affine, bigR *secp256k1.G1Affine, bigFi *bls12381.G1Affine, encryptedFi []byte, nonce []byte) []byte {
+	secp256k1G1ByteLength := secp256k1.SizeOfG1AffineUncompressed
+	bls12381G1ByteLength := bls12381.SizeOfG1AffineUncompressed
+	bigRBytes := bigR.RawBytes()
+	rawBigR := make([]byte, secp256k1G1ByteLength)
+	for i := 0; i < secp256k1G1ByteLength; i++ {
+		rawBigR[i] = bigRBytes[i] // bytes
 	}
-	return fisBytes, fisInts, bigFis, nonces, encryptedFis, rs, bigRs, nil
+	pubBytes := pub.RawBytes()
+	rawPub := make([]byte, secp256k1G1ByteLength)
+	for i := 0; i < secp256k1G1ByteLength; i++ {
+		rawPub[i] = pubBytes[i] // bytes
+	}
+	bigFiBytes := bigFi.RawBytes()
+	rawBigFi := make([]byte, bls12381G1ByteLength)
+	for i := 0; i < bls12381G1ByteLength; i++ {
+		rawBigFi[i] = bigFiBytes[i] // bytes
+	}
+	data := append(append(append(append(append(rawBigR, rawPub...), rawBigFi...), nonce...), 2), encryptedFi...)
+	return helper.GetHash(data)
 }

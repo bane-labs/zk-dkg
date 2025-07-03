@@ -2,6 +2,7 @@ package circuit
 
 import (
 	"fmt"
+	"slices"
 
 	fp_bls "github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 	fp_secp "github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
@@ -9,18 +10,17 @@ import (
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
 	"github.com/consensys/gnark/std/hash/sha2"
 	"github.com/consensys/gnark/std/hash/sha3"
-	"github.com/consensys/gnark/std/math/bits"
 	"github.com/consensys/gnark/std/math/emulated"
 	"github.com/consensys/gnark/std/math/uints"
 )
 
+// ECIESWrapper is the circuit for ECIES encryption
 type ECIESWrapper[T1, S1, T2, S2 emulated.FieldParams] struct {
 	SmallR emulated.Element[S1]        `gnark:",secret"`
 	BigR   sw_emulated.AffinePoint[T1] `gnark:",secret"`
 	Pub    sw_emulated.AffinePoint[T1] `gnark:",secret"`
 	RPub   sw_emulated.AffinePoint[T1] `gnark:",secret"`
 
-	PlainChunks  []frontend.Variable   `gnark:",secret"`
 	Iv           [12]frontend.Variable `gnark:",secret"`
 	ChunkIndex   frontend.Variable     `gnark:",secret"`
 	CipherChunks []frontend.Variable   `gnark:",secret"`
@@ -31,10 +31,11 @@ type ECIESWrapper[T1, S1, T2, S2 emulated.FieldParams] struct {
 	PubInputHash []frontend.Variable `gnark:",public"`
 }
 
+// Define declares the circuit's constraints
 func (c *ECIESWrapper[T1, S1, T2, S2]) Define(api frontend.API) error {
 	// Encrypt
 	encryption := NewECIES[T1, S1, T2, S2](api)
-	rawPubInputs, err := encryption.Encrypt(api, c.PlainChunks, c.CipherChunks, c.Iv, c.SmallR, c.BigR, c.Pub, c.RPub, c.ChunkIndex, c.SmallFi, c.Fi)
+	rawPubInputs, err := encryption.Encrypt(c.CipherChunks, c.Iv, c.SmallR, c.BigR, c.Pub, c.RPub, c.ChunkIndex, c.SmallFi, c.Fi)
 	if err != nil {
 		return err
 	}
@@ -51,11 +52,24 @@ func (c *ECIESWrapper[T1, S1, T2, S2]) Define(api frontend.API) error {
 	return nil
 }
 
-func variableToU8s(in []frontend.Variable, nbBits int) []uints.U8 {
-	out := make([]uints.U8, 2*nbBits)
-	for i := 0; i < len(out); i++ {
-		out[i] = uints.U8{Val: in[i]}
+func variableToU8s(api frontend.API, in []frontend.Variable, nbBits int) []uints.U8 {
+	fixedBits := make([]frontend.Variable, 2*nbBits)
+	if len(fixedBits)%8 != 0 {
+		panic(fmt.Errorf("invalid nbBits"))
 	}
+	for i := 0; i < len(fixedBits); i++ {
+		if i < len(in) {
+			fixedBits[len(in)-1-i] = in[i]
+		} else {
+			fixedBits[i] = 0
+		}
+	}
+	out := make([]uints.U8, len(fixedBits)/8)
+	// Transform bits to bytes
+	for i := 0; i < len(out); i++ {
+		out[i] = uints.U8{Val: api.FromBinary(fixedBits[i*8 : (i+1)*8]...)}
+	}
+	slices.Reverse(out)
 	return out
 }
 
@@ -67,10 +81,22 @@ type ECIES[T1, S1, T2, S2 emulated.FieldParams] struct {
 	api frontend.API
 }
 
-func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(api frontend.API, plainChunks, cipherChunks []frontend.Variable, iv [12]frontend.Variable, r emulated.Element[S1], bigR, pub, rPub sw_emulated.AffinePoint[T1], chunkIndex frontend.Variable, fi emulated.Element[S2], bigFi sw_emulated.AffinePoint[T2]) (pubInputs []uints.U8, err error) {
-	pBytes := make([]uints.U8, len(plainChunks))
-	for i := 0; i < len(plainChunks); i++ {
-		pBytes[i] = uints.U8{Val: plainChunks[i]}
+// Encrypt encrypts the plaintext using ECIES
+func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(cipherChunks []frontend.Variable, iv [12]frontend.Variable, r emulated.Element[S1], bigR, pub, rPub sw_emulated.AffinePoint[T1], chunkIndex frontend.Variable, fi emulated.Element[S2], bigFi sw_emulated.AffinePoint[T2]) ([]uints.U8, error) {
+	api := ecies.api
+	f, err := emulated.NewField[S2](api)
+	if err != nil {
+		return nil, err
+	}
+	shareBits := f.ToBits(&fi) // Little-endian, in reverse
+	for len(shareBits)%8 != 0 {
+		shareBits = append(shareBits, 0) // Fill in 0
+	}
+	pBytes := make([]uints.U8, 0)
+	for i := 0; i < len(shareBits)/8; i++ {
+		index := len(shareBits)/8 - 1 - i
+		pBytes = append(pBytes, uints.U8{Val: api.FromBinary(shareBits[index*8 : (index+1)*8]...)})
+
 	}
 	cBytes := make([]uints.U8, len(cipherChunks))
 	for i := 0; i < len(cipherChunks); i++ {
@@ -121,35 +147,18 @@ func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(api frontend.API, plainChunks, ciphe
 	aes := NewAES256(api)
 	gcm := NewGCM256(api, &aes)
 	gcm.Assert(key, ivBytes, chunkIndex, pBytes, cBytes)
-	// Check smallFi==m
-	f, err := emulated.NewField[S2](api)
-	if err != nil {
-		return nil, err
-	}
-	fiBits := f.ToBits(&fi)
-	var plainBits []frontend.Variable
-	for i := range pBytes {
-		chunkBits := bits.ToBinary(api, pBytes[len(pBytes)-i-1].Val, bits.WithNbDigits(8))
-		plainBits = append(plainBits, chunkBits...)
-	}
-	if len(plainBits) != len(fiBits) {
-		return nil, fmt.Errorf("mismatch length: %d != %d", len(plainBits), len(fiBits))
-	}
-	for i := range plainBits {
-		api.AssertIsEqual(plainBits[i], fiBits[i])
-	}
+
 	// Compute pubInputs=(pub1,pub2.....)
 	rawBigR := cr.MarshalG1(bigR)
 	rawPub := cr.MarshalG1(pub)
 	rawBigFi := cr2.MarshalG1(bigFi)
 	nbBits1 := 8 * ((fp_secp.Modulus().BitLen() + 7) / 8)
 	nbBits2 := 8 * ((fp_bls.Modulus().BitLen() + 7) / 8)
-	bigRU8s := variableToU8s(rawBigR, nbBits1)
-	pubU8s := variableToU8s(rawPub, nbBits1)
-	bigFiU8s := variableToU8s(rawBigFi, nbBits2)
+	bigRU8s := variableToU8s(api, rawBigR, nbBits1)
+	pubU8s := variableToU8s(api, rawPub, nbBits1)
+	bigFiU8s := variableToU8s(api, rawBigFi, nbBits2)
 	length := len(bigRU8s) + len(pubU8s) + len(bigFiU8s) + len(iv) + 1 + len(cipherChunks)
-
-	pubInputs = make([]uints.U8, length)
+	pubInputs := make([]uints.U8, length)
 	for i := range bigRU8s {
 		pubInputs[i] = bigRU8s[i]
 	}
@@ -166,5 +175,5 @@ func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(api frontend.API, plainChunks, ciphe
 	for i := range cipherChunks {
 		pubInputs[len(bigRU8s)+len(pubU8s)+len(bigFiU8s)+len(iv)+1+i] = uints.U8{Val: cipherChunks[i]}
 	}
-	return
+	return pubInputs, nil
 }

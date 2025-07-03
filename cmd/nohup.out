@@ -1,0 +1,3 @@
+[90m14:04:39[0m [32mINF[0m [1mcompiling circuit[0m
+[90m14:04:39[0m [32mINF[0m [1mparsed circuit inputs[0m [36mnbPublic=[0m32 [36mnbSecret=[0m105
+[90m14:04:51[0m [32mINF[0m [1mbuilding constraint builder[0m [36mnbConstraints=[0m1206965
