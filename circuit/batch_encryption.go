@@ -28,7 +28,7 @@ type ECIESParameters[T1, S1, T2, S2 emulated.FieldParams] struct {
 }
 
 func (c *BatchEncryptionWrapper[T1, S1, T2, S2]) Define(api frontend.API) error {
-	allHash := make([]uints.U8, 0)
+	summaryInput := make([]uints.U8, 0)
 	for i := 0; i < len(c.Parameters); i++ {
 		// Prepare data
 		account := c.Parameters[i]
@@ -47,19 +47,19 @@ func (c *BatchEncryptionWrapper[T1, S1, T2, S2]) Define(api frontend.API) error 
 		if err != nil {
 			return err
 		}
-		worker1, _ := sha2.New(api)
-		worker1.Write(innerdata)
-		innerhash := worker1.Sum()
+		innerHasher, _ := sha2.New(api)
+		innerHasher.Write(innerdata)
+		innerhash := innerHasher.Sum()
 		// Compute raw pub inputs
-		allHash = append(allHash, innerhash...)
+		summaryInput = append(summaryInput, innerhash...)
 	}
 	// Compute comments hash
-	worker2, _ := sha2.New(api)
-	worker2.Write(allHash)
-	result := worker2.Sum()
+	summaryHasher, _ := sha2.New(api)
+	summaryHasher.Write(summaryInput)
+	summary := summaryHasher.Sum()
 	// Check comments hash
-	for i := 0; i < len(result); i++ {
-		api.AssertIsEqual(result[i].Val, c.SumHash[i])
+	for i := 0; i < len(summary); i++ {
+		api.AssertIsEqual(summary[i].Val, c.SumHash[i])
 	}
 	return nil
 }
