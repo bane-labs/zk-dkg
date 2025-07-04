@@ -9,56 +9,57 @@ import (
 )
 
 type BatchEncryptionWrapper[T1, S1, T2, S2 emulated.FieldParams] struct {
-	Account      []AccountConstraints[T1, S1, T2, S2] `gnark:",secret"`
-	CommentsHash []frontend.Variable                  `gnark:",public"`
+	Parameters []ECIESParameters[T1, S1, T2, S2] `gnark:",secret"`
+	SumHash    []frontend.Variable               `gnark:",public"`
 }
 
-type AccountConstraints[T1, S1, T2, S2 emulated.FieldParams] struct {
+type ECIESParameters[T1, S1, T2, S2 emulated.FieldParams] struct {
 	SmallR emulated.Element[S1]
 	BigR   sw_emulated.AffinePoint[T1]
 	Pub    sw_emulated.AffinePoint[T1]
 	RPub   sw_emulated.AffinePoint[T1]
 
-	PlainChunks  []frontend.Variable
 	Iv           [12]frontend.Variable
 	ChunkIndex   frontend.Variable
 	CipherChunks []frontend.Variable
 
 	SmallFi emulated.Element[S2]
-	BigFi   sw_emulated.AffinePoint[T2]
+	Fi      sw_emulated.AffinePoint[T2]
 }
 
 func (c *BatchEncryptionWrapper[T1, S1, T2, S2]) Define(api frontend.API) error {
-	pubInputs := make([]uints.U8, 0)
-	for i := 0; i < len(c.Account); i++ {
+	summaryInput := make([]uints.U8, 0)
+	for i := 0; i < len(c.Parameters); i++ {
 		// Prepare data
-		account := c.Account[i]
+		account := c.Parameters[i]
 		r := account.SmallR
 		bigR := account.BigR
 		pub := account.Pub
 		rPub := account.RPub
-		plainChunks := account.PlainChunks[:]
 		iv := account.Iv
 		chunkIndex := account.ChunkIndex
 		cipherChunks := account.CipherChunks[:]
 		fi := account.SmallFi
-		bigFi := account.BigFi
+		bigFi := account.Fi
 		// Encrypt
 		encryption := NewECIES[T1, S1, T2, S2](api)
-		pis, err := encryption.Encrypt(api, plainChunks, cipherChunks, iv, r, bigR, pub, rPub, chunkIndex, fi, bigFi)
+		innerdata, err := encryption.Encrypt(cipherChunks, iv, r, bigR, pub, rPub, chunkIndex, fi, bigFi)
 		if err != nil {
 			return err
 		}
+		innerHasher, _ := sha2.New(api)
+		innerHasher.Write(innerdata)
+		innerhash := innerHasher.Sum()
 		// Compute raw pub inputs
-		pubInputs = append(pubInputs, pis...)
+		summaryInput = append(summaryInput, innerhash...)
 	}
 	// Compute comments hash
-	mc, _ := sha2.New(api)
-	mc.Write(pubInputs)
-	result := mc.Sum()
+	summaryHasher, _ := sha2.New(api)
+	summaryHasher.Write(summaryInput)
+	summary := summaryHasher.Sum()
 	// Check comments hash
-	for i := 0; i < len(result); i++ {
-		api.AssertIsEqual(result[i].Val, c.CommentsHash[i])
+	for i := 0; i < len(summary); i++ {
+		api.AssertIsEqual(summary[i].Val, c.SumHash[i])
 	}
 	return nil
 }

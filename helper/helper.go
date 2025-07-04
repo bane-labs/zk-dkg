@@ -20,21 +20,21 @@ import (
 /**
  * Function: ComputeProof
  * @Description: a general zk proof calculation method
- * @param css: circuit constraints
+ * @param ccs: circuit constraints
  * @param pk: proving key
  * @param assignment: input data collection
  * @return proof: zk proof
  * @return witness: witness
  * @return err: error
  */
-func ComputeProof(css constraint.ConstraintSystem, pk *groth16.ProvingKey, assignment frontend.Circuit) (*groth16.Proof, witness.Witness, error) {
+func ComputeProof(ccs constraint.ConstraintSystem, pk *groth16.ProvingKey, assignment frontend.Circuit) (*groth16.Proof, witness.Witness, error) {
 	// Compute witness
 	witness, err := frontend.NewWitness(assignment, ecc.BN254.ScalarField())
 	if err != nil {
 		return nil, nil, err
 	}
 	// Compute proof
-	proof, err := groth16.Prove(css.(*cs.R1CS), pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
+	proof, err := groth16.Prove(ccs.(*cs.R1CS), pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -140,34 +140,34 @@ func ExportVerifyingKey(vk *groth16.VerifyingKey, path string) {
 }
 
 /**
- * Function: ReadCSS
+ * Function: ReadCCS
  * @Description: import r1cs file
  * @param path: r1cs file path
  */
-func ReadCSS(path string) (constraint.ConstraintSystem, error) {
-	css := new(cs.R1CS)
+func ReadCCS(path string) (constraint.ConstraintSystem, error) {
+	ccs := new(cs.R1CS)
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	_, err = css.ReadFrom(file)
+	_, err = ccs.ReadFrom(file)
 	if err != nil {
 		return nil, err
 	}
-	return css, nil
+	return ccs, nil
 }
 
 /**
- * Function: ExportCSS
+ * Function: ExportCCS
  * @Description: export r1cs file
- * @param css: r1cs
+ * @param ccs: r1cs
  */
-func ExportCSS(css constraint.ConstraintSystem, path string) {
+func ExportCCS(ccs constraint.ConstraintSystem, path string) {
 	file, err := os.Create(path)
 	if err != nil {
 		panic(err)
 	}
-	_, err = css.WriteTo(file)
+	_, err = ccs.WriteTo(file)
 	if err != nil {
 		panic(err)
 	}

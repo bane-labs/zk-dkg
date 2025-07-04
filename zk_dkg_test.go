@@ -10,7 +10,6 @@ import (
 	"math/big"
 	"math/rand"
 	"os"
-	"strconv"
 	"testing"
 	"time"
 
@@ -55,24 +54,25 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 		fis[i] = new(fr_bls12381.Element).SetBigInt(f.evaluate(big.NewInt(int64(i + 1))))
 	}
 	// Generate fragements and assigment and proof
-	fisBytes, fisInts, bigFis, nonces, encryptedFis, rs, bigRs, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
+	fisInts, bigFis, nonces, encryptedFis, rs, bigRs, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
 	assert.NoError(err)
 	messages := encodeMessages(encryptedFis, bigRs, nonces)
 	for i := 0; i < batch; i++ {
 		t.Logf("Share message: %s", hex.EncodeToString(messages[i]))
 	}
 	// Read files
-	provingKeyPath := "ProvingKey_" + strconv.Itoa(3)
+	provingKeyPath := fmt.Sprintf("cmd/batch_encryption_%d.pk", batch)
+
 	pk, err := helper.ReadProvingKey(provingKeyPath)
 	assert.NoError(err)
-	verifyingKeyPath := "VerifyingKey_" + strconv.Itoa(3)
+	verifyingKeyPath := fmt.Sprintf("cmd/batch_encryption_%d.vk", batch)
 	vk, err := helper.ReadVerifyingKey(verifyingKeyPath)
 	assert.NoError(err)
-	r1csPath := "R1CS_" + strconv.Itoa(3)
-	css, err := helper.ReadCSS(r1csPath)
+	r1csPath := fmt.Sprintf("cmd/batch_encryption_%d.ccs", batch)
+	css, err := helper.ReadCCS(r1csPath)
 	assert.NoError(err)
 	// Compute proof
-	proof, witness, err := ProveMultipleKeyShareEncryption(css, pk, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
+	proof, witness, err := ProveMultipleKeyShareEncryption(css, pk, pubKeys, rs, bigRs, fisInts, bigFis, encryptedFis, nonces)
 	assert.NoError(err)
 	// Verify proof
 	publicWitness, err := witness.Public()
@@ -121,24 +121,24 @@ func TestTwoRecoverMessageGeneration(t *testing.T) {
 	fis[0] = new(fr_bls12381.Element).SetBigInt(f1.evaluate(big.NewInt(int64(1))))
 	fis[1] = new(fr_bls12381.Element).SetBigInt(f2.evaluate(big.NewInt(int64(1))))
 	// Generate fragements and assigment and proof
-	fisBytes, fisInts, bigFis, nonces, encryptedFis, rs, bigRs, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
+	fisInts, bigFis, nonces, encryptedFis, rs, bigRs, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
 	assert.NoError(err)
 	messages := encodeMessages(encryptedFis, bigRs, nonces)
 	for i := 0; i < 2; i++ {
 		t.Logf("Share message: %s", hex.EncodeToString(messages[i]))
 	}
 	// Read files
-	provingKeyPath := "ProvingKey_" + strconv.Itoa(3)
+	provingKeyPath := fmt.Sprintf("cmd/batch_encryption_%d.pk", 2)
 	pk, err := helper.ReadProvingKey(provingKeyPath)
 	assert.NoError(err)
-	verifyingKeyPath := "VerifyingKey_" + strconv.Itoa(3)
+	verifyingKeyPath := fmt.Sprintf("cmd/batch_encryption_%d.vk", 2)
 	vk, err := helper.ReadVerifyingKey(verifyingKeyPath)
 	assert.NoError(err)
-	r1csPath := "R1CS_" + strconv.Itoa(3)
-	css, err := helper.ReadCSS(r1csPath)
+	r1csPath := fmt.Sprintf("cmd/batch_encryption_%d.ccs", 2)
+	css, err := helper.ReadCCS(r1csPath)
 	assert.NoError(err)
 	// Compute proof
-	proof, witness, err := ProveMultipleKeyShareEncryption(css, pk, pubKeys, rs, bigRs, fisBytes, fisInts, bigFis, encryptedFis, nonces)
+	proof, witness, err := ProveMultipleKeyShareEncryption(css, pk, pubKeys, rs, bigRs, fisInts, bigFis, encryptedFis, nonces)
 	assert.NoError(err)
 	// Verify proof
 	publicWitness, err := witness.Public()

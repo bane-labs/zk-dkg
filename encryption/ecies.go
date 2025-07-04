@@ -34,7 +34,8 @@ func ECIESEncrypt(pub *ecies.PublicKey, plaintext []byte) ([]byte, []byte, *big.
 	r := rs.BigInt(new(big.Int))
 	bigR := new(secp256k1.G1Affine).ScalarMultiplication(&g, r)
 	// Compute rPub=r*PublicKey
-	rPub := new(secp256k1.G1Affine).ScalarMultiplication(pg1, r)
+	var rPub secp256k1.G1Affine
+	rPub.ScalarMultiplication(pg1, r)
 	// Compute rPubBytes=hash(rPub)
 	nbBytes := 2 * fr_secp.Bytes
 	rPubBytes := make([]byte, nbBytes*8)

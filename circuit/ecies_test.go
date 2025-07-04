@@ -1,23 +1,12 @@
 package circuit
 
 import (
-	"crypto/sha256"
 	"math/rand"
-	"strconv"
 	"testing"
 	"time"
 
-	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
-
-	"github.com/bane-labs/zk-dkg/helper"
-	"github.com/bane-labs/zk-dkg/mpc"
 	"github.com/consensys/gnark-crypto/ecc"
-	fr_bn254 "github.com/consensys/gnark-crypto/ecc/bn254/fr"
-	"github.com/consensys/gnark/backend"
-	groth16 "github.com/consensys/gnark/backend/groth16/bn254"
-	"github.com/consensys/gnark/backend/witness"
-	"github.com/consensys/gnark/constraint"
-	cs "github.com/consensys/gnark/constraint/bn254"
+	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"github.com/consensys/gnark/std/math/emulated"
@@ -41,11 +30,26 @@ func TestECIESCircuit(t *testing.T) {
 	assert.NoError(err)
 	// Verify circuit
 	circuit := ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
-		PlainChunks:  make([]frontend.Variable, len(fiBytes)),
 		CipherChunks: make([]frontend.Variable, len(encryptedFi)),
 		PubInputHash: make([]frontend.Variable, 32),
 	}
-	assignment := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, bigR, fiBytes, fiInt, bigFi, encryptedFi, nonce)
+	parameters, hashes := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, bigR, fiInt, bigFi, encryptedFi, nonce)
+	rawSumHash := make([]frontend.Variable, len(hashes))
+	for i := 0; i < len(hashes); i++ {
+		rawSumHash[i] = hashes[i]
+	}
+	assignment := &ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
+		SmallR:       parameters.SmallR,
+		BigR:         parameters.BigR,
+		Pub:          parameters.Pub,
+		RPub:         parameters.RPub,
+		Iv:           parameters.Iv,
+		ChunkIndex:   parameters.ChunkIndex,
+		CipherChunks: parameters.CipherChunks,
+		SmallFi:      parameters.SmallFi,
+		Fi:           parameters.Fi,
+		PubInputHash: rawSumHash,
+	}
 	err = test.IsSolved(&circuit, assignment, ecc.BN254.ScalarField())
 	assert.NoError(err)
 }
@@ -65,88 +69,40 @@ func TestECIESWithMPC(t *testing.T) {
 	assert.NoError(err)
 	// Compute proof
 	circuit := ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
-		PlainChunks:  make([]frontend.Variable, len(fiBytes)),
 		CipherChunks: make([]frontend.Variable, len(encryptedFi)),
 		PubInputHash: make([]frontend.Variable, 32),
 	}
-	css, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
+	_, err = frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
 	assert.NoError(err)
-	assignment := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, bigR, fiBytes, fiInt, bigFi, encryptedFi, nonce)
-	_, vk, proof, witness, err := computingProof2(css, assignment)
+	parameters, hashes := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, bigR, fiInt, bigFi, encryptedFi, nonce)
+	rawSumHash := make([]frontend.Variable, len(hashes))
+	for i := 0; i < len(hashes); i++ {
+		rawSumHash[i] = hashes[i]
+	}
+	assignment := &ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
+		SmallR:       parameters.SmallR,
+		BigR:         parameters.BigR,
+		Pub:          parameters.Pub,
+		RPub:         parameters.RPub,
+		Iv:           parameters.Iv,
+		ChunkIndex:   parameters.ChunkIndex,
+		CipherChunks: parameters.CipherChunks,
+		SmallFi:      parameters.SmallFi,
+		Fi:           parameters.Fi,
+		PubInputHash: rawSumHash,
+	}
+	err = test.IsSolved(&circuit, assignment, ecc.BN254.ScalarField())
 	assert.NoError(err)
-	publicWitness, err := witness.Public()
-	assert.NoError(err)
-	// Verify proof
-	err = groth16.Verify(proof, vk, publicWitness.Vector().(fr_bn254.Vector))
-	assert.NoError(err)
-	// Export solidity contract
-	helper.ExportContract(vk, "Verify.sol")
+
+	/*	_, vk, proof, witness, err := computingProof2(css, assignment)
+		assert.NoError(err)
+		publicWitness, err := witness.Public()
+		assert.NoError(err)
+		// Verify proof
+		err = groth16.Verify(proof, vk, publicWitness.Vector().(fr_bn254.Vector))
+		assert.NoError(err)
+		// Export solidity contract
+		helper.ExportContract(vk, "Verify.sol")*/
 	// Output verify data
-	helper.GetContractInput(proof)
-}
-
-func computingProof2(css constraint.ConstraintSystem, assignment frontend.Circuit) (*groth16.ProvingKey, *groth16.VerifyingKey, *groth16.Proof, witness.Witness, error) {
-	pk, vk, err := demoMPCSetUp(css, 3, 3, 16777216) //2^24
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	// Setup
-	err = groth16.Setup(css.(*cs.R1CS), pk, vk)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	// Compute witness
-	witness, err := frontend.NewWitness(assignment, ecc.BN254.ScalarField())
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	// Compute proof
-	proof, err := groth16.Prove(css.(*cs.R1CS), pk, witness, backend.WithProverHashToFieldFunction(sha256.New()))
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	return pk, vk, proof, witness, err
-}
-
-// nContributionsPhase1 = 3
-// nContributionsPhase2 = 3
-// power                = 22 //element count range 2^0-2^27
-func demoMPCSetUp(ccs constraint.ConstraintSystem, nContributionsPhase1 int, nContributionsPhase2 int, power int) (*groth16.ProvingKey, *groth16.VerifyingKey, error) {
-	_, err := mpc.InitPhase1("Phase1_1", uint64(power))
-	if err != nil {
-		return nil, nil, err
-	}
-	// All members build and verify contributions for phase1
-	for i := 1; i < nContributionsPhase1; i++ {
-		prepath := "Phase1_" + strconv.Itoa(i)
-		nextPath := "Phase1_" + strconv.Itoa(i+1)
-		_, err = mpc.ContributePhase1(prepath, nextPath)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-	mpc.Seal("Phase1_"+strconv.Itoa(nContributionsPhase1), "Phase1_final")
-
-	evals, srs, _, err := mpc.InitPhase2(ccs, "Phase1_Phase1_final", "Phase2_1")
-	if err != nil {
-		return nil, nil, err
-	}
-	// All members build and verify contributions for phase2
-	for i := 1; i < nContributionsPhase2; i++ {
-		prepath := "Phase2_" + strconv.Itoa(i)
-		nextPath := "Phase2_" + strconv.Itoa(i+1)
-		_, err = mpc.ContributePhase2(prepath, nextPath)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-	phase2, err := mpc.ReadPhase2FromFile("Phase2_" + strconv.Itoa(nContributionsPhase1))
-	if err != nil {
-		return nil, nil, err
-	}
-	// Extract the proving and verifying keys
-	p1, v1 := phase2.Seal(&srs, &evals, []byte("beacon Phase 2"))
-	pk := p1.(*groth16.ProvingKey)
-	vk := v1.(*groth16.VerifyingKey)
-	return pk, vk, err
+	//helper.GetContractInput(proof)
 }

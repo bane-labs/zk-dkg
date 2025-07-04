@@ -277,30 +277,29 @@ func exportSeal(ctx *cli.Context) error {
 		}
 		fis[i] = fi
 	}
-	fisBytes, _, _, _, encryptedFis, _, _, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
+	_, _, _, encryptedFis, _, _, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
 	if err != nil {
 		return err
 	}
 	c := circuit.BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
-		Account:      make([]circuit.AccountConstraints[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], size),
-		CommentsHash: make([]frontend.Variable, 32),
+		Parameters: make([]circuit.ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], size),
+		SumHash:    make([]frontend.Variable, 32),
 	}
 	for i := 0; i < size; i++ {
-		c.Account[i].PlainChunks = make([]frontend.Variable, len(fisBytes[i]))
-		c.Account[i].CipherChunks = make([]frontend.Variable, len(encryptedFis[i]))
+		c.Parameters[i].CipherChunks = make([]frontend.Variable, len(encryptedFis[i]))
 	}
-	css, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &c)
+	ccs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &c)
 	if err != nil {
 		return err
 	}
-	pk, vk, err := helper.GetInitParamsFromExistedMPCSetUp(css, srsFilePath, phase2FilePath)
+	pk, vk, err := helper.GetInitParamsFromExistedMPCSetUp(ccs, srsFilePath, phase2FilePath)
 	if err != nil {
 		return err
 	}
 	helper.ExportContract(vk, contractFilePath)
 	helper.ExportProvingKey(pk, provingKeyFilePath)
 	helper.ExportVerifyingKey(vk, verifyingKeyFilePath)
-	helper.ExportCSS(css, r1csFilePath)
+	helper.ExportCCS(ccs, r1csFilePath)
 	return nil
 }
 
@@ -404,24 +403,23 @@ func initPhase2(ctx *cli.Context) error {
 		}
 		fis[i] = fi
 	}
-	fisBytes, _, _, _, encryptedFis, _, _, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
+	_, _, _, encryptedFis, _, _, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
 	if err != nil {
 		return err
 	}
 	c := circuit.BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
-		Account:      make([]circuit.AccountConstraints[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], size),
-		CommentsHash: make([]frontend.Variable, 32),
+		Parameters: make([]circuit.ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], size),
+		SumHash:    make([]frontend.Variable, 32),
 	}
 	for i := 0; i < size; i++ {
-		c.Account[i].PlainChunks = make([]frontend.Variable, len(fisBytes[i]))
-		c.Account[i].CipherChunks = make([]frontend.Variable, len(encryptedFis[i]))
+		c.Parameters[i].CipherChunks = make([]frontend.Variable, len(encryptedFis[i]))
 	}
 
-	css, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &c)
+	ccs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &c)
 	if err != nil {
 		return err
 	}
-	_, _, p, err := mpc.InitPhase2(css, inputPath, outputpath)
+	_, _, p, err := mpc.InitPhase2(ccs, inputPath, outputpath)
 	if err != nil {
 		return err
 	}

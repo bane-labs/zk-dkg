@@ -29,17 +29,17 @@ For easy of use, `zkdkg` provides:
 ## MPC usage process
 Stage one:
 1) `go run mpccmd.go phase1 init --output <phase1 file path>`,this command is used to generate the phase1 initial file
-2) `go run mpccmd.go phase1 contribute --input <prev phase1 file path> --output <curr phase1 file path>`,this command is used by participants in this round to calculate phase1 data
-3) `go run mpccmd.go phase1 verify --input <prev phase1 file path> --output <curr phase1 file path>`,this command is used by other participants to verify phase1 data
+2) `go run mpccmd.go phase1 contribute --phase1file <prev phase1 file path> --output <curr phase1 file path>`,this command is used by participants in this round to calculate phase1 data
+3) `go run mpccmd.go phase1 verify --phase1file <prev phase1 file path> --output <curr phase1 file path>`,this command is used by other participants to verify phase1 data
 
 Repeat steps 2-3 in a loop until all participants complete the calculation and verification work of phase1.
 
 Stage two:
-1) `go run mpccmd.go phase2 init --input <phase1 file path> --output <phase2 file path> --batch <batch size>`,this command is used to generate the phase2 initial file
-2) `go run mpccmd.go phase2 contribute --input <prev phase2 file path> --output <curr phase2 file path>`,this command is used by participants in this round to calculate phase2 data
-3) `go run mpccmd.go phase2 verify --input <prev phase2 file path> --output <curr phase2 file path>`,this command is used by other participants to verify phase2 data
+1) `go run mpccmd.go phase2 init --srsfile <phase1 file path> --output <phase2 file path> --batch <batch size>`,this command is used to generate the phase2 initial file
+2) `go run mpccmd.go phase2 contribute --phase2file <prev phase2 file path> --output <curr phase2 file path>`,this command is used by participants in this round to calculate phase2 data
+3) `go run mpccmd.go phase2 verify --phase2file <prev phase2 file path> --output <curr phase2 file path>`,this command is used by other participants to verify phase2 data
 
 Repeat steps 2-3 in a loop until all participants complete the calculation and verification work of phase2.
 
 Export contract:
-- `go run mpccmd.go contract export --phase1file <phase1 file path> --phase2file <phase2 file path> --batch <batch size> --contract <verify-contract file path>`,this command is used to export verification contracts after mpc has completed
+- `go run mpccmd.go seal --batch <size> --srsfile <filepath> --phase2file <filepath> --contract <filepath> --provingkey <filepath> --verifyingkey <filepath> --r1cs <filepath>`,this command is used to export verification contracts after mpc has completed
