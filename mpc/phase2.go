@@ -19,26 +19,26 @@ import (
  * @return phase2: initialization phase2 data
  * @return err: error
  */
-func InitPhase2(ccs constraint.ConstraintSystem, srsCommonsPath string, phase2Path string) (evals mpcsetup.Phase2Evaluations, srs mpcsetup.SrsCommons, phase2 mpcsetup.Phase2, err error) {
-	srs, err = ReadSrsCommonsFromFile(srsCommonsPath)
+func InitPhase2(ccs constraint.ConstraintSystem, srsCommonsPath string, phase2Path string) (*mpcsetup.Phase2Evaluations, *mpcsetup.SrsCommons, *mpcsetup.Phase2, error) {
+	srs, err := ReadSrsCommonsFromFile(srsCommonsPath)
 	if err != nil {
-		return mpcsetup.Phase2Evaluations{}, mpcsetup.SrsCommons{}, mpcsetup.Phase2{}, err
+		return nil, nil, nil, err
 	}
 	r1cs := ccs.(*cs.R1CS)
-	evals = phase2.Initialize(r1cs, &srs)
+	p := new(mpcsetup.Phase2)
+	evals := p.Initialize(r1cs, srs)
+
 	f, err := os.Create(phase2Path)
 	if err != nil {
-		return evals, srs, phase2, err
+		return nil, nil, nil, err
 	}
-	_, err = phase2.WriteTo(f)
+	defer f.Close()
+
+	_, err = p.WriteTo(f)
 	if err != nil {
-		return evals, srs, phase2, err
+		return nil, nil, nil, err
 	}
-	err = f.Close()
-	if err != nil {
-		return evals, srs, phase2, err
-	}
-	return evals, srs, phase2, nil
+	return &evals, srs, p, nil
 }
 
 /**
@@ -49,22 +49,24 @@ func InitPhase2(ccs constraint.ConstraintSystem, srsCommonsPath string, phase2Pa
  * @return next: current phase2 data
  * @return err: error
  */
-func ContributePhase2(prevPath string, nextPath string) (next mpcsetup.Phase2, err error) {
-	prev, err := ReadPhase2FromFile(prevPath)
+func ContributePhase2(prevPath string, nextPath string) (*mpcsetup.Phase2, error) {
+	p, err := ReadPhase2FromFile(prevPath)
 	if err != nil {
-		return mpcsetup.Phase2{}, err
+		return nil, err
 	}
-	prev.Contribute()
-	next = prev
-	FilePhase2Next, err := os.Create(nextPath)
+	p.Contribute()
+
+	f, err := os.Create(nextPath)
 	if err != nil {
-		return next, err
+		return nil, err
 	}
-	_, err = next.WriteTo(FilePhase2Next)
+	defer f.Close()
+
+	_, err = p.WriteTo(f)
 	if err != nil {
-		return next, err
+		return nil, err
 	}
-	return next, nil
+	return p, nil
 }
 
 /**
@@ -84,7 +86,7 @@ func VerifyPhase2(prevPath string, curPath string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = prev.Verify(&cur)
+	err = prev.Verify(cur)
 	if err != nil {
 		return nil, err
 	}
@@ -98,12 +100,17 @@ func VerifyPhase2(prevPath string, curPath string) ([]byte, error) {
  * @return phase2: phase2 data
  * @return err: error
  */
-func ReadPhase2FromFile(path string) (mpcsetup.Phase2, error) {
-	var phase2 mpcsetup.Phase2
+func ReadPhase2FromFile(path string) (*mpcsetup.Phase2, error) {
+	p := new(mpcsetup.Phase2)
 	f, err := os.Open(path)
 	if err != nil {
-		return phase2, err
+		return nil, err
 	}
-	_, err = phase2.ReadFrom(f)
-	return phase2, err
+	defer f.Close()
+
+	_, err = p.ReadFrom(f)
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
 }

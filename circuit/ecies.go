@@ -1,7 +1,6 @@
 package circuit
 
 import (
-	"fmt"
 	"slices"
 
 	fp_bls "github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
@@ -55,7 +54,7 @@ func (c *ECIESWrapper[T1, S1, T2, S2]) Define(api frontend.API) error {
 func variableToU8s(api frontend.API, in []frontend.Variable, nbBits int) []uints.U8 {
 	fixedBits := make([]frontend.Variable, 2*nbBits)
 	if len(fixedBits)%8 != 0 {
-		panic(fmt.Errorf("invalid nbBits"))
+		panic("invalid nbBits")
 	}
 	for i := 0; i < len(fixedBits); i++ {
 		if i < len(in) {
@@ -128,7 +127,7 @@ func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(cipherChunks []frontend.Variable, iv
 	}
 	hasher, err := sha3.New256(api)
 	if err != nil {
-		return nil, fmt.Errorf("hash function unknown ")
+		return nil, err
 	}
 	hasher.Write(rawRpub)
 	expected := hasher.Sum()

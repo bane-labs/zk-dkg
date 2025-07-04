@@ -296,10 +296,22 @@ func exportSeal(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	helper.ExportContract(vk, contractFilePath)
-	helper.ExportProvingKey(pk, provingKeyFilePath)
-	helper.ExportVerifyingKey(vk, verifyingKeyFilePath)
-	helper.ExportCCS(ccs, r1csFilePath)
+	err = helper.ExportContract(vk, contractFilePath)
+	if err != nil {
+		return err
+	}
+	err = helper.ExportProvingKey(pk, provingKeyFilePath)
+	if err != nil {
+		return err
+	}
+	err = helper.ExportVerifyingKey(vk, verifyingKeyFilePath)
+	if err != nil {
+		return err
+	}
+	err = helper.ExportCCS(ccs, r1csFilePath)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -314,7 +326,7 @@ func initPhase1(ctx *cli.Context) error {
 	}
 	sha := sha256.New()
 	if _, err := p.WriteTo(sha); err != nil {
-		panic(err)
+		return err
 	}
 	fmt.Println("File challenge:", hex.EncodeToString(sha.Sum(nil)))
 	return nil
@@ -353,7 +365,7 @@ func contributePhase1(ctx *cli.Context) error {
 	fmt.Println("Contributed to:", hex.EncodeToString(p.Challenge))
 	sha := sha256.New()
 	if _, err := p.WriteTo(sha); err != nil {
-		panic(err)
+		return err
 	}
 	fmt.Println("File challenge:", hex.EncodeToString(sha.Sum(nil)))
 	return nil
@@ -425,7 +437,7 @@ func initPhase2(ctx *cli.Context) error {
 	}
 	sha := sha256.New()
 	if _, err := p.WriteTo(sha); err != nil {
-		panic(err)
+		return err
 	}
 	fmt.Println("File challenge:", hex.EncodeToString(sha.Sum(nil)))
 	return nil
@@ -464,7 +476,7 @@ func contributePhase2(ctx *cli.Context) error {
 	fmt.Println("Contributed to:", hex.EncodeToString(p.Challenge))
 	sha := sha256.New()
 	if _, err := p.WriteTo(sha); err != nil {
-		panic(err)
+		return err
 	}
 	fmt.Println("File challenge:", hex.EncodeToString(sha.Sum(nil)))
 	return nil

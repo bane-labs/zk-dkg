@@ -14,21 +14,21 @@ import (
  * @return phase1: initialization phase1 data
  * @return err: error
  */
-func InitPhase1(path string, power uint64) (phase1 mpcsetup.Phase1, err error) {
-	phase1.Initialize(power)
+func InitPhase1(path string, power uint64) (*mpcsetup.Phase1, error) {
+	p := new(mpcsetup.Phase1)
+	p.Initialize(power)
+
 	f, err := os.Create(path)
 	if err != nil {
-		return phase1, err
+		return nil, err
 	}
-	_, err = phase1.WriteTo(f)
+	defer f.Close()
+
+	_, err = p.WriteTo(f)
 	if err != nil {
-		return phase1, err
+		return nil, err
 	}
-	err = f.Close()
-	if err != nil {
-		return phase1, err
-	}
-	return phase1, nil
+	return p, nil
 }
 
 /**
@@ -39,22 +39,24 @@ func InitPhase1(path string, power uint64) (phase1 mpcsetup.Phase1, err error) {
  * @return next: current phase1 data
  * @return err: error
  */
-func ContributePhase1(prevPath string, nextPath string) (next mpcsetup.Phase1, err error) {
-	prev, err := ReadPhase1FromFile(prevPath)
+func ContributePhase1(prevPath string, nextPath string) (*mpcsetup.Phase1, error) {
+	p, err := ReadPhase1FromFile(prevPath)
 	if err != nil {
-		return mpcsetup.Phase1{}, err
+		return nil, err
 	}
-	prev.Contribute()
-	next = prev
+	p.Contribute()
+
 	f, err := os.Create(nextPath)
 	if err != nil {
-		return next, err
+		return nil, err
 	}
-	_, err = next.WriteTo(f)
+	defer f.Close()
+
+	_, err = p.WriteTo(f)
 	if err != nil {
-		return next, err
+		return nil, err
 	}
-	return next, nil
+	return p, nil
 }
 
 /**
@@ -74,7 +76,7 @@ func VerifyPhase1(prevPath string, curPath string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = prev.Verify(&cur)
+	err = prev.Verify(cur)
 	if err != nil {
 		return nil, err
 	}
@@ -89,22 +91,25 @@ func VerifyPhase1(prevPath string, curPath string) ([]byte, error) {
  * @return srs: common srs
  * @return err: error
  */
-func Seal(phase1Path string, outputPath string) (srs mpcsetup.SrsCommons, err error) {
-	prev, err := ReadPhase1FromFile(phase1Path)
+func Seal(phase1Path string, outputPath string) (*mpcsetup.SrsCommons, error) {
+	p, err := ReadPhase1FromFile(phase1Path)
 	if err != nil {
-		return srs, err
+		return nil, err
 	}
 	beaconChallenge := []byte("beacon Phase 1")
-	srs = prev.Seal(beaconChallenge)
+
+	srs := p.Seal(beaconChallenge)
 	f, err := os.Create(outputPath)
 	if err != nil {
-		return srs, err
+		return nil, err
 	}
+	defer f.Close()
+
 	_, err = srs.WriteTo(f)
 	if err != nil {
-		return srs, err
+		return nil, err
 	}
-	return srs, nil
+	return &srs, nil
 }
 
 /**
@@ -114,22 +119,32 @@ func Seal(phase1Path string, outputPath string) (srs mpcsetup.SrsCommons, err er
  * @return phase1: phase1 data
  * @return err: error
  */
-func ReadPhase1FromFile(path string) (mpcsetup.Phase1, error) {
-	var phase1 mpcsetup.Phase1
+func ReadPhase1FromFile(path string) (*mpcsetup.Phase1, error) {
+	p := new(mpcsetup.Phase1)
 	f, err := os.Open(path)
 	if err != nil {
-		return phase1, err
+		return nil, err
 	}
-	_, err = phase1.ReadFrom(f)
-	return phase1, err
+	defer f.Close()
+
+	_, err = p.ReadFrom(f)
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 
-func ReadSrsCommonsFromFile(path string) (mpcsetup.SrsCommons, error) {
-	var srs mpcsetup.SrsCommons
+func ReadSrsCommonsFromFile(path string) (*mpcsetup.SrsCommons, error) {
+	srs := new(mpcsetup.SrsCommons)
 	f, err := os.Open(path)
 	if err != nil {
-		return srs, err
+		return nil, err
 	}
+	defer f.Close()
+
 	_, err = srs.ReadFrom(f)
-	return srs, err
+	if err != nil {
+		return nil, err
+	}
+	return srs, nil
 }

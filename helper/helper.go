@@ -60,14 +60,14 @@ func GetInitParamsFromExistedMPCSetUp(ccs constraint.ConstraintSystem, srsPath s
 	// Get phase1.5 data
 	r1cs := ccs.(*cs.R1CS)
 	p2 := new(mpcsetup.Phase2)
-	evals := p2.Initialize(r1cs, &srs)
+	evals := p2.Initialize(r1cs, srs)
 	// Get phase2 data
 	phase2, err := mpc.ReadPhase2FromFile(phase2Path)
 	if err != nil {
 		return nil, nil, err
 	}
 	// Generate proving and verifying keys
-	pk, vk := phase2.Seal(&srs, &evals, []byte("beacon Phase 2"))
+	pk, vk := phase2.Seal(srs, &evals, []byte("beacon Phase 2"))
 	return pk.(*groth16.ProvingKey), vk.(*groth16.VerifyingKey), nil
 }
 
@@ -94,15 +94,16 @@ func ReadProvingKey(path string) (*groth16.ProvingKey, error) {
  * @Description: export proving key file
  * @param pk: proving key
  */
-func ExportProvingKey(pk *groth16.ProvingKey, path string) {
+func ExportProvingKey(pk *groth16.ProvingKey, path string) error {
 	file, err := os.Create(path)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	_, err = pk.WriteTo(file)
 	if err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }
 
 /**
@@ -128,15 +129,16 @@ func ReadVerifyingKey(path string) (*groth16.VerifyingKey, error) {
  * @Description: export verifying key file
  * @param vk: verifying key
  */
-func ExportVerifyingKey(vk *groth16.VerifyingKey, path string) {
+func ExportVerifyingKey(vk *groth16.VerifyingKey, path string) error {
 	file, err := os.Create(path)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	_, err = vk.WriteTo(file)
 	if err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }
 
 /**
@@ -162,15 +164,16 @@ func ReadCCS(path string) (constraint.ConstraintSystem, error) {
  * @Description: export r1cs file
  * @param ccs: r1cs
  */
-func ExportCCS(ccs constraint.ConstraintSystem, path string) {
+func ExportCCS(ccs constraint.ConstraintSystem, path string) error {
 	file, err := os.Create(path)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	_, err = ccs.WriteTo(file)
 	if err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }
 
 /**
@@ -178,15 +181,12 @@ func ExportCCS(ccs constraint.ConstraintSystem, path string) {
  * @Description: export solidity file
  * @param vk: verifying key
  */
-func ExportContract(vk *groth16.VerifyingKey, path string) {
+func ExportContract(vk *groth16.VerifyingKey, path string) error {
 	contract, err := os.Create(path)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	err = vk.ExportSolidity(contract, solidity.WithHashToFieldFunction(sha256.New()))
-	if err != nil {
-		panic(err)
-	}
+	return vk.ExportSolidity(contract, solidity.WithHashToFieldFunction(sha256.New()))
 }
 
 /**

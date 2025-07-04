@@ -195,16 +195,17 @@ func TestMPC(t *testing.T) {
 
 	var p2 mpcsetup.Phase2
 	r1cs := css.(*cs.R1CS)
-	evals := p2.Initialize(r1cs, &srs)
+	evals := p2.Initialize(r1cs, srs)
 
 	phase2, err := mpc.ReadPhase2FromFile(curPhase2)
 	assert.NoError(err)
-	p1, v1 := phase2.Seal(&srs, &evals, []byte("beacon Phase 2"))
+	p1, v1 := phase2.Seal(srs, &evals, []byte("beacon Phase 2"))
 	pk := p1.(*groth16.ProvingKey)
 	vk := v1.(*groth16.VerifyingKey)
 
 	contractFilePath := "Verifier.sol"
-	helper.ExportContract(vk, contractFilePath)
+	err = helper.ExportContract(vk, contractFilePath)
+	assert.NoError(err)
 
 	data := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 
