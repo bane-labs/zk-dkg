@@ -28,8 +28,7 @@ func TestBatchEncryptionCircuit(t *testing.T) {
 		key, err := ecies.GenerateKey(rand, crypto.S256(), nil)
 		assert.NoError(err)
 		pubKeys[i] = &key.PublicKey
-		fi := new(fr_bls12381.Element)
-		_, err = fi.SetRandom()
+		fi, err := new(fr_bls12381.Element).SetRandom()
 		assert.NoError(err)
 		fis[i] = fi
 	}

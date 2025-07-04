@@ -23,8 +23,8 @@ func transformKeyShare(fi *fr_bls12381.Element) ([]byte, *big.Int, *bls12381.G1A
 	fiInt := fi.BigInt(new(big.Int))
 	fiBytes := make([]byte, 32)
 	fiInt.FillBytes(fiBytes)
-	_, _, g12381, _ := bls12381.Generators()
-	bigFi := new(bls12381.G1Affine).ScalarMultiplication(&g12381, fiInt)
+	_, _, g1, _ := bls12381.Generators()
+	bigFi := new(bls12381.G1Affine).ScalarMultiplication(&g1, fiInt)
 	return fiBytes, fiInt, bigFi
 }
 

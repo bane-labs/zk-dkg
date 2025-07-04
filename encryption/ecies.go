@@ -4,7 +4,6 @@ import (
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/secp256k1"
-	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	fr_secp "github.com/consensys/gnark-crypto/ecc/secp256k1/fr"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"golang.org/x/crypto/sha3"
@@ -23,14 +22,9 @@ import (
  */
 func ECIESEncrypt(pub *ecies.PublicKey, plaintext []byte) ([]byte, []byte, *big.Int, *secp256k1.G1Affine, error) {
 	// Format public key
-	var px fp.Element
-	px.SetBigInt(pub.X)
-	var py fp.Element
-	py.SetBigInt(pub.Y)
-	pg1 := secp256k1.G1Affine{
-		X: px,
-		Y: py,
-	}
+	pg1 := new(secp256k1.G1Affine)
+	pg1.X.SetBigInt(pub.X)
+	pg1.Y.SetBigInt(pub.Y)
 	// Generate random r, bigR=rG
 	_, g := secp256k1.Generators()
 	rs, err := new(fr_secp.Element).SetRandom()
@@ -41,7 +35,7 @@ func ECIESEncrypt(pub *ecies.PublicKey, plaintext []byte) ([]byte, []byte, *big.
 	bigR := new(secp256k1.G1Affine).ScalarMultiplication(&g, r)
 	// Compute rPub=r*PublicKey
 	var rPub secp256k1.G1Affine
-	rPub.ScalarMultiplication(&pg1, r)
+	rPub.ScalarMultiplication(pg1, r)
 	// Compute rPubBytes=hash(rPub)
 	nbBytes := 2 * fr_secp.Bytes
 	rPubBytes := make([]byte, nbBytes*8)

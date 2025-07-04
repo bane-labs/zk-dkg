@@ -23,8 +23,7 @@ func TestECIESCircuit(t *testing.T) {
 	privKey, err := ecies.GenerateKey(rand, crypto.S256(), nil)
 	assert.NoError(err)
 	// Generate an encrypt fragement key
-	fi := new(fr_bls12381.Element)
-	_, err = fi.SetRandom()
+	fi, err := new(fr_bls12381.Element).SetRandom()
 	assert.NoError(err)
 	fiBytes, fiInt, bigFi := transformKeyShare(fi)
 	nonce, encryptedFi, r, bigR, err := encryptKeyShare(&privKey.PublicKey, fiBytes)
@@ -63,8 +62,7 @@ func TestECIESWithMPC(t *testing.T) {
 	privKey, err := ecies.GenerateKey(rand, crypto.S256(), nil)
 	assert.NoError(err)
 	// Generate a encrypt fragement key
-	fi := new(fr_bls12381.Element)
-	_, err = fi.SetRandom()
+	fi, err := new(fr_bls12381.Element).SetRandom()
 	assert.NoError(err)
 	fiBytes, fiInt, bigFi := transformKeyShare(fi)
 	nonce, encryptedFi, r, bigR, err := encryptKeyShare(&privKey.PublicKey, fiBytes)

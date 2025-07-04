@@ -7,7 +7,6 @@ import (
 	bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381"
 	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1"
-	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
 	"github.com/consensys/gnark/std/math/emulated"
@@ -72,18 +71,13 @@ func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r *big.I
 	for i := 0; i < len(nonce); i++ {
 		nonceBytes[i] = nonce[i]
 	}
-	var px fp.Element
-	px.SetBigInt(pubKey.X)
-	var py fp.Element
-	py.SetBigInt(pubKey.Y)
-	pub := secp256k1.G1Affine{
-		X: px,
-		Y: py,
-	}
+	pub := new(secp256k1.G1Affine)
+	pub.X.SetBigInt(pubKey.X)
+	pub.Y.SetBigInt(pubKey.Y)
 	// Compute RPub
-	rPub := new(secp256k1.G1Affine).ScalarMultiplication(&pub, r)
+	rPub := new(secp256k1.G1Affine).ScalarMultiplication(pub, r)
 	// Compute hash
-	sumHash := computeSumHash(&pub, bigR, bigFi, encryptedFi, nonce)
+	sumHash := computeSumHash(pub, bigR, bigFi, encryptedFi, nonce)
 	// Compute assignment
 	assignment := ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
 		SmallR: emulated.ValueOf[emulated.Secp256k1Fr](r),
