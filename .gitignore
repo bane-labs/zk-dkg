@@ -8,3 +8,4 @@ cmd/srs*
 circuit/Phase1*
 circuit/Phase2*
 circuit/srs*
+nohup.out

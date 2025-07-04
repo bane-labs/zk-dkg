@@ -10,7 +10,6 @@ import (
 	"math/big"
 	"math/rand"
 	"os"
-	"strconv"
 	"testing"
 	"time"
 
@@ -129,13 +128,13 @@ func TestTwoRecoverMessageGeneration(t *testing.T) {
 		t.Logf("Share message: %s", hex.EncodeToString(messages[i]))
 	}
 	// Read files
-	provingKeyPath := "ProvingKey_" + strconv.Itoa(3)
+	provingKeyPath := fmt.Sprintf("cmd/batch_encryption_%d.pk", 2)
 	pk, err := helper.ReadProvingKey(provingKeyPath)
 	assert.NoError(err)
-	verifyingKeyPath := "VerifyingKey_" + strconv.Itoa(3)
+	verifyingKeyPath := fmt.Sprintf("cmd/batch_encryption_%d.vk", 2)
 	vk, err := helper.ReadVerifyingKey(verifyingKeyPath)
 	assert.NoError(err)
-	r1csPath := "R1CS_" + strconv.Itoa(3)
+	r1csPath := fmt.Sprintf("cmd/batch_encryption_%d.ccs", 2)
 	css, err := helper.ReadCCS(r1csPath)
 	assert.NoError(err)
 	// Compute proof
