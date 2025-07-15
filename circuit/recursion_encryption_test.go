@@ -247,10 +247,10 @@ func mockSRCMPC(prefix string, ccs constraint.ConstraintSystem, nContributions i
 func SealSRSMpcSetup(p kzg_bn254.MpcSetup, path string) error {
 	srsc := p.Seal([]byte("beacon SRS")) // in gnark, this challenge is fixed (in verifier, e.g. plonk.Verify)
 	f, err := os.Create(path)
-	defer f.Close()
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 	_, err = srsc.WriteTo(f)
 	if err != nil {
 		return err
