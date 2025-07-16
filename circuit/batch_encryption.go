@@ -8,6 +8,27 @@ import (
 	"github.com/consensys/gnark/std/math/uints"
 )
 
+// "DKG_BATCH_HASH_V1"
+var hashDomainU8s = []uints.U8{
+	uints.NewU8(0x44),
+	uints.NewU8(0x4b),
+	uints.NewU8(0x47),
+	uints.NewU8(0x5f),
+	uints.NewU8(0x42),
+	uints.NewU8(0x41),
+	uints.NewU8(0x54),
+	uints.NewU8(0x43),
+	uints.NewU8(0x48),
+	uints.NewU8(0x5f),
+	uints.NewU8(0x48),
+	uints.NewU8(0x41),
+	uints.NewU8(0x53),
+	uints.NewU8(0x48),
+	uints.NewU8(0x5f),
+	uints.NewU8(0x56),
+	uints.NewU8(0x31),
+}
+
 type BatchEncryptionWrapper[T1, S1, T2, S2 emulated.FieldParams] struct {
 	Parameters []ECIESParameters[T1, S1, T2, S2] `gnark:",secret"`
 	SumHash    []frontend.Variable               `gnark:",public"`
@@ -29,6 +50,8 @@ type ECIESParameters[T1, S1, T2, S2 emulated.FieldParams] struct {
 
 func (c *BatchEncryptionWrapper[T1, S1, T2, S2]) Define(api frontend.API) error {
 	allHash := make([]uints.U8, 0)
+	allHash = append(allHash, hashDomainU8s...)                     // Append the hash domain to the allHash
+	allHash = append(allHash, uints.NewU8(byte(len(c.Parameters)))) // Append the number of parameters to the allHash
 	for i := 0; i < len(c.Parameters); i++ {
 		// Prepare data
 		account := c.Parameters[i]
@@ -51,6 +74,7 @@ func (c *BatchEncryptionWrapper[T1, S1, T2, S2]) Define(api frontend.API) error 
 		worker1.Write(innerdata)
 		innerhash := worker1.Sum()
 		// Compute raw pub inputs
+		allHash = append(allHash, uints.NewU8(byte(i)), uints.NewU8(byte(len(innerhash))))
 		allHash = append(allHash, innerhash...)
 	}
 	// Compute comments hash
