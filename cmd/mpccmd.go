@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/bane-labs/zk-dkg/circuit"
-	"github.com/bane-labs/zk-dkg/helper"
 	"github.com/bane-labs/zk-dkg/mpc"
 	"github.com/consensys/gnark-crypto/ecc"
 	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
@@ -292,23 +291,23 @@ func exportSeal(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	pk, vk, err := helper.GetInitParamsFromExistedMPCSetUp(ccs, srsFilePath, phase2FilePath)
+	pk, vk, err := mpc.GetInitParamsFromExistedMPCSetUp(ccs, srsFilePath, phase2FilePath)
 	if err != nil {
 		return err
 	}
-	err = helper.ExportContract(vk, contractFilePath)
+	err = mpc.ExportContract(vk, contractFilePath)
 	if err != nil {
 		return err
 	}
-	err = helper.ExportProvingKey(pk, provingKeyFilePath)
+	err = mpc.ExportProvingKey(pk, provingKeyFilePath)
 	if err != nil {
 		return err
 	}
-	err = helper.ExportVerifyingKey(vk, verifyingKeyFilePath)
+	err = mpc.ExportVerifyingKey(vk, verifyingKeyFilePath)
 	if err != nil {
 		return err
 	}
-	err = helper.ExportCCS(ccs, r1csFilePath)
+	err = mpc.ExportCCS(ccs, r1csFilePath)
 	if err != nil {
 		return err
 	}

@@ -28,13 +28,8 @@ func InitPhase2(ccs constraint.ConstraintSystem, srsCommonsPath string, phase2Pa
 	p := new(mpcsetup.Phase2)
 	evals := p.Initialize(r1cs, srs)
 
-	f, err := os.Create(phase2Path)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	defer f.Close()
-
-	_, err = p.WriteTo(f)
+	// Atomic write with secure permissions
+	err = writeSecureAtomic(phase2Path, p)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -56,13 +51,8 @@ func ContributePhase2(prevPath string, nextPath string) (*mpcsetup.Phase2, error
 	}
 	p.Contribute()
 
-	f, err := os.Create(nextPath)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	_, err = p.WriteTo(f)
+	// Atomic write with secure permissions
+	err = writeSecureAtomic(nextPath, p)
 	if err != nil {
 		return nil, err
 	}

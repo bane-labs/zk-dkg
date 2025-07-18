@@ -22,13 +22,8 @@ func InitPhase1(path string, power uint64) (*mpcsetup.Phase1, error) {
 	p := new(mpcsetup.Phase1)
 	p.Initialize(power)
 
-	f, err := os.Create(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	_, err = p.WriteTo(f)
+	// Atomic write with secure permissions
+	err := writeSecureAtomic(path, p)
 	if err != nil {
 		return nil, err
 	}
@@ -50,13 +45,8 @@ func ContributePhase1(prevPath string, nextPath string) (*mpcsetup.Phase1, error
 	}
 	p.Contribute()
 
-	f, err := os.Create(nextPath)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	_, err = p.WriteTo(f)
+	// Atomic write with secure permissions
+	err = writeSecureAtomic(nextPath, p)
 	if err != nil {
 		return nil, err
 	}
@@ -103,13 +93,8 @@ func Seal(phase1Path string, outputPath string) (*mpcsetup.SrsCommons, error) {
 	beaconChallenge := []byte("beacon Phase 1")
 
 	srs := p.Seal(beaconChallenge)
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	_, err = srs.WriteTo(f)
+	// Atomic write with secure permissions
+	err = writeSecureAtomic(outputPath, &srs)
 	if err != nil {
 		return nil, err
 	}

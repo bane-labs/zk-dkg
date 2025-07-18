@@ -5,12 +5,9 @@ import (
 	"math/big"
 	"os"
 
-	"github.com/bane-labs/zk-dkg/mpc"
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend"
 	groth16 "github.com/consensys/gnark/backend/groth16/bn254"
-	"github.com/consensys/gnark/backend/groth16/bn254/mpcsetup"
-	"github.com/consensys/gnark/backend/solidity"
 	"github.com/consensys/gnark/backend/witness"
 	"github.com/consensys/gnark/constraint"
 	cs "github.com/consensys/gnark/constraint/bn254"
@@ -42,36 +39,6 @@ func ComputeProof(ccs constraint.ConstraintSystem, pk *groth16.ProvingKey, assig
 }
 
 /**
- * Function: GetInitParamsFromExistedMPCSetUp
- * @Description: get proving key and verification key required for zk proof calculation from the existing MPC file
- * @param ccs: circuit constraints
- * @param srsPath: phase1 SRS file path required for proof calculation
- * @param phase2Path: phase2 file path required for proof calculation
- * @return pk: proving key
- * @return vk: verification key
- * @return err: error
- */
-func GetInitParamsFromExistedMPCSetUp(ccs constraint.ConstraintSystem, srsPath string, phase2Path string) (*groth16.ProvingKey, *groth16.VerifyingKey, error) {
-	// Get phase1 data
-	srs, err := mpc.ReadSrsCommonsFromFile(srsPath)
-	if err != nil {
-		return nil, nil, err
-	}
-	// Get phase1.5 data
-	r1cs := ccs.(*cs.R1CS)
-	p2 := new(mpcsetup.Phase2)
-	evals := p2.Initialize(r1cs, srs)
-	// Get phase2 data
-	phase2, err := mpc.ReadPhase2FromFile(phase2Path)
-	if err != nil {
-		return nil, nil, err
-	}
-	// Generate proving and verifying keys
-	pk, vk := phase2.Seal(srs, &evals, []byte("beacon Phase 2"))
-	return pk.(*groth16.ProvingKey), vk.(*groth16.VerifyingKey), nil
-}
-
-/**
  * Function: ReadProvingKey
  * @Description: import proving key file
  * @param path: proving key file path
@@ -87,23 +54,6 @@ func ReadProvingKey(path string) (*groth16.ProvingKey, error) {
 		return nil, err
 	}
 	return pk, nil
-}
-
-/**
- * Function: ExportProvingKey
- * @Description: export proving key file
- * @param pk: proving key
- */
-func ExportProvingKey(pk *groth16.ProvingKey, path string) error {
-	file, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	_, err = pk.WriteTo(file)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 /**
@@ -125,23 +75,6 @@ func ReadVerifyingKey(path string) (*groth16.VerifyingKey, error) {
 }
 
 /**
- * Function: ExportVerifyingKey
- * @Description: export verifying key file
- * @param vk: verifying key
- */
-func ExportVerifyingKey(vk *groth16.VerifyingKey, path string) error {
-	file, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	_, err = vk.WriteTo(file)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-/**
  * Function: ReadCCS
  * @Description: import r1cs file
  * @param path: r1cs file path
@@ -157,36 +90,6 @@ func ReadCCS(path string) (constraint.ConstraintSystem, error) {
 		return nil, err
 	}
 	return ccs, nil
-}
-
-/**
- * Function: ExportCCS
- * @Description: export r1cs file
- * @param ccs: r1cs
- */
-func ExportCCS(ccs constraint.ConstraintSystem, path string) error {
-	file, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	_, err = ccs.WriteTo(file)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-/**
- * Function: ExportContract
- * @Description: export solidity file
- * @param vk: verifying key
- */
-func ExportContract(vk *groth16.VerifyingKey, path string) error {
-	contract, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	return vk.ExportSolidity(contract, solidity.WithHashToFieldFunction(sha256.New()))
 }
 
 /**

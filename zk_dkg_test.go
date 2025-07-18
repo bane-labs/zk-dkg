@@ -204,7 +204,7 @@ func TestMPC(t *testing.T) {
 	vk := v1.(*groth16.VerifyingKey)
 
 	contractFilePath := "Verifier.sol"
-	err = helper.ExportContract(vk, contractFilePath)
+	err = mpc.ExportContract(vk, contractFilePath)
 	assert.NoError(err)
 
 	data := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
