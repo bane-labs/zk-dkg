@@ -4,6 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"fmt"
 	"io"
 )
 
@@ -49,6 +50,9 @@ func AESGCMDecrypt(key, ciphertext, nonce []byte) ([]byte, error) {
 	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
 		return nil, err
+	}
+	if len(nonce) != aesgcm.NonceSize() {
+		return nil, fmt.Errorf("invalid nonce length: %d, expected %d", len(nonce), aesgcm.NonceSize())
 	}
 	plaintext, err := aesgcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
