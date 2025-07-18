@@ -1,7 +1,9 @@
 package helper
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
+	"io"
 	"os"
 
 	"github.com/bane-labs/zk-dkg/mpc"
@@ -94,15 +96,7 @@ func ReadPlonkProvingKey(path string, curveID ecc.ID) (plonk.ProvingKey, error) 
  * @param path: proving key file path
  */
 func ExportPlonkProvingKey(pk plonk.ProvingKey, path string) error {
-	file, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	_, err = pk.WriteTo(file)
-	if err != nil {
-		return err
-	}
-	return nil
+	return writeSecureAtomic(path, pk)
 }
 
 /**
@@ -132,15 +126,7 @@ func ReadPlonkVerifyingKey(path string, curveID ecc.ID) (plonk.VerifyingKey, err
  * @param path: verifying key file path
  */
 func ExportPlonkVerifyingKey(vk plonk.VerifyingKey, path string) error {
-	file, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	_, err = vk.WriteTo(file)
-	if err != nil {
-		return err
-	}
-	return nil
+	return writeSecureAtomic(path, vk)
 }
 
 /**
@@ -167,15 +153,7 @@ func ReadCCS(path string) (constraint.ConstraintSystem, error) {
  * @param ccs: r1cs
  */
 func ExportCCS(ccs constraint.ConstraintSystem, path string) error {
-	file, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	_, err = ccs.WriteTo(file)
-	if err != nil {
-		return err
-	}
-	return nil
+	return writeSecureAtomic(path, ccs)
 }
 
 /**
@@ -219,4 +197,61 @@ func GetContractInput(proof plonk.Proof) []byte {
 	plonk_proof := proof.(*plonk_bn254.Proof)
 	input := plonk_proof.MarshalSolidity()
 	return input
+}
+
+type Exportable interface {
+	WriteTo(w io.Writer) (int64, error)
+}
+
+// writeSecureAtomic writes data to a temporary file with secure permissions and then atomically renames it to the final path.
+// It ensures that the file is written completely before renaming, and it handles errors by securely.
+func writeSecureAtomic(finalPath string, data Exportable) error {
+	// Create temporary file with restrictive permissions
+	tempPath := finalPath + ".tmp"
+	out, err := os.OpenFile(tempPath, os.O_CREATE|os.O_WRONLY|os.O_EXCL, 0600)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		out.Close()
+		// Secure cleanup: overwrite and delete temp file on failure
+		if err != nil {
+			secureDelete(tempPath)
+		}
+	}()
+
+	// Write data completely
+	_, err = data.WriteTo(out)
+	if err != nil {
+		return err
+	}
+
+	// Ensure data is written to disk
+	err = out.Sync()
+	if err != nil {
+		return err
+	}
+
+	err = out.Close()
+	if err != nil {
+		return err
+	}
+
+	// Atomic rename
+	return os.Rename(tempPath, finalPath)
+}
+
+// secureDelete securely deletes a file by overwriting it with random data before removing it.
+func secureDelete(path string) {
+	if file, err := os.OpenFile(path, os.O_WRONLY, 0); err == nil {
+		// Overwrite with random data
+		stat, _ := file.Stat()
+		randomData := make([]byte, stat.Size())
+		rand.Read(randomData)
+		file.WriteAt(randomData, 0)
+		file.Sync()
+		file.Close()
+	}
+	os.Remove(path)
 }
