@@ -130,21 +130,21 @@ func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.Publ
 		Parameters[i], innerhashes[i] = ComputeSingleKeyShareEncryptionAssignment(pubKey[i], rs[i], bigRs[i], fisInts[i], bigFis[i], encryptedFis[i], nonces[i])
 	}
 	// Compute sum hash
-	sumhash := make([]byte, 0)
+	summary := make([]byte, 0)
 	for i := 0; i < batch; i++ {
-		sumhash = append(sumhash, innerhashes[i]...)
+		summary = append(summary, innerhashes[i]...)
 	}
-	result := helper.GetHash(sumhash)
+	sumHash := helper.GetHash(summary)
 
-	rawSumHash := make([]frontend.Variable, len(result))
-	for i := 0; i < len(result); i++ {
-		rawSumHash[i] = result[i]
+	rawSumHash := make([]frontend.Variable, len(sumHash))
+	for i := 0; i < len(sumHash); i++ {
+		rawSumHash[i] = sumHash[i]
 	}
 	assignments := &BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
 		Parameters: Parameters,
 		SumHash:    rawSumHash,
 	}
-	return assignments, helper.GetHash(sumhash)
+	return assignments, sumHash
 }
 
 // ComputeRecursionEncryptionAssignment computes the assignment for verification recursion.
