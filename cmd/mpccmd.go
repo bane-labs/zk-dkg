@@ -386,7 +386,7 @@ func exportInnerCircuit(ctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		err = helper.ExportCCS(innerCCS, innerCCSPath+strconv.Itoa(batch))
+		err = mpc.ExportCCS(innerCCS, innerCCSPath+strconv.Itoa(batch))
 		if err != nil {
 			return err
 		}
@@ -418,15 +418,15 @@ func exportInnerSeal(ctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		pk, vk, err := helper.GetKeysFromExistedPlonkSetUp(innerCCS, srsPath)
+		pk, vk, err := mpc.GetKeysFromExistedPlonkSetUp(innerCCS, srsPath)
 		if err != nil {
 			return err
 		}
-		err = helper.ExportPlonkProvingKey(pk, innerPKPath+strconv.Itoa(InnerVKIDs[i]))
+		err = mpc.ExportPlonkProvingKey(pk, innerPKPath+strconv.Itoa(InnerVKIDs[i]))
 		if err != nil {
 			return err
 		}
-		err = helper.ExportPlonkVerifyingKey(vk, innerVKPath+strconv.Itoa(InnerVKIDs[i]))
+		err = mpc.ExportPlonkVerifyingKey(vk, innerVKPath+strconv.Itoa(InnerVKIDs[i]))
 		if err != nil {
 			return err
 		}
@@ -506,23 +506,23 @@ func exportOuterSeal(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	pk, vk, err := helper.GetKeysFromExistedPlonkSetUp(outerCCS, srsPath)
+	pk, vk, err := mpc.GetKeysFromExistedPlonkSetUp(outerCCS, srsPath)
 	if err != nil {
 		return err
 	}
-	err = helper.ExportCCS(outerCCS, outerCCSPath)
+	err = mpc.ExportCCS(outerCCS, outerCCSPath)
 	if err != nil {
 		return err
 	}
-	err = helper.ExportPlonkProvingKey(pk, outerPKPath)
+	err = mpc.ExportPlonkProvingKey(pk, outerPKPath)
 	if err != nil {
 		return err
 	}
-	err = helper.ExportPlonkVerifyingKey(vk, outerVKPath)
+	err = mpc.ExportPlonkVerifyingKey(vk, outerVKPath)
 	if err != nil {
 		return err
 	}
-	err = helper.ExportContract(vk, contractPath)
+	err = mpc.ExportContract(vk, contractPath)
 	if err != nil {
 		return err
 	}

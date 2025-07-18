@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/bane-labs/zk-dkg/helper"
+	"github.com/bane-labs/zk-dkg/mpc"
 	"github.com/consensys/gnark-crypto/ecc"
 	bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381"
 	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
@@ -179,7 +180,7 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 	require.NoError(t, err)
 	err = plonk.Verify(proof, outerVK, witnessPub)
 	require.NoError(t, err)
-	//helper.ExportContract(outerVKs, outerContract)
+	//mpc.ExportContract(outerVKs, outerContract)
 	output := helper.GetContractInput(proof)
 	publicInputs := []uint32{uint32(testBatchIndex)}
 	for k := 0; k < len(sumHash); k++ {
@@ -276,15 +277,15 @@ func mockSeal(prefix string, ccs constraint.ConstraintSystem, srs kzg.SRS, inner
 	}
 	pk = p1.(*plonk_bn254.ProvingKey)
 	vk = v1.(*plonk_bn254.VerifyingKey)
-	err = helper.ExportPlonkProvingKey(pk, prefix+"pk"+suffix)
+	err = mpc.ExportPlonkProvingKey(pk, prefix+"pk"+suffix)
 	if err != nil {
 		return nil, nil, err
 	}
-	err = helper.ExportPlonkVerifyingKey(vk, prefix+"vk"+suffix)
+	err = mpc.ExportPlonkVerifyingKey(vk, prefix+"vk"+suffix)
 	if err != nil {
 		return nil, nil, err
 	}
-	err = helper.ExportCCS(ccs, prefix+"ccs"+suffix)
+	err = mpc.ExportCCS(ccs, prefix+"ccs"+suffix)
 	if err != nil {
 		return nil, nil, err
 	}
