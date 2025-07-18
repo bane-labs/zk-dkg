@@ -1,6 +1,7 @@
 package mpc
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/consensys/gnark/backend/groth16/bn254/mpcsetup"
@@ -15,6 +16,9 @@ import (
  * @return err: error
  */
 func InitPhase1(path string, power uint64) (*mpcsetup.Phase1, error) {
+	if power < 1 || power > 27 {
+		return nil, fmt.Errorf("power must be in the range of 1-27, got %d", power)
+	}
 	p := new(mpcsetup.Phase1)
 	p.Initialize(power)
 
