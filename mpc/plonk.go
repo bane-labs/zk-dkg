@@ -1,6 +1,7 @@
 package mpc
 
 import (
+	"fmt"
 	"os"
 
 	kzg_bn254 "github.com/consensys/gnark-crypto/ecc/bn254/kzg"
@@ -15,6 +16,9 @@ import (
  * @return err: error
  */
 func InitPlonkSRS(path string, srsSize int) (*kzg_bn254.MpcSetup, error) {
+	if srsSize < 1 || srsSize > 27 {
+		return nil, fmt.Errorf("srsSize must be in the range of 1-27, got %d", srsSize)
+	}
 	srs := kzg_bn254.InitializeSetup(srsSize)
 	srs.Contribute()
 	f, err := os.Create(path)
