@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"slices"
 
-	fp_secp "github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
 	"github.com/consensys/gnark/std/hash/sha2"
@@ -51,7 +50,7 @@ func (c *ECIESWrapper[T1, S1, T2, S2]) Define(api frontend.API) error {
 	return nil
 }
 
-// bigEndianBitsToBytes converts a big-endian marshalled ECC point to a byte array in uints.U8s.
+// bigEndianBitsToBytes converts a big-endian marshalled bit array to a byte array in uints.U8s.
 func bigEndianBitsToBytes(api frontend.API, in []frontend.Variable) []uints.U8 {
 	if len(in)%8 != 0 {
 		panic(fmt.Errorf("invalid bit length: %d, must be a multiple of 8", len(in)))
@@ -116,22 +115,19 @@ func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(cipherChunks []frontend.Variable, iv
 	cr.AssertIsOnCurve(&rPub)
 	cr.AssertIsEqual(cr.ScalarMul(&pub, &r), &rPub)
 	// Generate key=hash(rPub)
-	nbBits := 8 * ((fp_secp.Modulus().BitLen() + 7) / 8)
-	rawRpub := make([]uints.U8, 2*nbBits)
-	raw := cr.MarshalG1(rPub)
-	for i := range raw {
-		rawRpub[i] = uints.U8{Val: raw[i]}
-	}
+	rawRPub := cr.MarshalG1(rPub)
+	rawBigR := cr.MarshalG1(bigR)
+	nFpBits := 32 * 8 // 32 bytes for a Secp256k1 Fp element X
+	rPubXU8s := bigEndianBitsToBytes(api, rawRPub[:nFpBits])
+	bigRU8s := bigEndianBitsToBytes(api, rawBigR)
 	hasher, err := sha3.New256(api)
 	if err != nil {
-		return nil, fmt.Errorf("hash function unknown ")
+		return nil, fmt.Errorf("hash function unknown")
 	}
-	hasher.Write(rawRpub)
-	expected := hasher.Sum()
+	hasher.Write(rPubXU8s)
+	hasher.Write(bigRU8s)
 	key := [32]uints.U8{}
-	for j := range key {
-		key[j] = expected[j]
-	}
+	copy(key[:], hasher.Sum())
 	// Check Fi=fiG
 	cr2, err := sw_emulated.New[T2, S2](api, sw_emulated.GetCurveParams[T2]())
 	if err != nil {
@@ -145,23 +141,15 @@ func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(cipherChunks []frontend.Variable, iv
 	gcm.Assert(key, ivBytes, chunkIndex, pBytes, cBytes)
 
 	// Compute pubInputs=(pub1,pub2.....)
-	rawBigR := cr.MarshalG1(bigR)
 	rawPub := cr.MarshalG1(pub)
 	rawBigFi := cr2.MarshalG1(bigFi)
-	bigRU8s := bigEndianBitsToBytes(api, rawBigR)
 	pubU8s := bigEndianBitsToBytes(api, rawPub)
 	bigFiU8s := bigEndianBitsToBytes(api, rawBigFi)
 	length := len(bigRU8s) + len(pubU8s) + len(bigFiU8s) + len(iv) + 1 + len(cipherChunks)
 	pubInputs := make([]uints.U8, length)
-	for i := range bigRU8s {
-		pubInputs[i] = bigRU8s[i]
-	}
-	for i := range pubU8s {
-		pubInputs[len(bigRU8s)+i] = pubU8s[i]
-	}
-	for i := range bigFiU8s {
-		pubInputs[len(bigRU8s)+len(pubU8s)+i] = bigFiU8s[i]
-	}
+	copy(pubInputs, bigRU8s)
+	copy(pubInputs[len(bigRU8s):], pubU8s)
+	copy(pubInputs[len(bigRU8s)+len(pubU8s):], bigFiU8s)
 	for i := range iv {
 		pubInputs[len(bigRU8s)+len(pubU8s)+len(bigFiU8s)+i] = uints.U8{Val: iv[i]}
 	}
