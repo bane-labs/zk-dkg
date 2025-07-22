@@ -114,7 +114,7 @@ func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(cipherChunks []frontend.Variable, iv
 	// Check rPub
 	cr.AssertIsOnCurve(&rPub)
 	cr.AssertIsEqual(cr.ScalarMul(&pub, &r), &rPub)
-	// Generate key=hash(rPub)
+	// Generate key=hash(rPub.X, bigR)
 	rawRPub := cr.MarshalG1(rPub)
 	rawBigR := cr.MarshalG1(bigR)
 	nFpBits := 32 * 8 // 32 bytes for a Secp256k1 Fp element X
