@@ -142,7 +142,8 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 	}
 	outerCircuit, err := GetRecursionEncryptionCircuit(nbPublic, nbCommitment, innerVKs)
 	require.NoError(t, err)
-	innerAssignments, sumHash := ComputeMultipleKeyShareEncryptionAssignment(innerVKIDs[testBatchIndex], td[testBatchIndex].data8, td[testBatchIndex].data6, td[testBatchIndex].data7, td[testBatchIndex].data2, td[testBatchIndex].data3, td[testBatchIndex].data5, td[testBatchIndex].data4)
+	innerAssignments, sumHash, err := ComputeMultipleKeyShareEncryptionAssignment(innerVKIDs[testBatchIndex], td[testBatchIndex].data8, td[testBatchIndex].data6, td[testBatchIndex].data7, td[testBatchIndex].data2, td[testBatchIndex].data3, td[testBatchIndex].data5, td[testBatchIndex].data4)
+	require.NoError(t, err)
 	rawSumHash := make([]frontend.Variable, len(sumHash))
 	for i := 0; i < len(sumHash); i++ {
 		rawSumHash[i] = sumHash[i]
@@ -247,10 +248,10 @@ func mockSRCMPC(prefix string, ccs constraint.ConstraintSystem, nContributions i
 func SealSRSMpcSetup(p kzg_bn254.MpcSetup, path string) error {
 	srsc := p.Seal([]byte("beacon SRS")) // in gnark, this challenge is fixed (in verifier, e.g. plonk.Verify)
 	f, err := os.Create(path)
-	defer f.Close()
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 	_, err = srsc.WriteTo(f)
 	if err != nil {
 		return err
