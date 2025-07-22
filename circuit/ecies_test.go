@@ -34,8 +34,7 @@ func TestECIESCircuit(t *testing.T) {
 		CipherChunks: make([]frontend.Variable, len(encryptedFi)),
 		PubInputHash: make([]frontend.Variable, 32),
 	}
-	parameters, hashes, err := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, bigR, fiInt, bigFi, encryptedFi, nonce)
-	assert.NoError(err)
+	parameters, hashes := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, bigR, fiInt, bigFi, encryptedFi, nonce)
 	rawSumHash := make([]frontend.Variable, len(hashes))
 	for i := 0; i < len(hashes); i++ {
 		rawSumHash[i] = hashes[i]
@@ -77,8 +76,7 @@ func TestECIESWithMPC(t *testing.T) {
 	}
 	_, err = frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
 	assert.NoError(err)
-	parameters, hashes, err := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, bigR, fiInt, bigFi, encryptedFi, nonce)
-	assert.NoError(err)
+	parameters, hashes := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, bigR, fiInt, bigFi, encryptedFi, nonce)
 	rawSumHash := make([]frontend.Variable, len(hashes))
 	for i := 0; i < len(hashes); i++ {
 		rawSumHash[i] = hashes[i]
