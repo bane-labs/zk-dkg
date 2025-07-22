@@ -1,6 +1,7 @@
 package circuit
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/bane-labs/zk-dkg/helper"
@@ -28,6 +29,9 @@ import (
  */
 func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []*fr_bls12381.Element) ([]*big.Int, []*bls12381.G1Affine, [][]byte, [][]byte, []*big.Int, []*secp256k1.G1Affine, error) {
 	amount := len(pubs)
+	if amount != len(fis) {
+		return nil, nil, nil, nil, nil, nil, fmt.Errorf("input array length mismatch")
+	}
 	fisBytes := make([][]byte, amount)
 	fisInts := make([]*big.Int, amount)
 	bigFis := make([]*bls12381.G1Affine, amount)
@@ -37,6 +41,9 @@ func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []*fr_bls12381.Eleme
 	bigRs := make([]*secp256k1.G1Affine, amount)
 	var err error
 	for i := 0; i < amount; i++ {
+		if pubs[i] == nil || fis[i] == nil {
+			return nil, nil, nil, nil, nil, nil, fmt.Errorf("invalid public key or key share at index %d", i)
+		}
 		fisBytes[i], fisInts[i], bigFis[i] = transformKeyShare(fis[i])
 		nonces[i], encryptedFis[i], rs[i], bigRs[i], err = encryptKeyShare(pubs[i], fisBytes[i])
 		if err != nil {
@@ -61,7 +68,10 @@ func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []*fr_bls12381.Eleme
  * @return assignment: input data collection
  * @return err: error
  */
-func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r *big.Int, bigR *secp256k1.G1Affine, fiInt *big.Int, bigFi *bls12381.G1Affine, encryptedFi []byte, nonce []byte) (ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte) {
+func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r *big.Int, bigR *secp256k1.G1Affine, fiInt *big.Int, bigFi *bls12381.G1Affine, encryptedFi []byte, nonce []byte) (ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte, error) {
+	if pubKey == nil || r == nil || bigR == nil || fiInt == nil || bigFi == nil || len(encryptedFi) == 0 || len(nonce) == 0 {
+		return ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{}, nil, fmt.Errorf("invalid input data for assignment")
+	}
 	// Format data
 	ciphertextBytes := make([]frontend.Variable, len(encryptedFi))
 	for i := 0; i < len(encryptedFi); i++ {
@@ -103,16 +113,23 @@ func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r *big.I
 			Y: emulated.ValueOf[emulated.BLS12381Fp](bigFi.Y),
 		},
 	}
-	return assignment, sumHash
+	return assignment, sumHash, nil
 }
 
 // ComputeMultipleKeyShareEncryptionAssignment loops and computes an assignment array for several key share
 // encryption jobs. And it also returns the sum hash of all assignments.
-func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.PublicKey, rs []*big.Int, bigRs []*secp256k1.G1Affine, fisInts []*big.Int, bigFis []*bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) (*BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte) {
+func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.PublicKey, rs []*big.Int, bigRs []*secp256k1.G1Affine, fisInts []*big.Int, bigFis []*bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) (*BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte, error) {
+	if batch != len(pubKey) || batch != len(rs) || batch != len(bigRs) || batch != len(fisInts) || batch != len(bigFis) || batch != len(encryptedFis) || batch != len(nonces) {
+		return nil, nil, fmt.Errorf("input array length mismatch")
+	}
 	Parameters := make([]ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], batch)
 	innerhashes := make([][]byte, batch)
+	var err error
 	for i := 0; i < batch; i++ {
-		Parameters[i], innerhashes[i] = ComputeSingleKeyShareEncryptionAssignment(pubKey[i], rs[i], bigRs[i], fisInts[i], bigFis[i], encryptedFis[i], nonces[i])
+		Parameters[i], innerhashes[i], err = ComputeSingleKeyShareEncryptionAssignment(pubKey[i], rs[i], bigRs[i], fisInts[i], bigFis[i], encryptedFis[i], nonces[i])
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 	// Compute sum hash
 	summary := make([]byte, 0)
@@ -129,5 +146,5 @@ func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.Publ
 		Parameters: Parameters,
 		SumHash:    rawSumHash,
 	}
-	return assignments, sumHash
+	return assignments, sumHash, nil
 }

@@ -31,7 +31,10 @@ import (
  * @return err:
  */
 func ProveSingleKeyShareEncryption(css constraint.ConstraintSystem, provingKey *groth16.ProvingKey, pubKey *ecies.PublicKey, r *big.Int, bigR *secp256k1.G1Affine, fiInt *big.Int, bigFi *bls12381.G1Affine, encryptedFi []byte, nonce []byte) (*groth16.Proof, witness.Witness, error) {
-	assignment, _ := circuit.ComputeMultipleKeyShareEncryptionAssignment(1, []*ecies.PublicKey{pubKey}, []*big.Int{r}, []*secp256k1.G1Affine{bigR}, []*big.Int{fiInt}, []*bls12381.G1Affine{bigFi}, [][]byte{encryptedFi}, [][]byte{nonce})
+	assignment, _, err := circuit.ComputeMultipleKeyShareEncryptionAssignment(1, []*ecies.PublicKey{pubKey}, []*big.Int{r}, []*secp256k1.G1Affine{bigR}, []*big.Int{fiInt}, []*bls12381.G1Affine{bigFi}, [][]byte{encryptedFi}, [][]byte{nonce})
+	if err != nil {
+		return nil, nil, err
+	}
 	proof, witness, err := helper.ComputeProof(css, provingKey, assignment)
 	if err != nil {
 		return nil, nil, err
@@ -57,7 +60,10 @@ func ProveSingleKeyShareEncryption(css constraint.ConstraintSystem, provingKey *
  * @return err:
  */
 func ProveMultipleKeyShareEncryption(css constraint.ConstraintSystem, provingKey *groth16.ProvingKey, pubKey []*ecies.PublicKey, rs []*big.Int, bigRs []*secp256k1.G1Affine, fisInts []*big.Int, bigFis []*bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) (*groth16.Proof, witness.Witness, error) {
-	assignment, _ := circuit.ComputeMultipleKeyShareEncryptionAssignment(len(pubKey), pubKey, rs, bigRs, fisInts, bigFis, encryptedFis, nonces)
+	assignment, _, err := circuit.ComputeMultipleKeyShareEncryptionAssignment(len(pubKey), pubKey, rs, bigRs, fisInts, bigFis, encryptedFis, nonces)
+	if err != nil {
+		return nil, nil, err
+	}
 	proof, witness, err := helper.ComputeProof(css, provingKey, assignment)
 	if err != nil {
 		return nil, nil, err
