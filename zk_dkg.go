@@ -35,13 +35,12 @@ import (
  * @return err:
  */
 func ProveMultipleKeyShareEncryption(outerCCS constraint.ConstraintSystem, outerProvingKey plonk.ProvingKey, vks []plonk.VerifyingKey, innerCCS constraint.ConstraintSystem, innerPK plonk.ProvingKey, innerVK plonk.VerifyingKey, pubKey []*ecies.PublicKey, rs []*big.Int, bigRs []*secp256k1.G1Affine, fisInts []*big.Int, bigFis []*bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) (plonk.Proof, witness.Witness, error) {
+	// Check batch, pk and vk
 	batch := len(pubKey)
-	innerAssignment, sumHash := circuit.ComputeMultipleKeyShareEncryptionAssignment(batch, pubKey, rs, bigRs, fisInts, bigFis, encryptedFis, nonces)
-	rawSumHash := make([]frontend.Variable, len(sumHash))
-	for i := 0; i < len(sumHash); i++ {
-		rawSumHash[i] = sumHash[i]
-	}
 	supportedBatches := []int{1, 2, 7}
+	if len(vks) != len(supportedBatches) {
+		return nil, nil, fmt.Errorf("invalid vk array")
+	}
 	vkIndex := -1
 	for i := 0; i < len(supportedBatches); i++ {
 		if supportedBatches[i] == batch {
@@ -51,6 +50,19 @@ func ProveMultipleKeyShareEncryption(outerCCS constraint.ConstraintSystem, outer
 	}
 	if vkIndex == -1 {
 		return nil, nil, fmt.Errorf("unsupported batch size: %d", batch)
+	}
+	// Check input array length
+	if batch != len(rs) || batch != len(bigRs) || batch != len(fisInts) || batch != len(bigFis) || batch != len(encryptedFis) || batch != len(nonces) {
+		return nil, nil, fmt.Errorf("input array length mismatch")
+	}
+	// Compute assignment and proof
+	innerAssignment, sumHash, err := circuit.ComputeMultipleKeyShareEncryptionAssignment(batch, pubKey, rs, bigRs, fisInts, bigFis, encryptedFis, nonces)
+	if err != nil {
+		return nil, nil, err
+	}
+	rawSumHash := make([]frontend.Variable, len(sumHash))
+	for i := 0; i < len(sumHash); i++ {
+		rawSumHash[i] = sumHash[i]
 	}
 	outerAssignment, err := circuit.ComputeRecursionEncryptionAssignment(ecc.BN254.ScalarField(), ecc.BN254.ScalarField(), vkIndex, vks, innerCCS, innerPK, innerVK, innerAssignment, rawSumHash)
 	if err != nil {

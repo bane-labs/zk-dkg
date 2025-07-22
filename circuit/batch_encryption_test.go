@@ -43,7 +43,8 @@ func TestBatchEncryptionCircuit(t *testing.T) {
 	for i := 0; i < batch; i++ {
 		circuit.Parameters[i].CipherChunks = make([]frontend.Variable, len(encryptedFis[i]))
 	}
-	assignment, _ := ComputeMultipleKeyShareEncryptionAssignment(batch, pubKeys, rs, bigRs, fisInts, bigFis, encryptedFis, nonces)
+	assignment, _, err := ComputeMultipleKeyShareEncryptionAssignment(batch, pubKeys, rs, bigRs, fisInts, bigFis, encryptedFis, nonces)
+	assert.NoError(err)
 	err = test.IsSolved(&circuit, assignment, ecc.BN254.ScalarField())
 	assert.NoError(err)
 }
