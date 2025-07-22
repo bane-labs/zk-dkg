@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"slices"
 
-	fp_bls "github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 	fp_secp "github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
@@ -52,23 +51,21 @@ func (c *ECIESWrapper[T1, S1, T2, S2]) Define(api frontend.API) error {
 	return nil
 }
 
-func variableToU8s(api frontend.API, in []frontend.Variable, nbBits int) []uints.U8 {
-	fixedBits := make([]frontend.Variable, 2*nbBits)
-	if len(fixedBits)%8 != 0 {
-		panic(fmt.Errorf("invalid nbBits"))
+// bigEndianBitsToBytes converts a big-endian marshalled ECC point to a byte array in uints.U8s.
+func bigEndianBitsToBytes(api frontend.API, in []frontend.Variable) []uints.U8 {
+	if len(in)%8 != 0 {
+		panic(fmt.Errorf("invalid bit length: %d, must be a multiple of 8", len(in)))
 	}
-	for i := 0; i < len(fixedBits); i++ {
-		if i < len(in) {
-			fixedBits[len(in)-1-i] = in[i]
-		} else {
-			fixedBits[i] = 0
-		}
-	}
-	out := make([]uints.U8, len(fixedBits)/8)
+	// Reverse to get little-endian
+	data := make([]frontend.Variable, len(in))
+	copy(data, in)
+	slices.Reverse(data)
 	// Transform bits to bytes
+	out := make([]uints.U8, len(data)/8)
 	for i := 0; i < len(out); i++ {
-		out[i] = uints.U8{Val: api.FromBinary(fixedBits[i*8 : (i+1)*8]...)}
+		out[i] = uints.U8{Val: api.FromBinary(data[i*8 : (i+1)*8]...)}
 	}
+	// Reverse back to big-endian
 	slices.Reverse(out)
 	return out
 }
@@ -96,7 +93,6 @@ func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(cipherChunks []frontend.Variable, iv
 	for i := 0; i < len(shareBits)/8; i++ {
 		index := len(shareBits)/8 - 1 - i
 		pBytes = append(pBytes, uints.U8{Val: api.FromBinary(shareBits[index*8 : (index+1)*8]...)})
-
 	}
 	cBytes := make([]uints.U8, len(cipherChunks))
 	for i := 0; i < len(cipherChunks); i++ {
@@ -152,11 +148,9 @@ func (ecies *ECIES[T1, S1, T2, S2]) Encrypt(cipherChunks []frontend.Variable, iv
 	rawBigR := cr.MarshalG1(bigR)
 	rawPub := cr.MarshalG1(pub)
 	rawBigFi := cr2.MarshalG1(bigFi)
-	nbBits1 := 8 * ((fp_secp.Modulus().BitLen() + 7) / 8)
-	nbBits2 := 8 * ((fp_bls.Modulus().BitLen() + 7) / 8)
-	bigRU8s := variableToU8s(api, rawBigR, nbBits1)
-	pubU8s := variableToU8s(api, rawPub, nbBits1)
-	bigFiU8s := variableToU8s(api, rawBigFi, nbBits2)
+	bigRU8s := bigEndianBitsToBytes(api, rawBigR)
+	pubU8s := bigEndianBitsToBytes(api, rawPub)
+	bigFiU8s := bigEndianBitsToBytes(api, rawBigFi)
 	length := len(bigRU8s) + len(pubU8s) + len(bigFiU8s) + len(iv) + 1 + len(cipherChunks)
 	pubInputs := make([]uints.U8, length)
 	for i := range bigRU8s {
