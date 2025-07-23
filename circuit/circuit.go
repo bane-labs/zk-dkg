@@ -24,6 +24,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 )
 
+var hashDomain = "DKG_BATCH_HASH_V1"
+
 /**
  * Function: PrepareEncryptedKeyShares
  * @Description: encrypt a batch of key shares and return related data
@@ -148,7 +150,10 @@ func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.Publ
 	}
 	// Compute sum hash
 	summary := make([]byte, 0)
+	summary = append(summary, hashDomain...)
+	summary = append(summary, byte(batch))
 	for i := 0; i < batch; i++ {
+		summary = append(summary, byte(i), byte(len(innerhashes[i])))
 		summary = append(summary, innerhashes[i]...)
 	}
 	sumHash := helper.GetHash(summary)
