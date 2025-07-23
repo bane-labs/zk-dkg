@@ -4,9 +4,11 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"encoding/binary"
 	"fmt"
-	"io"
 )
+
+var counter = uint32(0)
 
 /**
  * Function: AESGCMEncrypt
@@ -23,7 +25,9 @@ func AESGCMEncrypt(key []byte, plaintext []byte) ([]byte, []byte, error) {
 	}
 	// Never use more than 2^32 random nonces with a given key because of the risk of a repeat.
 	nonce := make([]byte, 12)
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+	counter++
+	binary.BigEndian.PutUint32(nonce[:4], counter)
+	if _, err := rand.Read(nonce[4:]); err != nil {
 		return nil, nil, err
 	}
 	aesgcm, err := cipher.NewGCM(block)
