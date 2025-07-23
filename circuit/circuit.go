@@ -14,6 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 )
 
+var hashDomain = "DKG_BATCH_HASH_V1"
+
 /**
  * Function: PrepareEncryptedKeyShares
  * @Description: encrypt a batch of key shares and return related data
@@ -123,18 +125,21 @@ func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.Publ
 		return nil, nil, fmt.Errorf("input array length mismatch")
 	}
 	Parameters := make([]ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], batch)
-	innerhashes := make([][]byte, batch)
+	innerHashes := make([][]byte, batch)
 	var err error
 	for i := 0; i < batch; i++ {
-		Parameters[i], innerhashes[i], err = ComputeSingleKeyShareEncryptionAssignment(pubKey[i], rs[i], bigRs[i], fisInts[i], bigFis[i], encryptedFis[i], nonces[i])
+		Parameters[i], innerHashes[i], err = ComputeSingleKeyShareEncryptionAssignment(pubKey[i], rs[i], bigRs[i], fisInts[i], bigFis[i], encryptedFis[i], nonces[i])
 		if err != nil {
 			return nil, nil, err
 		}
 	}
 	// Compute sum hash
 	summary := make([]byte, 0)
+	summary = append(summary, []byte(hashDomain)...)
+	summary = append(summary, byte(batch))
 	for i := 0; i < batch; i++ {
-		summary = append(summary, innerhashes[i]...)
+		summary = append(summary, byte(i), byte(len(innerHashes[i])))
+		summary = append(summary, innerHashes[i]...)
 	}
 	sumHash := helper.GetHash(summary)
 
