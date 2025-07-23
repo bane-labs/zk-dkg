@@ -49,9 +49,9 @@ type ECIESParameters[T1, S1, T2, S2 emulated.FieldParams] struct {
 }
 
 func (c *BatchEncryptionWrapper[T1, S1, T2, S2]) Define(api frontend.API) error {
-	allHash := make([]uints.U8, 0)
-	allHash = append(allHash, hashDomainU8s...)                     // Append the hash domain to the allHash
-	allHash = append(allHash, uints.NewU8(byte(len(c.Parameters)))) // Append the number of parameters to the allHash
+	summaryInput := make([]uints.U8, 0)
+	summaryInput = append(summaryInput, hashDomainU8s...)                     // Append the hash domain to the summaryInput
+	summaryInput = append(summaryInput, uints.NewU8(byte(len(c.Parameters)))) // Append the number of parameters to the summaryInput
 	for i := 0; i < len(c.Parameters); i++ {
 		// Prepare data
 		account := c.Parameters[i]
@@ -66,24 +66,24 @@ func (c *BatchEncryptionWrapper[T1, S1, T2, S2]) Define(api frontend.API) error 
 		bigFi := account.Fi
 		// Encrypt
 		encryption := NewECIES[T1, S1, T2, S2](api)
-		innerdata, err := encryption.Encrypt(cipherChunks, iv, r, bigR, pub, rPub, chunkIndex, fi, bigFi)
+		innerData, err := encryption.Encrypt(cipherChunks, iv, r, bigR, pub, rPub, chunkIndex, fi, bigFi)
 		if err != nil {
 			return err
 		}
-		worker1, _ := sha2.New(api)
-		worker1.Write(innerdata)
-		innerhash := worker1.Sum()
+		innerHasher, _ := sha2.New(api)
+		innerHasher.Write(innerData)
+		innerHash := innerHasher.Sum()
 		// Compute raw pub inputs
-		allHash = append(allHash, uints.NewU8(byte(i)), uints.NewU8(byte(len(innerhash))))
-		allHash = append(allHash, innerhash...)
+		summaryInput = append(summaryInput, uints.NewU8(byte(i)), uints.NewU8(byte(len(innerHash))))
+		summaryInput = append(summaryInput, innerHash...)
 	}
 	// Compute comments hash
-	worker2, _ := sha2.New(api)
-	worker2.Write(allHash)
-	result := worker2.Sum()
+	summaryHasher, _ := sha2.New(api)
+	summaryHasher.Write(summaryInput)
+	summary := summaryHasher.Sum()
 	// Check comments hash
-	for i := 0; i < len(result); i++ {
-		api.AssertIsEqual(result[i].Val, c.SumHash[i])
+	for i := 0; i < len(summary); i++ {
+		api.AssertIsEqual(summary[i].Val, c.SumHash[i])
 	}
 	return nil
 }

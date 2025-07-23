@@ -43,13 +43,13 @@ func (c *RecursionEncryptionWrapper[Fr, G1, G2, GT]) Define(api frontend.API) er
 	if err != nil {
 		return err
 	}
-	innerhash := [32]uints.U8{}
+	innerHash := [32]uints.U8{}
 	for j, witness := range c.InnerWitness {
 		inputbits := field.ToBits(&witness)
-		innerhash[j] = uapi.ByteValueOf(bits.FromBinary(api, inputbits, bits.WithUnconstrainedInputs()))
+		innerHash[j] = uapi.ByteValueOf(bits.FromBinary(api, inputbits, bits.WithUnconstrainedInputs()))
 	}
-	for i := 0; i < len(innerhash); i++ {
-		api.AssertIsEqual(innerhash[i].Val, c.SumHash[i])
+	for i := 0; i < len(innerHash); i++ {
+		api.AssertIsEqual(innerHash[i].Val, c.SumHash[i])
 	}
 
 	return nil
