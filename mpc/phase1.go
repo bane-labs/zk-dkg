@@ -78,21 +78,20 @@ func VerifyPhase1(prevPath string, curPath string) ([]byte, error) {
 }
 
 /**
- * Function: Seal
+ * Function: SealPhase1
  * @Description: Convert phase1 to srs public string
  * @param phase1Path: phase1 file path
+ * @param beaconChallenge: a random beacon of moderate entropy evaluated at a time later than the latest contribution, as the final contribution
  * @param outputPath: current round phase1 file path
  * @return srs: common srs
  * @return err: error
  */
-func Seal(phase1Path string, outputPath string) (*mpcsetup.SrsCommons, error) {
+func SealPhase1(phase1Path string, beaconChallenge string, outputPath string) (*mpcsetup.SrsCommons, error) {
 	p, err := ReadPhase1FromFile(phase1Path)
 	if err != nil {
 		return nil, err
 	}
-	beaconChallenge := []byte("beacon Phase 1")
-
-	srs := p.Seal(beaconChallenge)
+	srs := p.Seal([]byte(beaconChallenge))
 	// Atomic write with secure permissions
 	err = writeSecureAtomic(outputPath, &srs)
 	if err != nil {

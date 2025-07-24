@@ -173,7 +173,7 @@ func TestMPC(t *testing.T) {
 	_, err := mpc.InitPhase1(prevPhase1, 262144)
 	assert.NoError(err)
 	mpc.ContributePhase1(prevPhase1, curPhase1)
-	mpc.Seal(curPhase1, finalPhase1)
+	mpc.SealPhase1(curPhase1, "beacon Phase1", finalPhase1)
 
 	var myCircuit = TempCircuit{
 		Data:         make([]frontend.Variable, 10),

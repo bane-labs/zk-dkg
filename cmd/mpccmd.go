@@ -50,6 +50,10 @@ var (
 		Name:  "batch",
 		Usage: "The expected amount of messages for a circuit to encrypt",
 	}
+	beaconFlag = &cli.StringFlag{
+		Name:  "beacon",
+		Usage: "A random beacon of moderate entropy evaluated than the latest contribution",
+	}
 	// Flags for contract generation
 	contractFileFlag = &cli.PathFlag{
 		Name:  "contract",
@@ -134,10 +138,11 @@ chain of this contribute operations realize a MPC.`,
 						Action: sealPhase1,
 						Flags: []cli.Flag{
 							phase1FileFlag,
+							beaconFlag,
 							outputFileFlag,
 						},
 						Description: `
-	phase1 seal --phase1file <filepath> --output <filepath>
+	phase1 seal --phase1file <filepath> --beacon <string> --output <filepath>
 
 will convert Phase1 data to common srs,each participant can execute this operation locally to verify that the correct public SRS string is used`,
 					},
@@ -209,13 +214,14 @@ chain of this contribute operations realize a MPC.`,
 					srsFileFlag,
 					phase2FileFlag,
 					batchFlag,
+					beaconFlag,
 					contractFileFlag,
 					provingKeyFileFlag,
 					verifyingKeyFileFlag,
 					r1csFileFlag,
 				},
 				Description: `
-	seal --batch <size> --srsfile <filepath> --phase2file <filepath> --contract <filepath> --provingkey <filepath> --verifyingkey <filepath> --r1cs <filepath>
+	seal --batch <size> --srsfile <filepath> --phase2file <filepath> --beacon <string> --contract <filepath> --provingkey <filepath> --verifyingkey <filepath> --r1cs <filepath>
 
 will generate a proving key file, a verifying key file, and a
 Solidity verifier contract based on the input MPC phase1 and
@@ -240,6 +246,10 @@ func exportSeal(ctx *cli.Context) error {
 	phase2FilePath := ctx.Path(phase2FileFlag.Name)
 	if phase2FilePath == "" {
 		return errors.New("invalid phase2 file path")
+	}
+	beaconChallenge := ctx.String(beaconFlag.Name)
+	if beaconChallenge == "" {
+		return errors.New("invalid beacon challenge")
 	}
 	size := ctx.Int(batchFlag.Name)
 	if size < 1 {
@@ -291,7 +301,7 @@ func exportSeal(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	pk, vk, err := mpc.GetInitParamsFromExistedMPCSetUp(ccs, srsFilePath, phase2FilePath)
+	pk, vk, err := mpc.SealKeysFromExistedMPC(ccs, srsFilePath, beaconChallenge, phase2FilePath)
 	if err != nil {
 		return err
 	}
@@ -375,11 +385,15 @@ func sealPhase1(ctx *cli.Context) error {
 	if inputPath == "" {
 		return errors.New("invalid phase1 file path")
 	}
+	beaconChallenge := ctx.String(beaconFlag.Name)
+	if beaconChallenge == "" {
+		return errors.New("invalid beacon challenge")
+	}
 	outputPath := ctx.Path(outputFileFlag.Name)
 	if outputPath == "" {
 		return errors.New("invalid output file path")
 	}
-	_, err := mpc.Seal(inputPath, outputPath)
+	_, err := mpc.SealPhase1(inputPath, beaconChallenge, outputPath)
 	if err != nil {
 		return err
 	}
