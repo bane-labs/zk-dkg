@@ -101,15 +101,15 @@ func VerifyPlonkSRS(prevPath string, curPath string, srsSize int) error {
  * @Description: Convert SRS to srs public string
  * @param inputPath: SRS file path
  * @param srsSize: data limit
+ * @param beaconChallenge: a random beacon of moderate entropy evaluated at a time later than the latest contribution, as the final contribution
  * @return srs: common srs
  * @return err: error
  */
-func SealPlonkSRS(inputPath string, srsSize int) (*kzg_bn254.SRS, error) {
+func SealPlonkSRS(inputPath string, srsSize int, beaconChallenge []byte) (*kzg_bn254.SRS, error) {
 	prev, err := ReadPlonkSRSFromFile(inputPath, srsSize)
 	if err != nil {
 		return nil, err
 	}
-	beaconChallenge := []byte("beacon SRS")
 	srs := prev.Seal(beaconChallenge)
 	return &srs, nil
 }

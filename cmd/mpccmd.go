@@ -66,6 +66,10 @@ var (
 		Name:  "outer-ccs",
 		Usage: "The file path of a ccs of outer circuit",
 	}
+	beaconFlag = &cli.StringFlag{
+		Name:  "beacon",
+		Usage: "A random beacon of moderate entropy evaluated than the latest contribution",
+	}
 	// Flags for parameter export
 	innerPkFileFlag = &cli.PathFlag{
 		Name:  "inner-pk",
@@ -189,11 +193,12 @@ this operation locally to verify that the correct circuit is used.`,
 						Flags: []cli.Flag{
 							srsFileFlag,
 							innerCCSFileFlag,
+							beaconFlag,
 							innerPkFileFlag,
 							innerVkFileFlag,
 						},
 						Description: `
-	export innerSeal --srs <filepath> --inner-ccs <filesprefix> --inner-pk <outputpath> --inner-vk <outputpath>
+	export innerSeal --srs <filepath> --beacon <string> --inner-ccs <filesprefix> --inner-pk <outputpath> --inner-vk <outputpath>
 
 will export inner circuit data to a batch of proving keys, verifying keys, each participant can execute
 this operation locally to verify that the correct circuit pk and vk is used.`,
@@ -208,12 +213,13 @@ this operation locally to verify that the correct circuit pk and vk is used.`,
 							innerPkFileFlag,
 							innerVkFileFlag,
 							outerCCSFileFlag,
+							beaconFlag,
 							outerPkFileFlag,
 							outerVkFileFlag,
 							contractFileFlag,
 						},
 						Description: `
-	export outerSeal --srs <filepath> --inner-ccs <filesprefix> --inner-pk <filesprefix> --inner-vk <filesprefix> --outer-ccs <outputpath> --outer-pk <outputpath> --outer-vk <outputpath> --contract <outputpath>
+	export outerSeal --srs <filepath>  --beacon <string> --inner-ccs <filesprefix> --inner-pk <filesprefix> --inner-vk <filesprefix> --outer-ccs <outputpath> --outer-pk <outputpath> --outer-vk <outputpath> --contract <outputpath>
 
 will export MPC data to a batch of proving keys, verifying keys
 and Solidity verifier contracts, each participant can execute
@@ -400,6 +406,10 @@ func exportInnerSeal(ctx *cli.Context) error {
 	if srsPath == "" {
 		return errors.New("invalid inner phase1 SRS path")
 	}
+	beaconChallenge := ctx.String(beaconFlag.Name)
+	if beaconChallenge == "" {
+		return errors.New("invalid beacon challenge")
+	}
 	innerCCSPath := ctx.Path(innerCCSFileFlag.Name)
 	if innerCCSPath == "" {
 		return errors.New("invalid R1CS path")
@@ -418,7 +428,7 @@ func exportInnerSeal(ctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		pk, vk, err := mpc.GetKeysFromExistedPlonkSetUp(innerCCS, srsPath)
+		pk, vk, err := mpc.SealKeysFromExistedPlonkSetUp(innerCCS, srsPath, beaconChallenge)
 		if err != nil {
 			return err
 		}
@@ -440,6 +450,10 @@ func exportOuterSeal(ctx *cli.Context) error {
 	srsPath := ctx.Path(srsFileFlag.Name)
 	if srsPath == "" {
 		return errors.New("invalid common SRS path")
+	}
+	beaconChallenge := ctx.String(beaconFlag.Name)
+	if beaconChallenge == "" {
+		return errors.New("invalid beacon challenge")
 	}
 	innerCCSPath := ctx.Path(innerCCSFileFlag.Name)
 	if innerCCSPath == "" {
@@ -506,7 +520,7 @@ func exportOuterSeal(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	pk, vk, err := mpc.GetKeysFromExistedPlonkSetUp(outerCCS, srsPath)
+	pk, vk, err := mpc.SealKeysFromExistedPlonkSetUp(outerCCS, srsPath, beaconChallenge)
 	if err != nil {
 		return err
 	}
