@@ -51,10 +51,6 @@ func ProveMultipleKeyShareEncryption(outerCCS constraint.ConstraintSystem, outer
 	if vkIndex == -1 {
 		return nil, nil, fmt.Errorf("unsupported batch size: %d", batch)
 	}
-	// Check input array length
-	if batch != len(rs) || batch != len(bigRs) || batch != len(fisInts) || batch != len(bigFis) || batch != len(encryptedFis) || batch != len(nonces) {
-		return nil, nil, fmt.Errorf("input array length mismatch")
-	}
 	// Compute assignment and proof
 	innerAssignment, sumHash, err := circuit.ComputeMultipleKeyShareEncryptionAssignment(batch, pubKey, rs, bigRs, fisInts, bigFis, encryptedFis, nonces)
 	if err != nil {
