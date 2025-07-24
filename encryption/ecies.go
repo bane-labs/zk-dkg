@@ -18,10 +18,9 @@ import (
  * @return nonce: salt
  * @return ciphertext: cipher text string
  * @return r: integer form of random number
- * @return bigR: the point on the elliptic curve corresponding to the random number
  * @return err: error
  */
-func ECIESEncrypt(pub *ecies.PublicKey, plaintext []byte) ([]byte, []byte, *big.Int, *secp256k1.G1Affine, error) {
+func ECIESEncrypt(pub *ecies.PublicKey, plaintext []byte) ([]byte, []byte, *big.Int, error) {
 	// Format public key
 	var px fp.Element
 	px.SetBigInt(pub.X)
@@ -35,7 +34,7 @@ func ECIESEncrypt(pub *ecies.PublicKey, plaintext []byte) ([]byte, []byte, *big.
 	_, g := secp256k1.Generators()
 	rs, err := new(fr_secp.Element).SetRandom()
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
 	r := rs.BigInt(new(big.Int))
 	bigR := new(secp256k1.G1Affine).ScalarMultiplication(&g, r)
@@ -51,9 +50,9 @@ func ECIESEncrypt(pub *ecies.PublicKey, plaintext []byte) ([]byte, []byte, *big.
 	key := hashBuilder.Sum(nil)
 	ciphertext, nonce, err := AESGCMEncrypt(key, plaintext)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
-	return nonce, ciphertext, r, bigR, nil
+	return nonce, ciphertext, r, nil
 }
 
 /**
