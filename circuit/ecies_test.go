@@ -25,30 +25,27 @@ func TestECIESCircuit(t *testing.T) {
 	// Generate an encrypt fragement key
 	fi, err := new(fr_bls12381.Element).SetRandom()
 	assert.NoError(err)
-	fiBytes, fiInt, bigFi := transformKeyShare(fi)
-	nonce, encryptedFi, r, bigR, err := encryptKeyShare(&privKey.PublicKey, fiBytes)
+	fiBytes, fiInt := transformKeyShare(fi)
+	nonce, encryptedFi, r, err := encryptKeyShare(&privKey.PublicKey, fiBytes)
 	assert.NoError(err)
 	// Verify circuit
 	circuit := ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
 		CipherChunks: make([]frontend.Variable, len(encryptedFi)),
 		PubInputHash: make([]frontend.Variable, 32),
 	}
-	parameters, hashes, err := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, bigR, fiInt, bigFi, encryptedFi, nonce)
+	parameters, hashes, err := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, fiInt, encryptedFi, nonce)
 	assert.NoError(err)
 	rawSumHash := make([]frontend.Variable, len(hashes))
 	for i := 0; i < len(hashes); i++ {
 		rawSumHash[i] = hashes[i]
 	}
 	assignment := &ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
-		SmallR:       parameters.SmallR,
-		BigR:         parameters.BigR,
+		R:            parameters.R,
 		Pub:          parameters.Pub,
-		RPub:         parameters.RPub,
+		Fi:           parameters.Fi,
 		Iv:           parameters.Iv,
 		ChunkIndex:   parameters.ChunkIndex,
 		CipherChunks: parameters.CipherChunks,
-		SmallFi:      parameters.SmallFi,
-		Fi:           parameters.Fi,
 		PubInputHash: rawSumHash,
 	}
 	err = test.IsSolved(&circuit, assignment, ecc.BN254.ScalarField())
@@ -65,8 +62,8 @@ func TestECIESWithMPC(t *testing.T) {
 	// Generate a encrypt fragement key
 	fi, err := new(fr_bls12381.Element).SetRandom()
 	assert.NoError(err)
-	fiBytes, fiInt, bigFi := transformKeyShare(fi)
-	nonce, encryptedFi, r, bigR, err := encryptKeyShare(&privKey.PublicKey, fiBytes)
+	fiBytes, fiInt := transformKeyShare(fi)
+	nonce, encryptedFi, r, err := encryptKeyShare(&privKey.PublicKey, fiBytes)
 	assert.NoError(err)
 	// Compute proof
 	circuit := ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
@@ -75,22 +72,19 @@ func TestECIESWithMPC(t *testing.T) {
 	}
 	_, err = frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
 	assert.NoError(err)
-	parameters, hashes, err := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, bigR, fiInt, bigFi, encryptedFi, nonce)
+	parameters, hashes, err := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, fiInt, encryptedFi, nonce)
 	assert.NoError(err)
 	rawSumHash := make([]frontend.Variable, len(hashes))
 	for i := 0; i < len(hashes); i++ {
 		rawSumHash[i] = hashes[i]
 	}
 	assignment := &ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
-		SmallR:       parameters.SmallR,
-		BigR:         parameters.BigR,
+		R:            parameters.R,
 		Pub:          parameters.Pub,
-		RPub:         parameters.RPub,
+		Fi:           parameters.Fi,
 		Iv:           parameters.Iv,
 		ChunkIndex:   parameters.ChunkIndex,
 		CipherChunks: parameters.CipherChunks,
-		SmallFi:      parameters.SmallFi,
-		Fi:           parameters.Fi,
 		PubInputHash: rawSumHash,
 	}
 	err = test.IsSolved(&circuit, assignment, ecc.BN254.ScalarField())

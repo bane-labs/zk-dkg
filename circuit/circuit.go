@@ -22,37 +22,33 @@ var hashDomain = "DKG_BATCH_HASH_V1"
  * @param pubs: a set of public keys required for ecies encryption
  * @param fis: a set of key shares to be encrypted
  * @return fisInts: the key shares in integers
- * @return bigFis: the bls12381 commitments of the key shares
  * @return nonces: a set of salts
  * @return encryptedFis: a set of a encrypted key shares
  * @return rs: a set of the integer format of random number
- * @return bigRs: a set of the corresponding bls12381 commitment of random number
  * @return err: error
  */
-func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []*fr_bls12381.Element) ([]*big.Int, []*bls12381.G1Affine, [][]byte, [][]byte, []*big.Int, []*secp256k1.G1Affine, error) {
+func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []*fr_bls12381.Element) ([]*big.Int, [][]byte, [][]byte, []*big.Int, error) {
 	amount := len(pubs)
 	if amount != len(fis) {
-		return nil, nil, nil, nil, nil, nil, fmt.Errorf("input array length mismatch")
+		return nil, nil, nil, nil, fmt.Errorf("input array length mismatch")
 	}
 	fisBytes := make([][]byte, amount)
 	fisInts := make([]*big.Int, amount)
-	bigFis := make([]*bls12381.G1Affine, amount)
 	nonces := make([][]byte, amount)
 	encryptedFis := make([][]byte, amount)
 	rs := make([]*big.Int, amount)
-	bigRs := make([]*secp256k1.G1Affine, amount)
 	var err error
 	for i := 0; i < amount; i++ {
 		if pubs[i] == nil || fis[i] == nil {
-			return nil, nil, nil, nil, nil, nil, fmt.Errorf("invalid public key or key share at index %d", i)
+			return nil, nil, nil, nil, fmt.Errorf("invalid public key or key share at index %d", i)
 		}
-		fisBytes[i], fisInts[i], bigFis[i] = transformKeyShare(fis[i])
-		nonces[i], encryptedFis[i], rs[i], bigRs[i], err = encryptKeyShare(pubs[i], fisBytes[i])
+		fisBytes[i], fisInts[i] = transformKeyShare(fis[i])
+		nonces[i], encryptedFis[i], rs[i], err = encryptKeyShare(pubs[i], fisBytes[i])
 		if err != nil {
-			return nil, nil, nil, nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 	}
-	return fisInts, bigFis, nonces, encryptedFis, rs, bigRs, nil
+	return fisInts, nonces, encryptedFis, rs, nil
 }
 
 /**
@@ -60,9 +56,7 @@ func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []*fr_bls12381.Eleme
  * @Description: get input data collection for a zk proof calculation of a key share generating process
  * @param pubKey: public key used for key share encryption
  * @param r: the integer format of random number
- * @param bigR: the corresponding elliptic curve point of random number
  * @param fiInt: the integer format of the key share
- * @param bigFi: the bls12381 commitment of the key share
  * @param encryptedFi: the encrypted key
  * @param nonce: salt
  * @return css: circuit constraints
@@ -70,8 +64,8 @@ func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []*fr_bls12381.Eleme
  * @return assignment: input data collection
  * @return err: error
  */
-func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r *big.Int, bigR *secp256k1.G1Affine, fiInt *big.Int, bigFi *bls12381.G1Affine, encryptedFi []byte, nonce []byte) (ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte, error) {
-	if pubKey == nil || r == nil || bigR == nil || fiInt == nil || bigFi == nil || len(encryptedFi) == 0 || len(nonce) == 0 {
+func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r *big.Int, fiInt *big.Int, encryptedFi []byte, nonce []byte) (ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte, error) {
+	if pubKey == nil || r == nil || fiInt == nil || len(encryptedFi) == 0 || len(nonce) == 0 {
 		return ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{}, nil, fmt.Errorf("invalid input data for assignment")
 	}
 	// Format data
@@ -86,56 +80,41 @@ func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r *big.I
 	pub := new(secp256k1.G1Affine)
 	pub.X.SetBigInt(pubKey.X)
 	pub.Y.SetBigInt(pubKey.Y)
-	// Compute RPub
-	rPub := new(secp256k1.G1Affine).ScalarMultiplication(pub, r)
 	// Compute hash
-	sumHash := computeSumHash(pub, bigR, bigFi, encryptedFi, nonce)
+	sumHash := computeSumHash(pub, new(secp256k1.G1Affine).ScalarMultiplicationBase(r), new(bls12381.G1Affine).ScalarMultiplicationBase(fiInt), encryptedFi, nonce)
 	// Compute assignment
 	assignment := ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
-		SmallR: emulated.ValueOf[emulated.Secp256k1Fr](r),
-		BigR: sw_emulated.AffinePoint[emulated.Secp256k1Fp]{
-			X: emulated.ValueOf[emulated.Secp256k1Fp](bigR.X),
-			Y: emulated.ValueOf[emulated.Secp256k1Fp](bigR.Y),
-		},
+		R: emulated.ValueOf[emulated.Secp256k1Fr](r),
 		Pub: sw_emulated.AffinePoint[emulated.Secp256k1Fp]{
 			X: emulated.ValueOf[emulated.Secp256k1Fp](pub.X),
 			Y: emulated.ValueOf[emulated.Secp256k1Fp](pub.Y),
 		},
-		RPub: sw_emulated.AffinePoint[emulated.Secp256k1Fp]{
-			X: emulated.ValueOf[emulated.Secp256k1Fp](rPub.X),
-			Y: emulated.ValueOf[emulated.Secp256k1Fp](rPub.Y),
-		},
+		Fi:           emulated.ValueOf[emulated.BLS12381Fr](fiInt),
 		Iv:           nonceBytes,
 		ChunkIndex:   2,
 		CipherChunks: ciphertextBytes,
-
-		SmallFi: emulated.ValueOf[emulated.BLS12381Fr](fiInt),
-		Fi: sw_emulated.AffinePoint[emulated.BLS12381Fp]{
-			X: emulated.ValueOf[emulated.BLS12381Fp](bigFi.X),
-			Y: emulated.ValueOf[emulated.BLS12381Fp](bigFi.Y),
-		},
 	}
 	return assignment, sumHash, nil
 }
 
 // ComputeMultipleKeyShareEncryptionAssignment loops and computes an assignment array for several key share
 // encryption jobs. And it also returns the sum hash of all assignments.
-func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.PublicKey, rs []*big.Int, bigRs []*secp256k1.G1Affine, fisInts []*big.Int, bigFis []*bls12381.G1Affine, encryptedFis [][]byte, nonces [][]byte) (*BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte, error) {
-	if batch != len(pubKey) || batch != len(rs) || batch != len(bigRs) || batch != len(fisInts) || batch != len(bigFis) || batch != len(encryptedFis) || batch != len(nonces) {
+func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.PublicKey, rs []*big.Int, fisInts []*big.Int, encryptedFis [][]byte, nonces [][]byte) (*BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte, error) {
+	if len(pubKey) != batch || len(rs) != batch || len(fisInts) != batch || len(encryptedFis) != batch || len(nonces) != batch {
 		return nil, nil, fmt.Errorf("input array length mismatch")
 	}
 	Parameters := make([]ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], batch)
 	innerHashes := make([][]byte, batch)
 	var err error
 	for i := 0; i < batch; i++ {
-		Parameters[i], innerHashes[i], err = ComputeSingleKeyShareEncryptionAssignment(pubKey[i], rs[i], bigRs[i], fisInts[i], bigFis[i], encryptedFis[i], nonces[i])
+		Parameters[i], innerHashes[i], err = ComputeSingleKeyShareEncryptionAssignment(pubKey[i], rs[i], fisInts[i], encryptedFis[i], nonces[i])
 		if err != nil {
 			return nil, nil, err
 		}
 	}
 	// Compute sum hash
 	summary := make([]byte, 0)
-	summary = append(summary, []byte(hashDomain)...)
+	summary = append(summary, hashDomain...)
 	summary = append(summary, byte(batch))
 	for i := 0; i < batch; i++ {
 		summary = append(summary, byte(i), byte(len(innerHashes[i])))

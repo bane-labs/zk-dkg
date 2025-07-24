@@ -54,9 +54,9 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 		fis[i] = new(fr_bls12381.Element).SetBigInt(f.evaluate(big.NewInt(int64(i + 1))))
 	}
 	// Generate fragements and assigment and proof
-	fisInts, bigFis, nonces, encryptedFis, rs, bigRs, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
+	fisInts, nonces, encryptedFis, rs, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
 	assert.NoError(err)
-	messages := encodeMessages(encryptedFis, bigRs, nonces)
+	messages := encodeMessages(encryptedFis, rs, nonces)
 	for i := 0; i < batch; i++ {
 		t.Logf("Share message: %s", hex.EncodeToString(messages[i]))
 	}
@@ -72,7 +72,7 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 	css, err := helper.ReadCCS(r1csPath)
 	assert.NoError(err)
 	// Compute proof
-	proof, witness, err := ProveMultipleKeyShareEncryption(css, pk, pubKeys, rs, bigRs, fisInts, bigFis, encryptedFis, nonces)
+	proof, witness, err := ProveMultipleKeyShareEncryption(css, pk, pubKeys, rs, fisInts, encryptedFis, nonces)
 	assert.NoError(err)
 	// Verify proof
 	publicWitness, err := witness.Public()
@@ -121,9 +121,9 @@ func TestTwoRecoverMessageGeneration(t *testing.T) {
 	fis[0] = new(fr_bls12381.Element).SetBigInt(f1.evaluate(big.NewInt(int64(1))))
 	fis[1] = new(fr_bls12381.Element).SetBigInt(f2.evaluate(big.NewInt(int64(1))))
 	// Generate fragements and assigment and proof
-	fisInts, bigFis, nonces, encryptedFis, rs, bigRs, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
+	fisInts, nonces, encryptedFis, rs, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
 	assert.NoError(err)
-	messages := encodeMessages(encryptedFis, bigRs, nonces)
+	messages := encodeMessages(encryptedFis, rs, nonces)
 	for i := 0; i < 2; i++ {
 		t.Logf("Share message: %s", hex.EncodeToString(messages[i]))
 	}
@@ -138,7 +138,7 @@ func TestTwoRecoverMessageGeneration(t *testing.T) {
 	css, err := helper.ReadCCS(r1csPath)
 	assert.NoError(err)
 	// Compute proof
-	proof, witness, err := ProveMultipleKeyShareEncryption(css, pk, pubKeys, rs, bigRs, fisInts, bigFis, encryptedFis, nonces)
+	proof, witness, err := ProveMultipleKeyShareEncryption(css, pk, pubKeys, rs, fisInts, encryptedFis, nonces)
 	assert.NoError(err)
 	// Verify proof
 	publicWitness, err := witness.Public()
@@ -292,10 +292,10 @@ func (p *Poly) evaluate(x *big.Int) *big.Int {
 	return result
 }
 
-func encodeMessages(encryptedFis [][]byte, bigRs []*secp256k1.G1Affine, nonces [][]byte) [][]byte {
+func encodeMessages(encryptedFis [][]byte, rs []*big.Int, nonces [][]byte) [][]byte {
 	result := make([][]byte, 0)
 	for i := range encryptedFis {
-		bigRBytes := bigRs[i].RawBytes()
+		bigRBytes := new(secp256k1.G1Affine).ScalarMultiplicationBase(rs[i]).RawBytes()
 		prefix := append(bigRBytes[:], nonces[i]...)
 		result = append(result, append(prefix, encryptedFis[i]...))
 	}

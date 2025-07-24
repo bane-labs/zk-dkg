@@ -17,15 +17,12 @@ import (
  * @param fi: a key share in bls12381 fr
  * @return fiBytes: the key share in byte array
  * @return fiInt: the key share in integer
- * @return bigFi: the bls12381 commitment of the key share
  */
-func transformKeyShare(fi *fr_bls12381.Element) ([]byte, *big.Int, *bls12381.G1Affine) {
+func transformKeyShare(fi *fr_bls12381.Element) ([]byte, *big.Int) {
 	fiInt := fi.BigInt(new(big.Int))
 	fiBytes := make([]byte, 32)
 	fiInt.FillBytes(fiBytes)
-	_, _, g1, _ := bls12381.Generators()
-	bigFi := new(bls12381.G1Affine).ScalarMultiplication(&g1, fiInt)
-	return fiBytes, fiInt, bigFi
+	return fiBytes, fiInt
 }
 
 /**
@@ -36,10 +33,9 @@ func transformKeyShare(fi *fr_bls12381.Element) ([]byte, *big.Int, *bls12381.G1A
  * @return nonce: the salt
  * @return encryptedFi: the encrypted key share
  * @return r: the random number generated and used ecies
- * @return bigR: the bls12381 commitment of the random number
  * @return err: error
  */
-func encryptKeyShare(pub *ecies.PublicKey, fiBytes []byte) ([]byte, []byte, *big.Int, *secp256k1.G1Affine, error) {
+func encryptKeyShare(pub *ecies.PublicKey, fiBytes []byte) ([]byte, []byte, *big.Int, error) {
 	return encryption.ECIESEncrypt(pub, fiBytes)
 }
 

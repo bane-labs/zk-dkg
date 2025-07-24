@@ -33,7 +33,7 @@ func TestBatchEncryptionCircuit(t *testing.T) {
 		fis[i] = fi
 	}
 	// Generate fragements and assigment
-	fisInts, bigFis, nonces, encryptedFis, rs, bigRs, err := PrepareEncryptedKeyShares(pubKeys, fis)
+	fisInts, nonces, encryptedFis, rs, err := PrepareEncryptedKeyShares(pubKeys, fis)
 	assert.NoError(err)
 	circuit := BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
 		Parameters: make([]ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], batch),
@@ -42,7 +42,7 @@ func TestBatchEncryptionCircuit(t *testing.T) {
 	for i := 0; i < batch; i++ {
 		circuit.Parameters[i].CipherChunks = make([]frontend.Variable, len(encryptedFis[i]))
 	}
-	assignment, _, err := ComputeMultipleKeyShareEncryptionAssignment(batch, pubKeys, rs, bigRs, fisInts, bigFis, encryptedFis, nonces)
+	assignment, _, err := ComputeMultipleKeyShareEncryptionAssignment(batch, pubKeys, rs, fisInts, encryptedFis, nonces)
 	assert.NoError(err)
 	err = test.IsSolved(&circuit, assignment, ecc.BN254.ScalarField())
 	assert.NoError(err)
