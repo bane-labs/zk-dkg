@@ -13,18 +13,19 @@ import (
 )
 
 /**
- * Function: GetKeysFromExistedPlonkSetUp
- * @Description: get proving key and verification key required for zk proof calculation from the existing MPC file
+ * Function: SealKeysFromExistedPlonkSetUp
+ * @Description: seal proving key and verification key required for zk proof calculation from the existing MPC file
  * @param ccs: circuit constraints
  * @param srsPath: phase1 SRS file path required for proof calculation
+ * @param beaconChallenge: a random beacon of moderate entropy evaluated at a time later than the latest contribution, as the final contribution
  * @return pk: proving key
  * @return vk: verification key
  * @return err: error
  */
-func GetKeysFromExistedPlonkSetUp(ccs constraint.ConstraintSystem, srsPath string) (*plonk_bn254.ProvingKey, *plonk_bn254.VerifyingKey, error) {
+func SealKeysFromExistedPlonkSetUp(ccs constraint.ConstraintSystem, srsPath string, beaconChallenge string) (*plonk_bn254.ProvingKey, *plonk_bn254.VerifyingKey, error) {
 	r1CS := ccs.(*cs.SparseR1CS)
 	srsSize, lagrange := plonk.SRSSize(r1CS)
-	srs, err := SealPlonkSRS(srsPath, srsSize)
+	srs, err := SealPlonkSRS(srsPath, srsSize, []byte(beaconChallenge))
 	if err != nil {
 		return nil, nil, err
 	}
