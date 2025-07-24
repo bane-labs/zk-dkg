@@ -15,10 +15,8 @@ import (
 	"github.com/bane-labs/zk-dkg/helper"
 	"github.com/bane-labs/zk-dkg/mpc"
 	"github.com/consensys/gnark-crypto/ecc"
-	bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381"
 	fr_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	kzg_bn254 "github.com/consensys/gnark-crypto/ecc/bn254/kzg"
-	"github.com/consensys/gnark-crypto/ecc/secp256k1"
 	"github.com/consensys/gnark-crypto/kzg"
 	"github.com/consensys/gnark/backend/plonk"
 	plonk_bn254 "github.com/consensys/gnark/backend/plonk/bn254"
@@ -58,9 +56,9 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 			fis[i] = fi
 		}
 		// Generate fragements and assigment
-		fisInts, bigFis, nonces, encryptedFis, rs, bigRs, err := PrepareEncryptedKeyShares(pubKeys, fis)
+		fisInts, nonces, encryptedFis, rs, err := PrepareEncryptedKeyShares(pubKeys, fis)
 		assert.NoError(err)
-		td[j] = Tempdata{data2: fisInts, data3: bigFis, data4: nonces, data5: encryptedFis, data6: rs, data7: bigRs, data8: pubKeys, data9: fis}
+		td[j] = Tempdata{data2: fisInts, data3: nonces, data4: encryptedFis, data5: rs, data6: pubKeys, data7: fis}
 	}
 
 	innerCCSs := make([]constraint.ConstraintSystem, len(innerVKIDs))
@@ -74,7 +72,7 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 		if !srscFlag {
 			// if srsc has not been generated
 			if _, err := os.Stat(srscPath); err != nil {
-				circuit := GetBatchEncryptionCircuit(td[maxBatchIDIndex].data5)
+				circuit := GetBatchEncryptionCircuit(td[maxBatchIDIndex].data4)
 				ccs, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, circuit)
 				require.NoError(t, err)
 				srsMpcSsetupPath := testDir + "srs_2"
@@ -112,7 +110,7 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 		innerPKPath := testDir + "inner_pk_" + strconv.Itoa(innerVKIDs[j])
 		innerVKPath := testDir + "inner_vk_" + strconv.Itoa(innerVKIDs[j])
 		if _, err := os.Stat(innerCCSPath); err != nil {
-			circuit := GetBatchEncryptionCircuit(td[j].data5)
+			circuit := GetBatchEncryptionCircuit(td[j].data4)
 			ccs, err := frontend.Compile(ecc.BN254.ScalarField(), scs.NewBuilder, circuit)
 			require.NoError(t, err)
 			// check srs has been generated
@@ -142,7 +140,7 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 	}
 	outerCircuit, err := GetRecursionEncryptionCircuit(nbPublic, nbCommitment, innerVKs)
 	require.NoError(t, err)
-	innerAssignments, sumHash, err := ComputeMultipleKeyShareEncryptionAssignment(innerVKIDs[testBatchIndex], td[testBatchIndex].data8, td[testBatchIndex].data6, td[testBatchIndex].data7, td[testBatchIndex].data2, td[testBatchIndex].data3, td[testBatchIndex].data5, td[testBatchIndex].data4)
+	innerAssignments, sumHash, err := ComputeMultipleKeyShareEncryptionAssignment(innerVKIDs[testBatchIndex], td[testBatchIndex].data6, td[testBatchIndex].data5, td[testBatchIndex].data2, td[testBatchIndex].data4, td[testBatchIndex].data3)
 	require.NoError(t, err)
 	rawSumHash := make([]frontend.Variable, len(sumHash))
 	for i := 0; i < len(sumHash); i++ {
@@ -194,13 +192,11 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 
 type Tempdata struct {
 	data2 []*big.Int
-	data3 []*bls12381.G1Affine
+	data3 [][]byte
 	data4 [][]byte
-	data5 [][]byte
-	data6 []*big.Int
-	data7 []*secp256k1.G1Affine
-	data8 []*ecies.PublicKey
-	data9 []*fr_bls12381.Element
+	data5 []*big.Int
+	data6 []*ecies.PublicKey
+	data7 []*fr_bls12381.Element
 }
 
 func mockSRCMPC(prefix string, ccs constraint.ConstraintSystem, nContributions int) error {

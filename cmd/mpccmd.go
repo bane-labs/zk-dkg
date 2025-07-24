@@ -377,7 +377,7 @@ func exportInnerCircuit(ctx *cli.Context) error {
 			}
 			fis[i] = fi
 		}
-		_, _, _, encryptedFis, _, _, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
+		_, _, encryptedFis, _, err := circuit.PrepareEncryptedKeyShares(pubKeys, fis)
 		if err != nil {
 			return err
 		}

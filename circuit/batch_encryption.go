@@ -35,17 +35,13 @@ type BatchEncryptionWrapper[T1, S1, T2, S2 emulated.FieldParams] struct {
 }
 
 type ECIESParameters[T1, S1, T2, S2 emulated.FieldParams] struct {
-	SmallR emulated.Element[S1]
-	BigR   sw_emulated.AffinePoint[T1]
-	Pub    sw_emulated.AffinePoint[T1]
-	RPub   sw_emulated.AffinePoint[T1]
+	R   emulated.Element[S1]
+	Pub sw_emulated.AffinePoint[T1]
+	Fi  emulated.Element[S2]
 
 	Iv           [12]frontend.Variable
 	ChunkIndex   frontend.Variable
 	CipherChunks []frontend.Variable
-
-	SmallFi emulated.Element[S2]
-	Fi      sw_emulated.AffinePoint[T2]
 }
 
 func (c *BatchEncryptionWrapper[T1, S1, T2, S2]) Define(api frontend.API) error {
@@ -53,20 +49,10 @@ func (c *BatchEncryptionWrapper[T1, S1, T2, S2]) Define(api frontend.API) error 
 	summaryInput = append(summaryInput, hashDomainU8s...)                     // Append the hash domain to the summaryInput
 	summaryInput = append(summaryInput, uints.NewU8(byte(len(c.Parameters)))) // Append the number of parameters to the summaryInput
 	for i := 0; i < len(c.Parameters); i++ {
-		// Prepare data
-		account := c.Parameters[i]
-		r := account.SmallR
-		bigR := account.BigR
-		pub := account.Pub
-		rPub := account.RPub
-		iv := account.Iv
-		chunkIndex := account.ChunkIndex
-		cipherChunks := account.CipherChunks[:]
-		fi := account.SmallFi
-		bigFi := account.Fi
-		// Encrypt
-		encryption := NewECIES[T1, S1, T2, S2](api)
-		innerData, err := encryption.Encrypt(cipherChunks, iv, r, bigR, pub, rPub, chunkIndex, fi, bigFi)
+		p := c.Parameters[i]
+		// Verify encryption and compute public inputs
+		ecies := NewECIES[T1, S1, T2, S2](api)
+		innerData, err := ecies.Encrypt(p.CipherChunks, p.Iv, p.R, p.Pub, p.ChunkIndex, p.Fi)
 		if err != nil {
 			return err
 		}
