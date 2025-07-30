@@ -48,7 +48,7 @@ func (c *ECIESWrapper[T1, S1, T2, S2]) Define(api frontend.API) error {
 
 // bigEndianBitsToBytes converts a big-endian marshalled bit array to a byte array in uints.U8s.
 func bigEndianBitsToBytes(api frontend.API, in []frontend.Variable) []uints.U8 {
-	if len(in)%8 != 0 {
+	if len(in)%8 != 0 || len(in) == 0 {
 		panic(fmt.Errorf("invalid bit length: %d, must be a multiple of 8", len(in)))
 	}
 	// Reverse to get little-endian
