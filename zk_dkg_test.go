@@ -30,6 +30,7 @@ import (
 	"github.com/consensys/gnark/backend"
 	groth16 "github.com/consensys/gnark/backend/groth16/bn254"
 	"github.com/consensys/gnark/test"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 )
@@ -38,6 +39,7 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 	assert := test.NewAssert(t)
 	// To demo send N fragements to N nodes, N=batch
 	var batch = 7
+	var sender = common.HexToAddress("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
 	// Generate node private key
 	source := rand.NewSource(time.Now().UnixNano())
 	rand := rand.New(source)
@@ -72,7 +74,7 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 	css, err := helper.ReadCCS(r1csPath)
 	assert.NoError(err)
 	// Compute proof
-	proof, witness, err := ProveMultipleKeyShareEncryption(css, pk, pubKeys, rs, fisInts, encryptedFis, nonces)
+	proof, witness, err := ProveMultipleKeyShareEncryption(css, pk, sender, pubKeys, rs, fisInts, encryptedFis, nonces)
 	assert.NoError(err)
 	// Verify proof
 	publicWitness, err := witness.Public()
@@ -100,6 +102,7 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 
 func TestTwoRecoverMessageGeneration(t *testing.T) {
 	assert := test.NewAssert(t)
+	sender := common.HexToAddress("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
 	// Generate node private key
 	source := rand.NewSource(time.Now().UnixNano())
 	rand := rand.New(source)
@@ -138,7 +141,7 @@ func TestTwoRecoverMessageGeneration(t *testing.T) {
 	css, err := helper.ReadCCS(r1csPath)
 	assert.NoError(err)
 	// Compute proof
-	proof, witness, err := ProveMultipleKeyShareEncryption(css, pk, pubKeys, rs, fisInts, encryptedFis, nonces)
+	proof, witness, err := ProveMultipleKeyShareEncryption(css, pk, sender, pubKeys, rs, fisInts, encryptedFis, nonces)
 	assert.NoError(err)
 	// Verify proof
 	publicWitness, err := witness.Public()

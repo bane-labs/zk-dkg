@@ -10,6 +10,7 @@ import (
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"github.com/consensys/gnark/std/math/emulated"
+	"github.com/consensys/gnark/std/math/uints"
 	"github.com/consensys/gnark/test"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
@@ -31,13 +32,13 @@ func TestECIESCircuit(t *testing.T) {
 	// Verify circuit
 	circuit := ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
 		CipherChunks: make([]frontend.Variable, len(encryptedFi)),
-		PubInputHash: make([]frontend.Variable, 32),
+		PubInputHash: [32]uints.U8{},
 	}
 	parameters, hashes, err := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, fiInt, encryptedFi, nonce)
 	assert.NoError(err)
-	rawSumHash := make([]frontend.Variable, len(hashes))
+	rawSumHash := [32]uints.U8{}
 	for i := 0; i < len(hashes); i++ {
-		rawSumHash[i] = hashes[i]
+		rawSumHash[i] = uints.U8{Val: hashes[i]}
 	}
 	assignment := &ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
 		R:            parameters.R,
@@ -68,15 +69,15 @@ func TestECIESWithMPC(t *testing.T) {
 	// Compute proof
 	circuit := ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
 		CipherChunks: make([]frontend.Variable, len(encryptedFi)),
-		PubInputHash: make([]frontend.Variable, 32),
+		PubInputHash: [32]uints.U8{},
 	}
 	_, err = frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
 	assert.NoError(err)
 	parameters, hashes, err := ComputeSingleKeyShareEncryptionAssignment(&privKey.PublicKey, r, fiInt, encryptedFi, nonce)
 	assert.NoError(err)
-	rawSumHash := make([]frontend.Variable, len(hashes))
+	rawSumHash := [32]uints.U8{}
 	for i := 0; i < len(hashes); i++ {
-		rawSumHash[i] = hashes[i]
+		rawSumHash[i] = uints.U8{Val: hashes[i]}
 	}
 	assignment := &ECIESWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
 		R:            parameters.R,

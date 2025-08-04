@@ -11,6 +11,7 @@ import (
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/algebra/emulated/sw_emulated"
 	"github.com/consensys/gnark/std/math/emulated"
+	"github.com/consensys/gnark/std/math/uints"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 )
 
@@ -64,9 +65,9 @@ func PrepareEncryptedKeyShares(pubs []*ecies.PublicKey, fis []*fr_bls12381.Eleme
  * @return assignment: input data collection
  * @return err: error
  */
-func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r *big.Int, fiInt *big.Int, encryptedFi []byte, nonce []byte) (ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte, error) {
+func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r *big.Int, fiInt *big.Int, encryptedFi []byte, nonce []byte) (ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], [32]byte, error) {
 	if pubKey == nil || r == nil || fiInt == nil || len(encryptedFi) == 0 || len(nonce) == 0 {
-		return ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{}, nil, fmt.Errorf("invalid input data for assignment")
+		return ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{}, [32]byte{}, fmt.Errorf("invalid input data for assignment")
 	}
 	// Format data
 	ciphertextBytes := make([]frontend.Variable, len(encryptedFi))
@@ -99,34 +100,39 @@ func ComputeSingleKeyShareEncryptionAssignment(pubKey *ecies.PublicKey, r *big.I
 
 // ComputeMultipleKeyShareEncryptionAssignment loops and computes an assignment array for several key share
 // encryption jobs. And it also returns the sum hash of all assignments.
-func ComputeMultipleKeyShareEncryptionAssignment(batch int, pubKey []*ecies.PublicKey, rs []*big.Int, fisInts []*big.Int, encryptedFis [][]byte, nonces [][]byte) (*BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], []byte, error) {
+func ComputeMultipleKeyShareEncryptionAssignment(sender [20]byte, batch int, pubKey []*ecies.PublicKey, rs []*big.Int, fisInts []*big.Int, encryptedFis [][]byte, nonces [][]byte) (*BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], [32]byte, error) {
 	if len(pubKey) != batch || len(rs) != batch || len(fisInts) != batch || len(encryptedFis) != batch || len(nonces) != batch {
-		return nil, nil, fmt.Errorf("input array length mismatch")
+		return nil, [32]byte{}, fmt.Errorf("input array length mismatch")
 	}
 	Parameters := make([]ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], batch)
-	innerHashes := make([][]byte, batch)
+	innerHashes := make([][32]byte, batch)
 	var err error
 	for i := 0; i < batch; i++ {
 		Parameters[i], innerHashes[i], err = ComputeSingleKeyShareEncryptionAssignment(pubKey[i], rs[i], fisInts[i], encryptedFis[i], nonces[i])
 		if err != nil {
-			return nil, nil, err
+			return nil, [32]byte{}, err
 		}
 	}
 	// Compute sum hash
 	summary := make([]byte, 0)
 	summary = append(summary, hashDomain...)
+	summary = append(summary, sender[:]...)
 	summary = append(summary, byte(batch))
 	for i := 0; i < batch; i++ {
 		summary = append(summary, byte(i), byte(len(innerHashes[i])))
-		summary = append(summary, innerHashes[i]...)
+		summary = append(summary, innerHashes[i][:]...)
 	}
 	sumHash := helper.GetHash(summary)
-
-	rawSumHash := make([]frontend.Variable, len(sumHash))
-	for i := 0; i < len(sumHash); i++ {
-		rawSumHash[i] = sumHash[i]
+	rawSender := [20]uints.U8{}
+	for i := range len(rawSender) {
+		rawSender[i] = uints.U8{Val: sender[i]}
+	}
+	rawSumHash := [32]uints.U8{}
+	for i := range len(rawSumHash) {
+		rawSumHash[i] = uints.U8{Val: sumHash[i]}
 	}
 	assignments := &BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
+		Sender:     rawSender,
 		Parameters: Parameters,
 		SumHash:    rawSumHash,
 	}

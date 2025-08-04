@@ -22,7 +22,7 @@ type ECIESWrapper[T1, S1, T2, S2 emulated.FieldParams] struct {
 	ChunkIndex   frontend.Variable     `gnark:",secret"`
 	CipherChunks []frontend.Variable   `gnark:",secret"` // The encrypted key share
 
-	PubInputHash []frontend.Variable `gnark:",public"` // The hash of the public inputs
+	PubInputHash [32]uints.U8 `gnark:",public"` // The hash of the public inputs
 }
 
 // Define declares the circuit's constraints
@@ -41,7 +41,7 @@ func (c *ECIESWrapper[T1, S1, T2, S2]) Define(api frontend.API) error {
 	result := hasher.Sum()
 	// Verify the hash of the public inputs
 	for i := 0; i < len(result); i++ {
-		api.AssertIsEqual(result[i].Val, c.PubInputHash[i])
+		api.AssertIsEqual(result[i].Val, c.PubInputHash[i].Val)
 	}
 	return nil
 }

@@ -16,6 +16,7 @@ import (
  * @Description: generate a zk proof of a key share generating process
  * @param css: compiled circuit constraint system
  * @param provingKey: proving key used for proof encryption
+ * @param sender: the sender address as identifier
  * @param pubKey: public key used for key share encryption
  * @param r: the integer format of random number
  * @param fiBytes: the key share in a byte array
@@ -26,8 +27,8 @@ import (
  * @return witness: witness of zk proof
  * @return err:
  */
-func ProveSingleKeyShareEncryption(css constraint.ConstraintSystem, provingKey *groth16.ProvingKey, pubKey *ecies.PublicKey, r *big.Int, fiInt *big.Int, encryptedFi []byte, nonce []byte) (*groth16.Proof, witness.Witness, error) {
-	assignment, _, err := circuit.ComputeMultipleKeyShareEncryptionAssignment(1, []*ecies.PublicKey{pubKey}, []*big.Int{r}, []*big.Int{fiInt}, [][]byte{encryptedFi}, [][]byte{nonce})
+func ProveSingleKeyShareEncryption(css constraint.ConstraintSystem, provingKey *groth16.ProvingKey, sender [20]byte, pubKey *ecies.PublicKey, r *big.Int, fiInt *big.Int, encryptedFi []byte, nonce []byte) (*groth16.Proof, witness.Witness, error) {
+	assignment, _, err := circuit.ComputeMultipleKeyShareEncryptionAssignment(sender, 1, []*ecies.PublicKey{pubKey}, []*big.Int{r}, []*big.Int{fiInt}, [][]byte{encryptedFi}, [][]byte{nonce})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -43,6 +44,7 @@ func ProveSingleKeyShareEncryption(css constraint.ConstraintSystem, provingKey *
  * @Description: generate a zk proof of a key share batch generating process
  * @param css: compiled circuit constraint system
  * @param provingKey: proving key used for proof encryption
+ * @param sender: the sender address as identifier
  * @param pubKey: a set of public keys used for key share encryption
  * @param rs: a set of the integer format of random numbers
  * @param fisBytes: a set of the serialization format of the keys
@@ -53,8 +55,8 @@ func ProveSingleKeyShareEncryption(css constraint.ConstraintSystem, provingKey *
  * @return witness: witness of zk proof
  * @return err:
  */
-func ProveMultipleKeyShareEncryption(css constraint.ConstraintSystem, provingKey *groth16.ProvingKey, pubKey []*ecies.PublicKey, rs []*big.Int, fisInts []*big.Int, encryptedFis [][]byte, nonces [][]byte) (*groth16.Proof, witness.Witness, error) {
-	assignment, _, err := circuit.ComputeMultipleKeyShareEncryptionAssignment(len(pubKey), pubKey, rs, fisInts, encryptedFis, nonces)
+func ProveMultipleKeyShareEncryption(css constraint.ConstraintSystem, provingKey *groth16.ProvingKey, sender [20]byte, pubKey []*ecies.PublicKey, rs []*big.Int, fisInts []*big.Int, encryptedFis [][]byte, nonces [][]byte) (*groth16.Proof, witness.Witness, error) {
+	assignment, _, err := circuit.ComputeMultipleKeyShareEncryptionAssignment(sender, len(pubKey), pubKey, rs, fisInts, encryptedFis, nonces)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -30,8 +30,9 @@ var hashDomainU8s = []uints.U8{
 }
 
 type BatchEncryptionWrapper[T1, S1, T2, S2 emulated.FieldParams] struct {
+	Sender     [20]uints.U8                      `gnark:",secret"`
 	Parameters []ECIESParameters[T1, S1, T2, S2] `gnark:",secret"`
-	SumHash    []frontend.Variable               `gnark:",public"`
+	SumHash    [32]uints.U8                      `gnark:",public"`
 }
 
 type ECIESParameters[T1, S1, T2, S2 emulated.FieldParams] struct {
@@ -47,6 +48,7 @@ type ECIESParameters[T1, S1, T2, S2 emulated.FieldParams] struct {
 func (c *BatchEncryptionWrapper[T1, S1, T2, S2]) Define(api frontend.API) error {
 	summaryInput := make([]uints.U8, 0)
 	summaryInput = append(summaryInput, hashDomainU8s...)                     // Append the hash domain to the summaryInput
+	summaryInput = append(summaryInput, c.Sender[:]...)                       // Append the sender address
 	summaryInput = append(summaryInput, uints.NewU8(byte(len(c.Parameters)))) // Append the number of parameters to the summaryInput
 	for i := 0; i < len(c.Parameters); i++ {
 		p := c.Parameters[i]
@@ -69,7 +71,7 @@ func (c *BatchEncryptionWrapper[T1, S1, T2, S2]) Define(api frontend.API) error 
 	summary := summaryHasher.Sum()
 	// Check comments hash
 	for i := 0; i < len(summary); i++ {
-		api.AssertIsEqual(summary[i].Val, c.SumHash[i])
+		api.AssertIsEqual(summary[i].Val, c.SumHash[i].Val)
 	}
 	return nil
 }

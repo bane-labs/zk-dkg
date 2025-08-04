@@ -17,6 +17,7 @@ import (
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"github.com/consensys/gnark/std/math/emulated"
+	"github.com/consensys/gnark/std/math/uints"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 
@@ -291,8 +292,9 @@ func exportSeal(ctx *cli.Context) error {
 		return err
 	}
 	c := circuit.BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
+		Sender:     [20]uints.U8{},
 		Parameters: make([]circuit.ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], size),
-		SumHash:    make([]frontend.Variable, 32),
+		SumHash:    [32]uints.U8{},
 	}
 	for i := 0; i < size; i++ {
 		c.Parameters[i].CipherChunks = make([]frontend.Variable, len(encryptedFis[i]))
@@ -433,8 +435,9 @@ func initPhase2(ctx *cli.Context) error {
 		return err
 	}
 	c := circuit.BatchEncryptionWrapper[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr]{
+		Sender:     [20]uints.U8{},
 		Parameters: make([]circuit.ECIESParameters[emulated.Secp256k1Fp, emulated.Secp256k1Fr, emulated.BLS12381Fp, emulated.BLS12381Fr], size),
-		SumHash:    make([]frontend.Variable, 32),
+		SumHash:    [32]uints.U8{},
 	}
 	for i := 0; i < size; i++ {
 		c.Parameters[i].CipherChunks = make([]frontend.Variable, len(encryptedFis[i]))
