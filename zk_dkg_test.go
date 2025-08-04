@@ -20,6 +20,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/secp256k1"
 	"github.com/consensys/gnark/backend/plonk"
 	"github.com/consensys/gnark/test"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 )
@@ -29,6 +30,7 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 	// To demo send N fragements to N nodes, N=batch
 	batches := []int{1, 2, 7}
 	testIndex := 2
+	sender := common.HexToAddress("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
 	batch := batches[testIndex]
 	rootDir, err := findProjectRoot()
 	assert.NoError(err)
@@ -85,7 +87,7 @@ func TestBatchEncryptionWithMPC(t *testing.T) {
 	assert.NoError(err)
 
 	// Compute proof
-	proof, witness, err := ProveMultipleKeyShareEncryption(outerCCS, outerPK, vks, innerCCS, innerPK, innerVK, pubKeys, rs, fisInts, encryptedFis, nonces)
+	proof, witness, err := ProveMultipleKeyShareEncryption(outerCCS, outerPK, vks, innerCCS, innerPK, innerVK, sender, pubKeys, rs, fisInts, encryptedFis, nonces)
 	assert.NoError(err)
 	// Verify proof
 	publicWitness, err := witness.Public()
@@ -101,6 +103,7 @@ func TestTwoRecoverMessageGeneration(t *testing.T) {
 	// Generate node private key
 	batches := []int{1, 2, 7}
 	batch := 2
+	sender := common.HexToAddress("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
 	rootDir, err := findProjectRoot()
 	assert.NoError(err)
 	testDir := fmt.Sprintf("%s/%s/", rootDir, "cmd")
@@ -157,7 +160,7 @@ func TestTwoRecoverMessageGeneration(t *testing.T) {
 	assert.NoError(err)
 
 	// Compute proof
-	proof, witness, err := ProveMultipleKeyShareEncryption(outerCCS, outerPK, vks, innerCCS, innerPK, innerVK, pubKeys, rs, fisInts, encryptedFis, nonces)
+	proof, witness, err := ProveMultipleKeyShareEncryption(outerCCS, outerPK, vks, innerCCS, innerPK, innerVK, sender, pubKeys, rs, fisInts, encryptedFis, nonces)
 	assert.NoError(err)
 	// Verify proof
 	publicWitness, err := witness.Public()

@@ -47,9 +47,9 @@ func encryptKeyShare(pub *ecies.PublicKey, fiBytes []byte) ([]byte, []byte, *big
  * @param bigFi: the corresponding elliptic curve point of key share
  * @param encryptedFi: the encrypted key share
  * @param nonce: the salt
- * @return []byte: the hash of the public inputs
+ * @return [32]byte: the hash of the public inputs
  */
-func computeSumHash(pub *secp256k1.G1Affine, bigR *secp256k1.G1Affine, bigFi *bls12381.G1Affine, encryptedFi []byte, nonce []byte) []byte {
+func computeSumHash(pub *secp256k1.G1Affine, bigR *secp256k1.G1Affine, bigFi *bls12381.G1Affine, encryptedFi []byte, nonce []byte) [32]byte {
 	secp256k1G1ByteLength := secp256k1.SizeOfG1AffineUncompressed
 	bls12381G1ByteLength := bls12381.SizeOfG1AffineUncompressed
 	bigRBytes := bigR.RawBytes()

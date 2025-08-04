@@ -25,6 +25,7 @@ import (
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/scs"
 	"github.com/consensys/gnark/test"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/stretchr/testify/require"
@@ -38,6 +39,7 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 	testDir := fmt.Sprintf("%s/%s/", rootDir, "circuit") // change the path, "cmd"(from mpccmd.go) or "circuit"(mock)
 	maxBatchIDIndex := len(innerVKIDs) - 1               // max ccs's index
 	testBatchIndex := 2                                  // index for test
+	sender := common.Address{}
 	td := make([]Tempdata, len(innerVKIDs))
 	for j := 0; j < len(innerVKIDs); j++ {
 		batch := innerVKIDs[j]
@@ -140,7 +142,7 @@ func TestRecursionEncryptionCircuit(t *testing.T) {
 	}
 	outerCircuit, err := GetRecursionEncryptionCircuit(nbPublic, nbCommitment, innerVKs)
 	require.NoError(t, err)
-	innerAssignments, sumHash, err := ComputeMultipleKeyShareEncryptionAssignment(innerVKIDs[testBatchIndex], td[testBatchIndex].data6, td[testBatchIndex].data5, td[testBatchIndex].data2, td[testBatchIndex].data4, td[testBatchIndex].data3)
+	innerAssignments, sumHash, err := ComputeMultipleKeyShareEncryptionAssignment(sender, innerVKIDs[testBatchIndex], td[testBatchIndex].data6, td[testBatchIndex].data5, td[testBatchIndex].data2, td[testBatchIndex].data4, td[testBatchIndex].data3)
 	require.NoError(t, err)
 	rawSumHash := make([]frontend.Variable, len(sumHash))
 	for i := 0; i < len(sumHash); i++ {

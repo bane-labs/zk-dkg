@@ -97,11 +97,10 @@ func ReadCCS(path string) (constraint.ConstraintSystem, error) {
  * Function: GetHash
  * @Description: get data hash
  * @param data: data
- * @return []byte: hash
+ * @return [32]byte: hash
  */
-func GetHash(data []byte) []byte {
-	hash := sha256.Sum256(data)
-	return hash[:]
+func GetHash(data []byte) [32]byte {
+	return sha256.Sum256(data)
 }
 
 /**

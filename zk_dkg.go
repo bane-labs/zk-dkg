@@ -21,6 +21,7 @@ import (
  * @param ccs: compiled circuit constraint system
  * @param provingKey: proving key used for proof encryption
  * @param pubKey: a set of public keys used for key share encryption
+ * @param sender: the sender address as identifier
  * @param rs: a set of the integer format of random numbers
  * @param fisBytes: a set of the serialization format of the keys
  * @param fisInts: a set of the integer format of the keys
@@ -30,7 +31,7 @@ import (
  * @return witness: witness of zk proof
  * @return err:
  */
-func ProveMultipleKeyShareEncryption(outerCCS constraint.ConstraintSystem, outerProvingKey plonk.ProvingKey, vks []plonk.VerifyingKey, innerCCS constraint.ConstraintSystem, innerPK plonk.ProvingKey, innerVK plonk.VerifyingKey, pubKey []*ecies.PublicKey, rs []*big.Int, fisInts []*big.Int, encryptedFis [][]byte, nonces [][]byte) (plonk.Proof, witness.Witness, error) {
+func ProveMultipleKeyShareEncryption(outerCCS constraint.ConstraintSystem, outerProvingKey plonk.ProvingKey, vks []plonk.VerifyingKey, innerCCS constraint.ConstraintSystem, innerPK plonk.ProvingKey, innerVK plonk.VerifyingKey, sender [20]byte, pubKey []*ecies.PublicKey, rs []*big.Int, fisInts []*big.Int, encryptedFis [][]byte, nonces [][]byte) (plonk.Proof, witness.Witness, error) {
 	// Check batch, pk and vk
 	batch := len(pubKey)
 	supportedBatches := []int{1, 2, 7}
@@ -48,7 +49,7 @@ func ProveMultipleKeyShareEncryption(outerCCS constraint.ConstraintSystem, outer
 		return nil, nil, fmt.Errorf("unsupported batch size: %d", batch)
 	}
 	// Compute assignment and proof
-	innerAssignment, sumHash, err := circuit.ComputeMultipleKeyShareEncryptionAssignment(batch, pubKey, rs, fisInts, encryptedFis, nonces)
+	innerAssignment, sumHash, err := circuit.ComputeMultipleKeyShareEncryptionAssignment(sender, batch, pubKey, rs, fisInts, encryptedFis, nonces)
 	if err != nil {
 		return nil, nil, err
 	}
