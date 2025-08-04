@@ -35,7 +35,7 @@ type GCM256 struct {
 	aes AES
 }
 
-// AES-GCM encryption
+// AES-GCM encryption, without the authorization tag computation
 func (gcm *GCM256) Assert(key [32]uints.U8, iv [12]uints.U8, chunkIndex frontend.Variable, plaintext, ciphertext []uints.U8) {
 	inputSize := len(plaintext)
 	numberBlocks := int(inputSize / 16)
