@@ -1,6 +1,8 @@
 # zk-dkg
 A zero knowledge library for Neo X's Anti-MEV key generation in Geth node.
 
+This library is only designed and implemented for Neo X's Anti-MEV, using this in any other use case may import potential security risks. E.g. the code doesn't compute a GCM tag for message authorization, because related check is ensure at smart contract level. So please evaluate carefully before referring to this library.
+
 ## Provided Methods
 `zkdkg.circuit` provides:
 - Transform key shares to different type formats and encrypt them: `PrepareEncryptedKeyShares`;
