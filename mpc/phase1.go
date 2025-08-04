@@ -2,6 +2,7 @@ package mpc
 
 import (
 	"fmt"
+	"math"
 	"os"
 
 	"github.com/consensys/gnark/backend/groth16/bn254/mpcsetup"
@@ -20,7 +21,7 @@ func InitPhase1(path string, power uint64) (*mpcsetup.Phase1, error) {
 		return nil, fmt.Errorf("power must be in the range of 1-27, got %d", power)
 	}
 	p := new(mpcsetup.Phase1)
-	p.Initialize(power)
+	p.Initialize(uint64(math.Pow(2, float64(power))))
 
 	// Atomic write with secure permissions
 	err := writeSecureAtomic(path, p)

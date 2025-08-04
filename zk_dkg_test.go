@@ -173,7 +173,7 @@ func TestMPC(t *testing.T) {
 	curPhase1 := t.TempDir() + "Phase1_2"
 	finalPhase1 := t.TempDir() + "Phase1_final"
 
-	_, err := mpc.InitPhase1(prevPhase1, 262144)
+	_, err := mpc.InitPhase1(prevPhase1, 18)
 	assert.NoError(err)
 	mpc.ContributePhase1(prevPhase1, curPhase1)
 	mpc.SealPhase1(curPhase1, "beacon Phase1", finalPhase1)

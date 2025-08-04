@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math"
 	"math/rand"
 	"os"
 	"time"
@@ -331,7 +330,7 @@ func initPhase1(ctx *cli.Context) error {
 	if path == "" {
 		path = DefaultPhase1FilePrefix + "1"
 	}
-	p, err := mpc.InitPhase1(path, uint64(math.Pow(2, 24)))
+	p, err := mpc.InitPhase1(path, 24)
 	if err != nil {
 		return err
 	}
