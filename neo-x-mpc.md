@@ -32,7 +32,7 @@ In this phase, we compute the Groth16 setup that can be used by any Neo X circui
 
 In this phase, we use the Phase1 setup to compute the Groth16 parameters for three different circuits used in DKG verification.
 
-1. The first contributor downloads the final Phase1 file, and run `go run mpccmd.go phase1 seal --phase1file <filepath> --output <filepath>` to get the SRS file, then run `go run mpccmd.go phase2 init --srsfile <phase1 file path> --output <phase2 file path> --batch <batch size>` (three times for batch 1, 2, 7) to get three different Phase2 files;
+1. The first contributor downloads the final Phase1 file, and run `go run mpccmd.go phase1 seal --phase1file <filepath> --beacon <string> --output <filepath>` to get the SRS file, then run `go run mpccmd.go phase2 init --srsfile <phase1 file path> --output <phase2 file path> --batch <batch size>` (three times for batch 1, 2, 7) to get three different Phase2 files;
 
 2. Following contributors should then compute based on existed Phase2 files one by one;
 
@@ -48,7 +48,7 @@ In this phase, we use the Phase1 setup to compute the Groth16 parameters for thr
 
     vi) Upload the output file, and publish its download URL and challenge hash.
 
-3. After all contributors participant the MPC, anyone can use `go run mpccmd.go seal --batch <size> --srsfile <filepath> --phase2file <filepath> --contract <filepath> --provingkey <filepath> --verifyingkey <filepath> --r1cs <filepath>` to output the contract verifiers we will use for Neo X.
+3. After all contributors participant the MPC, anyone can use `go run mpccmd.go seal --batch <size> --srsfile <filepath> --phase2file <filepath> --beacon <string> --contract <filepath> --provingkey <filepath> --verifyingkey <filepath> --r1cs <filepath>` to output the contract verifiers we will use for Neo X.
 
 ## File Upload/Download
 
